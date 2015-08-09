@@ -1,7 +1,7 @@
 # monkeyprint
 A simple tool for pre-processing 3d models and controlling 3d DLP printers.
 
-## What is *monkeyprint* for?
+### What is *monkeyprint* for?
 *monkeyprint* came into existance as an open source, will-natively-run-on-linux alternative to [*Creation Workshop*](http://www.envisionlabs.net/home.html).
 When a friend built a 3d DLP printer which I was doing the software for, we noticed that there was no nice and simple programm to pre-process a 3d model and control the print job on linux.
 Until now...
@@ -16,10 +16,10 @@ Until now...
 
 In order for *monkeyprint* to work you need a 3d DLP printer that can receive commands via serial port and whos projector is connected to your PC.
 
-## Dependencies
+### Dependencies
 monkeyprint is programmed in python and uses VTK to visualise and slice 3d models so make sure you have both of them installed. Tested with python 2.7.3 and VTK 5.8.0. There may be issues with VTK versions >= 6 because of syntax changes.
 
-## Usage
+### Usage
 Simply run monkeyprint via terminal by changing to the monkeyprint directory and typing ./monkeyprint.python
 
 The *monkeyprint* gui is set up to walk you through the pre-processing steps up to committing the print.
@@ -40,7 +40,7 @@ Cancel the print by pressing "Cancel". It won't stop immediately but complete th
 
 Note that you can't close the program while a print is running.
 
-## Future improvements
+### Future improvements
 * clean up spagetthi code and rebuild gui
 * add debug option
 * fix issues with VTK versions >= 6
