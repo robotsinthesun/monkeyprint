@@ -76,7 +76,7 @@ class gui(gtk.Window):
 		self.boxWork.pack_start(self.boxRender)#, expand=True, fill= True)
 		
 		# Create settings box.
-		self.boxSettings = boxSettings(self.modelCollection, self.boxRender, self.console)
+		self.boxSettings = boxSettings(self.settings, self.modelCollection, self.boxRender, self.console)
 		self.boxSettings.show()
 		self.boxWork.pack_start(self.boxSettings, expand=False, fill=False)
 
@@ -115,11 +115,12 @@ class gui(gtk.Window):
 # Define a class for the settings box. #########################################
 class boxSettings(gtk.VBox):
 	# Override init function.
-	def __init__(self, modelCollection, renderView, console=None):
+	def __init__(self, settings, modelCollection, renderView, console=None):
 		gtk.VBox.__init__(self)
 		self.show()
 		
 		# Internalise data.
+		self.settings = settings
 		self.modelCollection = modelCollection
 		# Import the render view so we are able to add and remove actors.
 		self.renderView = renderView
@@ -163,7 +164,7 @@ class boxSettings(gtk.VBox):
 		self.tabSwitchCallbackID = self.notebook.connect("switch-page", self.tabChangedEvent)
 		
 	#	self.notebook.set_current_page(1)
-
+		self.setState(0)
 
 		# Create console for debug output.
 		# Create frame.
@@ -176,21 +177,18 @@ class boxSettings(gtk.VBox):
 		
 				
 	# Define tab change actions.
-	# Tab change event.
+	# Tab change event. The actual tab change will commence at the end of this function.
 	# Callback takes four mysterious arguments (parent, notebook, page, page index?).
 	# Last argument is the current tab index.
 	def tabChangedEvent(self, notebook, page, pageIndex):
-		# Save index of the old page.
-		oldPage = self.notebook.get_current_page()
-		print "Old page: " + str(oldPage)
-		print "Requested page: " + str(pageIndex)
-		# If the switch was made to an insensitive tab...
+		# Handle tab sensitivity.
+		# If the switch was made to an insensitive tab (the requested pageIndex)...
 		if self.getSensitive(pageIndex)==False:
 			# ... change to previous tab.
-			pageIndex = oldPage
-			print 'foo'
-		
-		print "Set page: " + str(pageIndex)
+			pageIndex = self.notebook.get_current_page() # Current page still points to the old page.
+			# Stop the event handling to stay on current page.
+			self.notebook.stop_emission("switch-page")
+		# Update render window depending on which tab was chosen.
 		if pageIndex == 0:
 			# Set render actor visibilities.
 			self.modelCollection.viewDefault()
@@ -265,9 +263,7 @@ class boxSettings(gtk.VBox):
 			updateVolumeLabel()
 			'''	
 		self.renderView.render()
-		self.notebook.disconnect(self.tabSwitchCallbackID)
-		self.notebook.set_current_page(3) #TODO: Other method to switch page.
-		self.tabSwitchCallbackID = self.notebook.connect("switch-page", self.tabChangedEvent)
+
 
 	
 	def createModelTab(self):
@@ -281,7 +277,7 @@ class boxSettings(gtk.VBox):
 		self.frameModels.show()
 		
 		# Create model list view using the model list.
-		self.modelListView = modelListView(self.modelList, self.modelCollection, self.renderView, self.update, self.console)
+		self.modelListView = modelListView(self.settings, self.modelList, self.modelCollection, self.renderView, self.update, self.console)
 		self.frameModels.add(self.modelListView)
 		self.modelListView.show()
 		
@@ -318,7 +314,7 @@ class boxSettings(gtk.VBox):
 		self.supportsTab.pack_start(self.frameModels, padding = 5)
 		self.frameModels.show()
 		# Create model list view using the model list.
-		self.modelListView = modelListView(self.modelList, self.modelCollection, self.renderView, self.update, self.console)
+		self.modelListView = modelListView(self.settings, self.modelList, self.modelCollection, self.renderView, self.update, self.console)
 		self.frameModels.add(self.modelListView)
 		self.modelListView.show()
 		
@@ -359,10 +355,17 @@ class boxSettings(gtk.VBox):
 	
 	def getSensitive(self, tab):
 		return self.notebook.get_tab_label(self.notebook.get_nth_page(tab)).get_sensitive()
-		
+	
+	def setState(self, state):
+		for i in range(self.notebook.get_n_pages()-1):
+			if i<=state:
+				self.setSensitive(i, True)
+			else:
+				self.setSensitive(i, False)
+			
 	
 	# Update all the settings if the current model has changed.
-	def update(self):
+	def update(self, state=None):
 		self.entryScaling.update()
 		self.entryRotationX.update()
 		self.entryRotationY.update()
@@ -370,6 +373,8 @@ class boxSettings(gtk.VBox):
 		self.entryPositionX.update()
 		self.entryPositionY.update()
 		self.entryBottomClearance.update()
+		if state != None:
+			self.setState(state)
 	
 	
 	
@@ -541,11 +546,12 @@ class menuBar(gtk.MenuBar):
 
 # Model list. ##################################################################
 class modelListView(gtk.VBox):
-	def __init__(self, modelList, modelCollection, renderView, guiUpdateFunction, console=None):
+	def __init__(self, settings, modelList, modelCollection, renderView, guiUpdateFunction, console=None):
 		gtk.VBox.__init__(self)
 		self.show()
 
-		
+		# Internalise settings.
+		self.settings = settings
 		# Internalise model collection and optional console.
 		self.modelList = modelList
 		self.modelCollection = modelCollection
@@ -616,6 +622,9 @@ class modelListView(gtk.VBox):
 		newIter = self.modelList.append([displayName, internalName, filename, True])
 		# Set the iter selected.
 		self.modelSelection.select_iter(newIter)
+		# Make supports and slice tab available if this is the first model.
+		if len(self.modelList)< 2:
+			self.guiUpdateFunction(state=2)
 	
 	# Remove an item and set the selection to the next.
 	def remove(self, currentIter):
@@ -641,7 +650,7 @@ class modelListView(gtk.VBox):
 			# Deactivate the remove button.
 			self.buttonRemove.set_sensitive(False)
 			# Update the gui.
-			self.guiUpdateFunction()
+			self.guiUpdateFunction(state=0)
 			# TODO: Disable all the input entries and the supports/slicing/print tabs.
 		
 		# Now that we have the new selection, we can delete the previously selected model.
@@ -665,6 +674,7 @@ class modelListView(gtk.VBox):
 		# File open dialog to retrive file name and file path.
 		dialog = gtk.FileChooserDialog("Load model", None, gtk.FILE_CHOOSER_ACTION_OPEN, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN, gtk.RESPONSE_OK))
 		dialog.set_default_response(gtk.RESPONSE_OK)
+		dialog.set_current_folder(self.settings['currentFolder'].value)
 		# File filter for the dialog.
 		fileFilter = gtk.FileFilter()
 	#	fileFilter.add_mime_type("image/gif")	TODO
@@ -690,6 +700,8 @@ class modelListView(gtk.VBox):
 			filename = filenameStlParts[-1]
 			if self.console:
 				self.console.addLine("Loading file \"" + filename + "\".")
+			# Save path for next use.
+			self.settings['currentFolder'].value = filepath[:-len(filenameStlParts[-1])]
 			# Check if there is a file with the same name loaded already.
 			# Use the permanent file id in second row for this.
 			copyNumber = 0

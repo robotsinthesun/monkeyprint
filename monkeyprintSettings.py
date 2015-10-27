@@ -80,6 +80,7 @@ class programSettings(dict):
 		# Call super class init function.
 		dict.__init__(self)
 		# Create objects for all the settings and put them into dictionary.
+		self['currentFolder'] = setting(value='./models')
 		self['versionMajor'] = setting(value=0)
 		self['versionMinor'] = setting(value=9)	
 		self['revision'] = setting(value=0)
