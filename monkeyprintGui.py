@@ -201,8 +201,10 @@ class boxSettings(gtk.VBox):
 		elif pageIndex == 1:
 			# Set render actor visibilities.
 			# Transparent model but opaque supports and bottom plate.
+			self.modelCollection.updateAllSupports()
 			self.modelCollection.viewSupports()
-			# TODO: update supports.
+			# Update supports.
+
 			'''
 			# Recalculate polydata.
 			bottomPlate.update(settings)
@@ -325,10 +327,10 @@ class boxSettings(gtk.VBox):
 		self.boxSupportPattern = gtk.VBox()
 		self.frameSupportPattern.add(self.boxSupportPattern)
 		self.boxSupportPattern.show()
-		self.boxSupportPattern.pack_start(entry('Overhang angle', modelCollection=self.modelCollection), expand=False, fill=False)
-		self.boxSupportPattern.pack_start(entry('Spacing X', modelCollection=self.modelCollection), expand=False, fill=False)
-		self.boxSupportPattern.pack_start(entry('Spacing Y', modelCollection=self.modelCollection), expand=False, fill=False)
-		self.boxSupportPattern.pack_start(entry('Maximum height', modelCollection=self.modelCollection), expand=False, fill=False)
+		self.boxSupportPattern.pack_start(entry('Overhang angle', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
+		self.boxSupportPattern.pack_start(entry('Spacing X', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
+		self.boxSupportPattern.pack_start(entry('Spacing Y', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
+		self.boxSupportPattern.pack_start(entry('Maximum height', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
 		
 		# Create support geometry frame.
 		self.frameSupportGeometry = gtk.Frame(label="Support geometry")
@@ -337,9 +339,9 @@ class boxSettings(gtk.VBox):
 		self.boxSupportGeometry = gtk.VBox()
 		self.frameSupportGeometry.add(self.boxSupportGeometry)
 		self.boxSupportGeometry.show()
-		self.boxSupportGeometry.pack_start(entry('Base diameter', modelCollection=self.modelCollection), expand=False, fill=False)
-		self.boxSupportGeometry.pack_start(entry('Tip diameter', modelCollection=self.modelCollection), expand=False, fill=False)
-		self.boxSupportGeometry.pack_start(entry('Cone height', modelCollection=self.modelCollection), expand=False, fill=False)
+		self.boxSupportGeometry.pack_start(entry('Base diameter', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
+		self.boxSupportGeometry.pack_start(entry('Tip diameter', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
+		self.boxSupportGeometry.pack_start(entry('Cone height', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
 
 		# Create bottom plate frame.
 		self.frameBottomPlate = gtk.Frame(label="Bottom plate")
@@ -348,7 +350,7 @@ class boxSettings(gtk.VBox):
 		self.boxBottomPlate = gtk.VBox()
 		self.frameBottomPlate.add(self.boxBottomPlate)
 		self.boxBottomPlate.show()
-		self.boxBottomPlate.pack_start(entry('Bottom plate thickness', modelCollection=self.modelCollection), expand=False, fill=False)
+		self.boxBottomPlate.pack_start(entry('Bottom plate thickness', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
 	
 	def setSensitive(self, tab, val):
 		self.notebook.get_tab_label(self.notebook.get_nth_page(tab)).set_sensitive(val)
@@ -424,14 +426,15 @@ class entry(gtk.HBox):
 	def entryCallback(self, widget, event, entry):
 		# Check for the button that was pressed. Allow for Return and Tab.
 		if event.keyval == gtk.keysyms.Tab or event.keyval == gtk.keysyms.Return:
-			# Check if this is a model setting where it matters where
+			# Check if this is a model setting where
 			# the current selection matters.
 			if self.modelCollection != None:
 				# Set the new value in the current model's settings.
 				self.modelCollection.getCurrentModel().settings[self.string].setValue(self.entry.get_text())
-				# Call the models update function.
+				# Call the models update function. This might change the settings value again.
 				self.modelCollection.getCurrentModel().update()
-				# Call the function specified for the setting. This might change the settings value again.
+				self.modelCollection.getCurrentModel().updateSupports()
+				# Call the extra function specified for the setting.
 				if self.function:
 					self.function()
 				# Set the entrys text field as it might have changed during the function call.
@@ -725,8 +728,9 @@ class modelListView(gtk.VBox):
 		# Activate the remove button which was deactivated when there was no model.
 		self.buttonRemove.set_sensitive(True)
 		# Add actor to render view.
-		self.renderView.addActor(self.modelCollection.getCurrentModel().getActor())
-		self.renderView.addActors(self.modelCollection.getCurrentModel().getBoxActor())
+#		self.renderView.addActor(self.modelCollection.getCurrentModel().getActor())
+		self.renderView.addActors(self.modelCollection.getCurrentModel().getAllActors())
+
 		
 		self.renderView.render()
 
