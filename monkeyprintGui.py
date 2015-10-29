@@ -1,4 +1,3 @@
-  #!/usr/bin/python
 # -*- coding: latin-1 -*-
 
 #	Copyright (c) 2015 Paul Bomke
@@ -25,6 +24,7 @@ pygtk.require('2.0')
 import gtk
 #import gtkGLExtVTKRenderWindowInteractor
 import monkeyprintModelViewer
+import monkeyprintGuiHelper
 import subprocess # Needed to call avrdude.
 import vtk
 
@@ -133,24 +133,31 @@ class boxSettings(gtk.VBox):
 		
 	
 		# Create notebook
-		self.notebook = gtk.Notebook()
+#		self.notebook = gtk.Notebook()
+		self.notebook = monkeyprintGuiHelper.notebook()
 		self.pack_start(self.notebook)
 		
-		# Add model page.
+		# Create model page, append to notebook and pass custom function.
 		self.createModelTab()
+		# Append to notebook.
 		self.notebook.append_page(self.modelTab, gtk.Label('Models'))
+		# Set update function for switch to model page.
+		self.notebook.set_custom_function(0, self.tabSwitchModelUpdate)
 		
-		# Add supports page.
+		# Create supports page, append to notebook and pass custom function.
 		self.createSupportsTab()
 		self.notebook.append_page(self.supportsTab, gtk.Label('Supports'))
-		self.setSensitive(1, False)
-		
-		# Add slicing page.
+#		self.notebook.set_tab_sensitive(1, False)
+		self.notebook.set_custom_function(1, self.tabSwitchSupportsUpdate)
+
+
+		# Add slicing page, append to notebook and pass custom function.
 		self.slicingTab = gtk.VBox()
 		self.slicingTab.show()
 		self.slicingTab.add(gtk.Label('slicing stuff'))
 		self.notebook.append_page(self.slicingTab, gtk.Label('Slicing'))
-		self.setSensitive(2, False)
+#		self.notebook.set_tab_sensitive(2, False)
+		self.notebook.set_custom_function(2, self.tabSwitchSlicesUpdate)
 
 		
 		# Add print page.
@@ -158,13 +165,11 @@ class boxSettings(gtk.VBox):
 		self.printTab.show()
 		self.printTab.add(gtk.Label('print stuff'))
 		self.notebook.append_page(self.printTab, gtk.Label('Print'))
-		self.setSensitive(3, False)
+#		self.notebook.set_tab_sensitive(3, False)
 		
 		self.notebook.show()
-		self.tabSwitchCallbackID = self.notebook.connect("switch-page", self.tabChangedEvent)
-		
-	#	self.notebook.set_current_page(1)
-		self.setState(0)
+
+		self.setGuiState(0)
 
 		# Create console for debug output.
 		# Create frame.
@@ -175,98 +180,34 @@ class boxSettings(gtk.VBox):
 		self.consoleView = consoleView(self.console)
 		self.frameConsole.add(self.consoleView)
 		
-				
-	# Define tab change actions.
-	# Tab change event. The actual tab change will commence at the end of this function.
-	# Callback takes four mysterious arguments (parent, notebook, page, page index?).
-	# Last argument is the current tab index.
-	def tabChangedEvent(self, notebook, page, pageIndex):
-		# Handle tab sensitivity.
-		# If the switch was made to an insensitive tab (the requested pageIndex)...
-		if self.getSensitive(pageIndex)==False:
-			# ... change to previous tab.
-			pageIndex = self.notebook.get_current_page() # Current page still points to the old page.
-			# Stop the event handling to stay on current page.
-			self.notebook.stop_emission("switch-page")
-		# Update render window depending on which tab was chosen.
-		if pageIndex == 0:
-			# Set render actor visibilities.
-			self.modelCollection.viewDefault()
-			'''
-			#TODO TODO TODO
-			slices.hideActor()
-#			slices.hideImageActor()
-			slicesPrint.hideActor()
-			'''
-		elif pageIndex == 1:
-			# Set render actor visibilities.
-			# Transparent model but opaque supports and bottom plate.
-			self.modelCollection.updateAllSupports()
-			self.modelCollection.viewSupports()
-			# Update supports.
+	
+	def tabSwitchModelUpdate(self):
+		# Set render actor visibilities.
+		self.modelCollection.viewDefault()
+		self.renderView.render()
 
-			'''
-			# Recalculate polydata.
-			bottomPlate.update(settings)
-			modelOverhang.update(settings)
-			supports.update(settings)
-			slices.hideActor()
-#			slices.hideImageActor()
-			slicesPrint.hideActor()
-			# Enable slice and print tab.
-			enableSliceTab()
-			'''
-		elif pageIndex == 2:
-			self.modelCollection.viewSlices()
-			# TODO: Update slices.
-			'''
-			# Recalculate polydata.
-			bottomPlate.update(settings)
-			modelOverhang.update(settings)
-			supports.update(settings)
-#			slices.update(settings)
-			# Update layer slider to account for change in model height.
-			updateLayerSlider()
-			# Set render actor visibilities.
-			model.setOpacity(0.2)
-			model.hideBoundingBoxActor()
-			model.hideBoundingBoxTextActor()
-			bottomPlate.showActor()
-			bottomPlate.setOpacity(0.2)
-			modelOverhang.hideActor()
-			supports.showActor()
-			supports.setOpacity(0.2)
-			slices.showActor()
-#			slices.showImageActor()
-			slicesPrint.hideActor()
-			sliceView.update(slices.getCvImage())
-			'''
-		elif pageIndex == 3:
-			self.modelCollection.viewPrint()
-			# Recalculate polydata.
-# TODO: updating her causes projector slice view to be white. Find out why...
-#			bottomPlate.update(settings)
-#			modelOverhang.update(settings)
-#			supports.update(settings)
-#			slices.update(settings)
-			# Set actor visibilities.
-			'''
-			model.setOpacity(0.2)
-			model.hideBoundingBoxActor()
-			model.hideBoundingBoxTextActor()
-			modelOverhang.hideActor()
-			bottomPlate.showActor()
-			bottomPlate.setOpacity(0.2)
-			supports.showActor()
-			supports.setOpacity(0.2)
-			slices.hideActor()
-#			slices.hideImageActor()
-			slicesPrint.showActor()
-			updateVolumeLabel()
-			'''	
+	
+	def tabSwitchSupportsUpdate(self):
+		# Update supports.
+		self.modelCollection.updateAllSupports()
+		# Set render actor visibilities.
+		self.modelCollection.viewSupports()
 		self.renderView.render()
 
 
+	def tabSwitchSlicesUpdate(self):
+		# Update slices.
+		self.modelCollection.updateAllSlices()
+		# Set render actor visibilites.
+		self.modelCollection.viewSlices()
+		self.renderView.render()
+	
+	def tabSwitchPrintUpdate(self):
+		pass
+				
+
+
+	
 	
 	def createModelTab(self):
 		# Create tab box.
@@ -290,19 +231,19 @@ class boxSettings(gtk.VBox):
 		self.boxModelModifications = gtk.VBox()
 		self.frameModifications.add(self.boxModelModifications)
 		self.boxModelModifications.show()
-		self.entryScaling = entry('Scaling', modelCollection=self.modelCollection, function=self.renderView.render)
+		self.entryScaling = entry('Scaling', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
 		self.boxModelModifications.pack_start(self.entryScaling, expand=False, fill=False)
-		self.entryRotationX = entry('Rotation X', modelCollection=self.modelCollection, function=self.renderView.render)
+		self.entryRotationX = entry('Rotation X', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
 		self.boxModelModifications.pack_start(self.entryRotationX, expand=False, fill=False)
-		self.entryRotationY = entry('Rotation Y', modelCollection=self.modelCollection, function=self.renderView.render)
+		self.entryRotationY = entry('Rotation Y', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
 		self.boxModelModifications.pack_start(self.entryRotationY, expand=False, fill=False)
-		self.entryRotationZ = entry('Rotation Z', modelCollection=self.modelCollection, function=self.renderView.render)
+		self.entryRotationZ = entry('Rotation Z', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
 		self.boxModelModifications.pack_start(self.entryRotationZ, expand=False, fill=False)
-		self.entryPositionX = entry('Position X', modelCollection=self.modelCollection, function=self.renderView.render)
+		self.entryPositionX = entry('Position X', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
 		self.boxModelModifications.pack_start(self.entryPositionX, expand=False, fill=False)
-		self.entryPositionY = entry('Position Y', modelCollection=self.modelCollection, function=self.renderView.render)
+		self.entryPositionY = entry('Position Y', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
 		self.boxModelModifications.pack_start(self.entryPositionY, expand=False, fill=False)
-		self.entryBottomClearance = entry('Bottom clearance', modelCollection=self.modelCollection, function=self.renderView.render)
+		self.entryBottomClearance = entry('Bottom clearance', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
 		self.boxModelModifications.pack_start(self.entryBottomClearance, expand=False, fill=False)
 
 	
@@ -327,10 +268,14 @@ class boxSettings(gtk.VBox):
 		self.boxSupportPattern = gtk.VBox()
 		self.frameSupportPattern.add(self.boxSupportPattern)
 		self.boxSupportPattern.show()
-		self.boxSupportPattern.pack_start(entry('Overhang angle', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
-		self.boxSupportPattern.pack_start(entry('Spacing X', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
-		self.boxSupportPattern.pack_start(entry('Spacing Y', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
-		self.boxSupportPattern.pack_start(entry('Maximum height', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
+		self.entryOverhangAngle = entry('Overhang angle', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.boxSupportPattern.pack_start(self.entryOverhangAngle, expand=False, fill=False)
+		self.entrySupportSpacingX = entry('Spacing X', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.boxSupportPattern.pack_start(self.entrySupportSpacingX, expand=False, fill=False)
+		self.entrySupportSpacingY = entry('Spacing Y', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.boxSupportPattern.pack_start(self.entrySupportSpacingY, expand=False, fill=False)
+		self.entrySupportMaxHeight = entry('Maximum height', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.boxSupportPattern.pack_start(self.entrySupportMaxHeight, expand=False, fill=False)
 		
 		# Create support geometry frame.
 		self.frameSupportGeometry = gtk.Frame(label="Support geometry")
@@ -339,9 +284,12 @@ class boxSettings(gtk.VBox):
 		self.boxSupportGeometry = gtk.VBox()
 		self.frameSupportGeometry.add(self.boxSupportGeometry)
 		self.boxSupportGeometry.show()
-		self.boxSupportGeometry.pack_start(entry('Base diameter', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
-		self.boxSupportGeometry.pack_start(entry('Tip diameter', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
-		self.boxSupportGeometry.pack_start(entry('Cone height', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
+		self.entrySupportBaseDiameter = entry('Base diameter', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.boxSupportGeometry.pack_start(self.entrySupportBaseDiameter, expand=False, fill=False)
+		self.entrySupportTipDiameter = entry('Tip diameter', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.boxSupportGeometry.pack_start(self.entrySupportTipDiameter, expand=False, fill=False)
+		self.entrySupportTipHeight = entry('Cone height', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.boxSupportGeometry.pack_start(self.entrySupportTipHeight, expand=False, fill=False)
 
 		# Create bottom plate frame.
 		self.frameBottomPlate = gtk.Frame(label="Bottom plate")
@@ -350,20 +298,21 @@ class boxSettings(gtk.VBox):
 		self.boxBottomPlate = gtk.VBox()
 		self.frameBottomPlate.add(self.boxBottomPlate)
 		self.boxBottomPlate.show()
-		self.boxBottomPlate.pack_start(entry('Bottom plate thickness', modelCollection=self.modelCollection, function=self.renderView.render), expand=False, fill=False)
+		self.entrySupportBottomPlateThickness = entry('Bottom plate thickness', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.boxBottomPlate.pack_start(self.entrySupportBottomPlateThickness, expand=False, fill=False)
 	
-	def setSensitive(self, tab, val):
-		self.notebook.get_tab_label(self.notebook.get_nth_page(tab)).set_sensitive(val)
+#	def setSensitive(self, tab, val):
+#		self.notebook.get_tab_label(self.notebook.get_nth_page(tab)).set_sensitive(val)
+#	
+#	def getSensitive(self, tab):
+#		return self.notebook.get_tab_label(self.notebook.get_nth_page(tab)).get_sensitive()
 	
-	def getSensitive(self, tab):
-		return self.notebook.get_tab_label(self.notebook.get_nth_page(tab)).get_sensitive()
-	
-	def setState(self, state):
-		for i in range(self.notebook.get_n_pages()-1):
+	def setGuiState(self, state):
+		for i in range(self.notebook.get_n_pages()):
 			if i<=state:
-				self.setSensitive(i, True)
+				self.notebook.set_tab_sensitive(i, True)
 			else:
-				self.setSensitive(i, False)
+				self.notebook.set_tab_sensitive(i, False)
 			
 	
 	# Update all the settings if the current model has changed.
@@ -375,8 +324,16 @@ class boxSettings(gtk.VBox):
 		self.entryPositionX.update()
 		self.entryPositionY.update()
 		self.entryBottomClearance.update()
+		self.entryOverhangAngle.update()
+		self.entrySupportSpacingX.update()
+		self.entrySupportSpacingY.update()
+		self.entrySupportMaxHeight.update()
+		self.entrySupportBaseDiameter.update()
+		self.entrySupportTipDiameter.update()
+		self.entrySupportTipHeight.update()
+		self.entrySupportBottomPlateThickness.update()
 		if state != None:
-			self.setState(state)
+			self.setGuiState(state)
 	
 	
 	
@@ -387,7 +344,7 @@ class boxSettings(gtk.VBox):
 class entry(gtk.HBox):
 	# Override init function.
 #	def __init__(self, string, settings, function=None):
-	def __init__(self, string, settings=None, modelCollection=None, function=None):
+	def __init__(self, string, settings=None, modelCollection=None, customFunctions=None):
 		# Call super class init function.
 		gtk.HBox.__init__(self)
 		self.show()
@@ -402,7 +359,8 @@ class entry(gtk.HBox):
 		# printer settings entry.
 		elif settings != None:
 			self.settings = settings
-		self.function = function
+			
+		self.customFunctions = customFunctions
 		
 		# Make label.
 		self.label = gtk.Label(string+self.settings[string].unit)
@@ -418,25 +376,44 @@ class entry(gtk.HBox):
 		# Set entry text.
 		self.entry.set_text(str(self.settings[string].value))
 		
+		# A bool to track if focus change was invoked by Tab key.
+		self.tabKeyPressed = False
+			
 		# Set callback connected to Enter key and focus leave.
 		#self.entry.connect("activate", self.entryCallback, entry)
 		self.entry.connect("key-press-event", self.entryCallback, entry)
-		#self.entry.connect("focus_out_event", self.entryCallback)
+		self.entry.connect("focus_out_event", self.entryCallback, entry)
+	
+	
 		
 	def entryCallback(self, widget, event, entry):
-		# Check for the button that was pressed. Allow for Return and Tab.
-		if event.keyval == gtk.keysyms.Tab or event.keyval == gtk.keysyms.Return:
-			# Check if this is a model setting where
-			# the current selection matters.
+		# Callback provides the following behaviour:
+		# Return key sets the value and calls the function.
+		# Tab key sets the value and calls the function.
+		# Focus-out resets the value if the focus change was not invoked by Tab key.
+		# Note: Tab will first emit a key press event, then a focus out event.
+#		if event.type.value_name == "GDK_FOCUS_CHANGE" and self.entry.has_focus()==False:
+#			print 'foo'
+#		elif event.type.value_name == "GDK_KEY_PRESS" and event.keyval == gtk.keysyms.Return:
+#			print 'bar'
+		# GDK_FOCUS_CHANGE is emitted on focus in or out, so make sure the focus is gone.
+		# If Tab key was pressed, set tabKeyPressed and leave.
+		if event.type.value_name == "GDK_KEY_PRESS" and event.keyval == gtk.keysyms.Tab:
+			self.tabKeyPressed = True
+			return
+		# If focus was lost and tab key was pressed or if return key was pressed, set the value.
+		if (event.type.value_name == "GDK_FOCUS_CHANGE" and self.entry.has_focus()==False and self.tabKeyPressed) or (event.type.value_name == "GDK_KEY_PRESS" and event.keyval == gtk.keysyms.Return):
+			# Set value.
 			if self.modelCollection != None:
 				# Set the new value in the current model's settings.
 				self.modelCollection.getCurrentModel().settings[self.string].setValue(self.entry.get_text())
 				# Call the models update function. This might change the settings value again.
 				self.modelCollection.getCurrentModel().update()
 				self.modelCollection.getCurrentModel().updateSupports()
-				# Call the extra function specified for the setting.
-				if self.function:
-					self.function()
+				# Call the custom functions specified for the setting.
+				if self.customFunctions != None:
+					for function in self.customFunctions:
+						function()
 				# Set the entrys text field as it might have changed during the function call.
 				self.entry.set_text(str(self.modelCollection.getCurrentModel().settings[self.string].value))
 			# If this is not a model setting but a printer setting:
@@ -445,7 +422,15 @@ class entry(gtk.HBox):
 				self.settings[self.string].setValue(self.entry.get_text())
 				# Set the entry text in case the setting was changed by settings object.
 				self.entry.set_text(str(self.settings[self.string].value))
-				
+			# Reset tab pressed bool.
+			self.tabKeyPressed = False
+			return
+		# If focus was lost without tab key press, reset the value.
+		elif event.type.value_name == "GDK_FOCUS_CHANGE" and self.entry.has_focus()==False:
+			#Reset value.
+			self.entry.set_text(str(self.modelCollection.getCurrentModel().settings[self.string].value))
+			return
+
 		
 	# Update the value in the text field if current model has changed.	
 	def update(self):

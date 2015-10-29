@@ -114,10 +114,10 @@ class modelContainer:
 		pass
 	
 	def opaqueBottomPlate(self):
-		pass
+		self.model.setOpacityBottomPlate(1.0)
 	
 	def transparentBottomPlate(self):
-		pass
+		self.model.setOpacityBottomPlate(.5)
 			
 	def showSupports(self):
 		self.model.showActorSupports()
@@ -126,10 +126,10 @@ class modelContainer:
 		self.model.hideActorSupports()
 	
 	def opaqueSupports(self):
-		pass
+		self.model.setOpacitySupports(1.0)
 	
 	def transparentSupports(self):
-		pass
+		self.model.setOpacitySupports(.5)
 	
 	def showSlices(self):
 		pass
@@ -224,6 +224,12 @@ class modelCollection(dict):
 		for model in self:
 			# TODO: test if model is enabled.
 			self[model].updateSupports()
+	
+	def updateAllSlices(self):
+		for model in self:
+			pass
+			# TODO: test if model is enabled.
+			#self[model].updateSlices()
 	
 
 
@@ -537,99 +543,100 @@ class modelData:
 	###########################################################################
 	#TODO: use internal settings object.
 	def update(self, modelSettings): #scalingFactor, rotationX, rotationY, rotationZ, positionXRel, positionYRel, positionZ):
-		'''
-		# Limit and cast input values.
-		# Scaling factor max and positionZ max depend on orientation and scaling and will be tested later on.
-		if (modelSettings['Scaling'].value < 0.00001):
-			modelSettings['Scaling'].setValue(0.00001)
+		if self.filename != "":
+			'''
+			# Limit and cast input values.
+			# Scaling factor max and positionZ max depend on orientation and scaling and will be tested later on.
+			if (modelSettings['Scaling'].value < 0.00001):
+				modelSettings['Scaling'].setValue(0.00001)	
 
-		if (modelSettings['RotationX'].value > 359 or modelSettings['RotationX'].value < 0):
-			modelSettings['RotationX'].setValue(0)
-		if (modelSettings['RotationY'].value > 359 or modelSettings['RotationY'].value < 0):
-			modelSettings['RotationY'].setValue(0)
-		if (modelSettings['RotationZ'].value > 359 or modelSettings['RotationZ'].value < 0):
-			modelSettings['RotationZ'].setValue(0)
+			if (modelSettings['RotationX'].value > 359 or modelSettings['RotationX'].value < 0):
+				modelSettings['RotationX'].setValue(0)
+			if (modelSettings['RotationY'].value > 359 or modelSettings['RotationY'].value < 0):
+				modelSettings['RotationY'].setValue(0)
+			if (modelSettings['RotationZ'].value > 359 or modelSettings['RotationZ'].value < 0):
+				modelSettings['RotationZ'].setValue(0)
 
-		if (modelSettings.['Position X'].value < 0):
-			modelSettings.setPositionXYRel(0, modelSettings.['Position X'].value[1])
-		elif (modelSettings.['Position X'].value > 100):
-			modelSettings.setPositionXYRel(100, modelSettings.['Position X'].value[1])
+			if (modelSettings.['Position X'].value < 0):
+				modelSettings.setPositionXYRel(0, modelSettings.['Position X'].value[1])
+			elif (modelSettings.['Position X'].value > 100):
+				modelSettings.setPositionXYRel(100, modelSettings.['Position X'].value[1])
 
-		if (modelSettings.['Position X'].value[1] < 0):
-			modelSettings.setPositionXYRel(modelSettings.['Position X'].value[0], 0)
-		elif (modelSettings.['Position X'].value[1] > 100):
-			modelSettings.setPositionXYRel(modelSettings.['Position X'].value[0], 100)
+			if (modelSettings.['Position X'].value[1] < 0):
+				modelSettings.setPositionXYRel(modelSettings.['Position X'].value[0], 0)
+			elif (modelSettings.['Position X'].value[1] > 100):
+				modelSettings.setPositionXYRel(modelSettings.['Position X'].value[0], 100)	
 
-		if (modelSettings['Bottom clearance'].value < 0):
-			modelSettings.setBottomClearance(0)
-		'''
+			if (modelSettings['Bottom clearance'].value < 0):
+				modelSettings.setBottomClearance(0)
+			'''
 
-		# Move model to origin. ****
-		self.stlCenterTransform.Translate(-self.__getCenter(self.stlScaleFilter)[0], -self.__getCenter(self.stlScaleFilter)[1], -self.__getCenter(self.stlScaleFilter)[2])
-		self.stlCenterFilter.Update()
+			# Move model to origin. ****
+			self.stlCenterTransform.Translate(-self.__getCenter(self.stlScaleFilter)[0], -self.__getCenter(self.stlScaleFilter)[1], -self.__getCenter(self.stlScaleFilter)[2])
+			self.stlCenterFilter.Update()
 		
-		# Rotate. ******************
-		# Reset rotation.
-#		print "Orientation old: " + str(self.stlRotateTransform.GetOrientation())
-		self.stlRotateTransform.RotateWXYZ(-self.stlRotateTransform.GetOrientation()[0], 1,0,0)
-		self.stlRotateTransform.RotateWXYZ(-self.stlRotateTransform.GetOrientation()[1], 0,1,0)
-		self.stlRotateTransform.RotateWXYZ(-self.stlRotateTransform.GetOrientation()[2], 0,0,1)
-#		print "Orientation reset: " + str(self.stlRotateTransform.GetOrientation())
-#		print "Orientation from settings: " + str(modelSettings.getRotationXYZ())
-		# Rotate with new angles.
-		self.stlRotateTransform.RotateWXYZ(modelSettings['Rotation X'].value,1,0,0)
-		self.stlRotateTransform.RotateWXYZ(modelSettings['Rotation Y'].value,0,1,0)
-		self.stlRotateTransform.RotateWXYZ(modelSettings['Rotation Z'].value,0,0,1)
-#		print "Orientation new: " + str(self.stlRotateTransform.GetOrientation())
-		# Update filter.
-		self.stlRotationFilter.Update()
+			# Rotate. ******************
+			# Reset rotation.
+#			print "Orientation old: " + str(self.stlRotateTransform.GetOrientation())
+			self.stlRotateTransform.RotateWXYZ(-self.stlRotateTransform.GetOrientation()[0], 1,0,0)
+			self.stlRotateTransform.RotateWXYZ(-self.stlRotateTransform.GetOrientation()[1], 0,1,0)
+			self.stlRotateTransform.RotateWXYZ(-self.stlRotateTransform.GetOrientation()[2], 0,0,1)
+#			print "Orientation reset: " + str(self.stlRotateTransform.GetOrientation())
+#			print "Orientation from settings: " + str(modelSettings.getRotationXYZ())
+			# Rotate with new angles.
+			self.stlRotateTransform.RotateWXYZ(modelSettings['Rotation X'].value,1,0,0)
+			self.stlRotateTransform.RotateWXYZ(modelSettings['Rotation Y'].value,0,1,0)
+			self.stlRotateTransform.RotateWXYZ(modelSettings['Rotation Z'].value,0,0,1)
+#			print "Orientation new: " + str(self.stlRotateTransform.GetOrientation())
+			# Update filter.
+			self.stlRotationFilter.Update()
 
-		# Check if scaling factor has to be adjusted to make model fit in build space.
-		# Get current scaling factor.
-		currentScale = self.stlScaleTransform.GetScale()[0]
-		# Get current size after rotation.
-		self.dimX = self.__getSize(self.stlRotationFilter)[0]
-		self.dimY = self.__getSize(self.stlRotationFilter)[1]
-		self.dimZ = self.__getSize(self.stlRotationFilter)[2]
-		# Compare the ratio of model size to build volume size in all dimensions with each other.
-		# Return smallest ratio as maximum scaling.
-		smallestRatio = 1
-		if (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) <= (self.programSettings['buildSizeXYZ'].value[1] / self.dimY) and (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) <= (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ):
-			smallestRatio =  self.programSettings['buildSizeXYZ'].value[0] / self.dimX * currentScale
-		elif (self.programSettings['buildSizeXYZ'].value[1] / self.dimY) <= (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) and (self.programSettings['buildSizeXYZ'].value[1] / self.dimY) <= (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ):
-			smallestRatio =  self.programSettings['buildSizeXYZ'].value[1] / self.dimY * currentScale
-		elif (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ) <= (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) and (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ) <= (self.programSettings['buildSizeXYZ'].value[1] / self.dimY):
-			smallestRatio =  self.programSettings['buildSizeXYZ'].value[2] / self.dimZ * currentScale
-		# Restrict input scalingFactor if necessary.
-		if smallestRatio < modelSettings['Scaling'].value:
-			modelSettings['Scaling'].setValue(smallestRatio)
+			# Check if scaling factor has to be adjusted to make model fit in build space.
+			# Get current scaling factor.
+			currentScale = self.stlScaleTransform.GetScale()[0]
+			# Get current size after rotation.
+			self.dimX = self.__getSize(self.stlRotationFilter)[0]
+			self.dimY = self.__getSize(self.stlRotationFilter)[1]
+			self.dimZ = self.__getSize(self.stlRotationFilter)[2]
+			# Compare the ratio of model size to build volume size in all dimensions with each other.
+			# Return smallest ratio as maximum scaling.
+			smallestRatio = 1
+			if (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) <= (self.programSettings['buildSizeXYZ'].value[1] / self.dimY) and (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) <= (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ):
+				smallestRatio =  self.programSettings['buildSizeXYZ'].value[0] / self.dimX * currentScale
+			elif (self.programSettings['buildSizeXYZ'].value[1] / self.dimY) <= (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) and (self.programSettings['buildSizeXYZ'].value[1] / self.dimY) <= (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ):
+				smallestRatio =  self.programSettings['buildSizeXYZ'].value[1] / self.dimY * currentScale
+			elif (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ) <= (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) and (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ) <= (self.programSettings['buildSizeXYZ'].value[1] / self.dimY):
+				smallestRatio =  self.programSettings['buildSizeXYZ'].value[2] / self.dimZ * currentScale
+			# Restrict input scalingFactor if necessary.
+			if smallestRatio < modelSettings['Scaling'].value:
+				modelSettings['Scaling'].setValue(smallestRatio)
 			
-		# Scale. *******************
-		# First, reset scale to 1.
-		self.stlScaleTransform.Scale(1/self.stlScaleTransform.GetScale()[0], 1/self.stlScaleTransform.GetScale()[1], 1/self.stlScaleTransform.GetScale()[2])
-		# Change scale value.
-		self.stlScaleTransform.Scale(modelSettings['Scaling'].value, modelSettings['Scaling'].value, modelSettings['Scaling'].value)
-		self.stlScaleFilter.Update()	# Update to get new bounds.
+			# Scale. *******************
+			# First, reset scale to 1.
+			self.stlScaleTransform.Scale(1/self.stlScaleTransform.GetScale()[0], 1/self.stlScaleTransform.GetScale()[1], 1/self.stlScaleTransform.GetScale()[2])
+			# Change scale value.
+			self.stlScaleTransform.Scale(modelSettings['Scaling'].value, modelSettings['Scaling'].value, modelSettings['Scaling'].value)
+			self.stlScaleFilter.Update()	# Update to get new bounds.
 
-		# Position. ****************
-		clearRangeX = self.programSettings['buildSizeXYZ'].value[0] - self.__getSize(self.stlRotationFilter)[0]
-		clearRangeY = self.programSettings['buildSizeXYZ'].value[1] - self.__getSize(self.stlRotationFilter)[1]
-		positionZMax = self.programSettings['buildSizeXYZ'].value[2] - self.__getSize(self.stlRotationFilter)[2]
-		if modelSettings['Bottom clearance'].value > positionZMax:
-			modelSettings['Bottom clearance'].setValue(positionZMax)
-		self.stlPositionTransform.Translate(  (self.__getSize(self.stlRotationFilter)[0]/2 + clearRangeX * (modelSettings['Position X'].value / 100.0)) - self.stlPositionTransform.GetPosition()[0],      (self.__getSize(self.stlRotationFilter)[1]/2 + clearRangeY * (modelSettings['Position Y'].value / 100.0)) - self.stlPositionTransform.GetPosition()[1],       self.__getSize(self.stlRotationFilter)[2]/2 - self.stlPositionTransform.GetPosition()[2] + modelSettings['Bottom clearance'].value)
-		self.stlPositionFilter.Update()
+			# Position. ****************
+			clearRangeX = self.programSettings['buildSizeXYZ'].value[0] - self.__getSize(self.stlRotationFilter)[0]
+			clearRangeY = self.programSettings['buildSizeXYZ'].value[1] - self.__getSize(self.stlRotationFilter)[1]
+			positionZMax = self.programSettings['buildSizeXYZ'].value[2] - self.__getSize(self.stlRotationFilter)[2]
+			if modelSettings['Bottom clearance'].value > positionZMax:
+				modelSettings['Bottom clearance'].setValue(positionZMax)
+			self.stlPositionTransform.Translate(  (self.__getSize(self.stlRotationFilter)[0]/2 + clearRangeX * (modelSettings['Position X'].value / 100.0)) - self.stlPositionTransform.GetPosition()[0],      (self.__getSize(self.stlRotationFilter)[1]/2 + clearRangeY * (modelSettings['Position Y'].value / 100.0)) - self.stlPositionTransform.GetPosition()[1],       self.__getSize(self.stlRotationFilter)[2]/2 - self.stlPositionTransform.GetPosition()[2] + modelSettings['Bottom clearance'].value)
+			self.stlPositionFilter.Update()
 
-		# Recalculate normals.
-		self.getNormalZComponent(self.stlPositionFilter.GetOutput())
+			# Recalculate normals.
+			self.getNormalZComponent(self.stlPositionFilter.GetOutput())
 		
-		# Reposition bounding box.
-		self.modelBoundingBox.SetCenter(self.getCenter())
-		self.modelBoundingBox.SetXLength(self.getSize()[0])
-		self.modelBoundingBox.SetYLength(self.getSize()[1])
-		self.modelBoundingBox.SetZLength(self.getSize()[2])
-		self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()/1000.0) )
-		self.modelBoundingBoxTextActor.SetAttachmentPoint(self.getBounds()[1], self.getBounds()[3], self.getBounds()[5])
+			# Reposition bounding box.
+			self.modelBoundingBox.SetCenter(self.getCenter())
+			self.modelBoundingBox.SetXLength(self.getSize()[0])
+			self.modelBoundingBox.SetYLength(self.getSize()[1])
+			self.modelBoundingBox.SetZLength(self.getSize()[2])
+			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()/1000.0) )
+			self.modelBoundingBoxTextActor.SetAttachmentPoint(self.getBounds()[1], self.getBounds()[3], self.getBounds()[5])
 
 	def updateBottomPlate(self, settings):#sizeX, sizeY, sizeZ, centerX, centerY, centerZ):
 		if self.filename != "":
@@ -784,7 +791,6 @@ class modelData:
 						# Append the cylinder to the cones polydata.
 						self.cones.AddInput(cylinderGeomFilter.GetOutput())
 						del cylinder
-						
 
 
 	def getPolydataBottomPlate(self):
