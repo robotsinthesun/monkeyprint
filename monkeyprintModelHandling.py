@@ -48,24 +48,24 @@ class modelContainer:
 
 
 	
-	def update(self):
-		self.model.update(self.settings)
+	def updateModel(self):
+		self.model.updateModel()
 	
 	def updateSupports(self):
-#		self.model.updateOverhang()
+		self.model.updateBottomPlate()
 		self.model.updateSupports()
 	
 	def updateSlices(self):
 		pass
 	
 	def getAllActors(self):
-		return (	self.model.getActor(),
-				self.model.getActorBoundingBox(),
-				self.model.getActorBoundingBoxText(),
-				self.model.getActorOverhang(),
-				self.model.getActorBottomPlate(),
-				self.model.getActorSupports()#,
-		#		self.getSlicesActor(),
+		return (	self.getActor(),
+				self.getBoxActor(),
+				self.getBoxTextActor(),
+				self.getOverhangActor(),
+				self.getBottomPlateActor(),
+				self.getSupportsActor(),
+				self.getSlicesActor()
 				)
 	
 	def getActor(self):
@@ -73,13 +73,23 @@ class modelContainer:
 	
 	def getBoxActor(self):
 		self.model.opacityBoundingBox(0.3)
-		return (self.model.getActorBoundingBox(), self.model.getActorBoundingBoxText())
+		return self.model.getActorBoundingBox()
+
+	def getBoxTextActor(self):
+		self.model.opacityBoundingBoxText(0.7)
+		return self.model.getActorBoundingBoxText()
 	
 	def getSupportsActor(self):
-		return (self.model.getActorBottomPlate(), self.model.getActorSupports())
+		return self.model.getActorSupports()
+	
+	def getBottomPlateActor(self):
+		return self.model.getActorBottomPlate()
+	
+	def getOverhangActor(self):
+		return self.model.getActorOverhang()
 	
 	def getSlicesActor(self):
-		pass
+		return self.model.getActorSlices()
 
 	def showBox(self):
 		self.model.showBoundingBox()
@@ -287,13 +297,18 @@ class modelData:
 	
 	def __init__(self, filename, settings, programSettings):
 		# Set up variables.
-		self.rotationXOld = 0
-		self.rotationYOld = 0
-		self.rotationZOld = 0
+		# General.
 		self.filenameStl = ""
 		self.filename = filename
 		self.settings = settings
 		self.programSettings = programSettings
+		# For model positioning.
+		self.rotationXOld = 0
+		self.rotationYOld = 0
+		self.rotationZOld = 0
+		# For slicing.
+#TODO		self.printFlag = printFlag
+		self.extrusionVector = (0,0,-1)
 		
 		
 		# Set up pipeline. ###################################################
@@ -352,7 +367,53 @@ class modelData:
 			self.locator.SetDataSet(self.overhangClipFilter.GetOutput())	#TODO: change to selected region input.
 		
 			# Create supports polydata.
-			self.cones = vtk.vtkAppendPolyData()
+			self.supports = vtk.vtkAppendPolyData()
+
+			# Create bottom plate polydata. Edge length 1 mm, place outside of build volume by 1 mm.	
+			self.bottomPlate = vtk.vtkCubeSource()
+			self.bottomPlate.SetXLength(1)
+			self.bottomPlate.SetYLength(1)
+			self.bottomPlate.SetZLength(1)
+			self.bottomPlate.SetCenter((-1, -1, -1))
+
+
+			# The following is for 3D slice data. ################################
+
+			# Create cutting plane.
+			self.cuttingPlane = vtk.vtkPlane()
+			self.cuttingPlane.SetNormal(0,0,1)
+			self.cuttingPlane.SetOrigin(0,0,0.001)	# Make sure bottom plate is cut properly.
+			# Create cutting filter for model.
+			self.cuttingFilterModel = vtk.vtkCutter()
+			self.cuttingFilterModel.SetCutFunction(self.cuttingPlane)
+			self.cuttingFilterModel.SetInput(self.stlPositionFilter.GetOutput())
+			# Create cutting filter for supports.
+			self.cuttingFilterSupports = vtk.vtkCutter()
+			self.cuttingFilterSupports.SetCutFunction(self.cuttingPlane)
+			self.cuttingFilterSupports.SetInput(self.supports.GetOutput())
+			# Create cutting filter for bottom plate.
+			self.cuttingFilterBottomPlate = vtk.vtkCutter()
+			self.cuttingFilterBottomPlate.SetCutFunction(self.cuttingPlane)
+			self.cuttingFilterBottomPlate.SetInput(self.bottomPlate.GetOutput())
+			# Create polylines from cutter output for model.
+			self.sectionStripperModel = vtk.vtkStripper()
+			self.sectionStripperModel.SetInput(self.cuttingFilterModel.GetOutput())
+			#TODO: remove scalars so color is white.
+			#self.sectionStripperModel.GetOutput().GetPointData().RemoveArray('normalsZ')
+			# Create polylines from cutter output for supports.
+			self.sectionStripperSupports = vtk.vtkStripper()
+			self.sectionStripperSupports.SetInput(self.cuttingFilterSupports.GetOutput())
+			# Create polylines from cutter output for bottom plate.
+			self.sectionStripperBottomPlate = vtk.vtkStripper()
+			self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
+			# Combine cut lines from model, supports and bottom plate.
+			self.combinedCutlines = vtk.vtkAppendPolyData()
+			self.combinedCutlines.AddInput(self.sectionStripperModel.GetOutput())
+			self.combinedCutlines.AddInput(self.sectionStripperSupports.GetOutput())
+			self.combinedCutlines.AddInput(self.sectionStripperBottomPlate.GetOutput())
+			print 'foo'
+			print self.combinedCutlines
+
 		
 			# Bounding box. Create cube and set outline filter.
 			self.modelBoundingBox = vtk.vtkCubeSource()
@@ -367,12 +428,7 @@ class modelData:
 			else:
 				self.modelBoundingBoxOutline.SetInputConnection(self.modelBoundingBox.GetOutputPort())
 		
-			# Create bottom plate polydata. Edge length 1 mm, place outside of build volume by 1 mm.	
-			self.bottomPlate = vtk.vtkCubeSource()
-			self.bottomPlate.SetXLength(1)
-			self.bottomPlate.SetYLength(1)
-			self.bottomPlate.SetZLength(1)
-			self.bottomPlate.SetCenter((-1, -1, -1))
+
 		
 		
 		######################################################################
@@ -402,16 +458,16 @@ class modelData:
 			self.overhangClipActor.SetMapper(self.overhangClipMapper)
 
 		# Create supports mapper. ********************************************
-		# TODO: this throws empty pipeline errors on instatiation as self.cones does not have any input yet.
-		self.conesMapper = vtk.vtkPolyDataMapper()
+		# TODO: this throws empty pipeline errors on instatiation as self.supports does not have any input yet.
+		self.supportsMapper = vtk.vtkPolyDataMapper()
 		if vtk.VTK_MAJOR_VERSION <= 5 and self.filename != "":
-			self.conesMapper.SetInput(self.cones.GetOutput())
+			self.supportsMapper.SetInput(self.supports.GetOutput())
 		elif self.filename != "":
-			self.conesMapper.SetInputConnection(self.cones.GetOutput())
+			self.supportsMapper.SetInputConnection(self.supports.GetOutput())
 		# Create supports actor.
-		self.conesActor = vtk.vtkActor()
+		self.supportsActor = vtk.vtkActor()
 		if self.filename != "":
-			self.conesActor.SetMapper(self.conesMapper)
+			self.supportsActor.SetMapper(self.supportsMapper)
 		
 		# Bottom plate mapper. ***********************************************
 		self.bottomPlateMapper = vtk.vtkPolyDataMapper()
@@ -434,8 +490,19 @@ class modelData:
 		self.modelBoundingBoxActor = vtk.vtkActor()
 		if self.filename != "":
 			self.modelBoundingBoxActor.SetMapper(self.modelBoundingBoxMapper)
+		
+		# Cut lines mapper. **************************************************
+		self.cuttingFilterMapper = vtk.vtkPolyDataMapper()
+		if vtk.VTK_MAJOR_VERSION <= 5 and self.filename != "":
+			self.cuttingFilterMapper.SetInput(self.combinedCutlines.GetOutput())
+		elif self.filename != "":
+			self.cuttingFilterMapper.SetInputConnection(self.combinedCutlines.GetOutputPort())	
+		# Cut lines actor.
+		self.cuttingFilterActor = vtk.vtkActor()
+		if self.filename != "":
+			self.cuttingFilterActor.SetMapper(self.cuttingFilterMapper)
 			
-		# Text actor for model size.
+		# Text actor for model size. *****************************************
 		self.modelBoundingBoxTextActor = vtk.vtkCaptionActor2D()
 		self.modelBoundingBoxTextActor.GetTextActor().SetTextScaleModeToNone()
 		self.modelBoundingBoxTextActor.GetCaptionTextProperty().SetFontFamilyToArial()
@@ -448,6 +515,11 @@ class modelData:
 		self.modelBoundingBoxTextActor.LeaderOff()
 		self.modelBoundingBoxTextActor.SetPadding(0)
 		
+		
+		
+		######################################################################
+		# Other stuff. #######################################################
+		######################################################################
 		
 		# Get volume.
 		if self.filename != "":
@@ -470,7 +542,7 @@ class modelData:
 			# Now, all we need to do is to set up the transformation matrices.
 			# Fortunately, we have a method for this. Inputs: scaling, rotX [°], rotY [°], rotZ [°], posXRel [%], posYRel [%], posZ [mm].
 #			self.setTransform(modelSettings.[0], modelSettings.[1], modelSettings.[2], modelSettings.[3], modelSettings.[4], modelSettings.[5], modelSettings.[6])
-			self.update(settings)
+			self.updateModel()
 
 
 
@@ -542,35 +614,8 @@ class modelData:
 	# Update methods. #########################################################
 	###########################################################################
 	#TODO: use internal settings object.
-	def update(self, modelSettings): #scalingFactor, rotationX, rotationY, rotationZ, positionXRel, positionYRel, positionZ):
+	def updateModel(self):
 		if self.filename != "":
-			'''
-			# Limit and cast input values.
-			# Scaling factor max and positionZ max depend on orientation and scaling and will be tested later on.
-			if (modelSettings['Scaling'].value < 0.00001):
-				modelSettings['Scaling'].setValue(0.00001)	
-
-			if (modelSettings['RotationX'].value > 359 or modelSettings['RotationX'].value < 0):
-				modelSettings['RotationX'].setValue(0)
-			if (modelSettings['RotationY'].value > 359 or modelSettings['RotationY'].value < 0):
-				modelSettings['RotationY'].setValue(0)
-			if (modelSettings['RotationZ'].value > 359 or modelSettings['RotationZ'].value < 0):
-				modelSettings['RotationZ'].setValue(0)
-
-			if (modelSettings.['Position X'].value < 0):
-				modelSettings.setPositionXYRel(0, modelSettings.['Position X'].value[1])
-			elif (modelSettings.['Position X'].value > 100):
-				modelSettings.setPositionXYRel(100, modelSettings.['Position X'].value[1])
-
-			if (modelSettings.['Position X'].value[1] < 0):
-				modelSettings.setPositionXYRel(modelSettings.['Position X'].value[0], 0)
-			elif (modelSettings.['Position X'].value[1] > 100):
-				modelSettings.setPositionXYRel(modelSettings.['Position X'].value[0], 100)	
-
-			if (modelSettings['Bottom clearance'].value < 0):
-				modelSettings.setBottomClearance(0)
-			'''
-
 			# Move model to origin. ****
 			self.stlCenterTransform.Translate(-self.__getCenter(self.stlScaleFilter)[0], -self.__getCenter(self.stlScaleFilter)[1], -self.__getCenter(self.stlScaleFilter)[2])
 			self.stlCenterFilter.Update()
@@ -584,9 +629,9 @@ class modelData:
 #			print "Orientation reset: " + str(self.stlRotateTransform.GetOrientation())
 #			print "Orientation from settings: " + str(modelSettings.getRotationXYZ())
 			# Rotate with new angles.
-			self.stlRotateTransform.RotateWXYZ(modelSettings['Rotation X'].value,1,0,0)
-			self.stlRotateTransform.RotateWXYZ(modelSettings['Rotation Y'].value,0,1,0)
-			self.stlRotateTransform.RotateWXYZ(modelSettings['Rotation Z'].value,0,0,1)
+			self.stlRotateTransform.RotateWXYZ(self.settings['Rotation X'].value,1,0,0)
+			self.stlRotateTransform.RotateWXYZ(self.settings['Rotation Y'].value,0,1,0)
+			self.stlRotateTransform.RotateWXYZ(self.settings['Rotation Z'].value,0,0,1)
 #			print "Orientation new: " + str(self.stlRotateTransform.GetOrientation())
 			# Update filter.
 			self.stlRotationFilter.Update()
@@ -608,23 +653,23 @@ class modelData:
 			elif (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ) <= (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) and (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ) <= (self.programSettings['buildSizeXYZ'].value[1] / self.dimY):
 				smallestRatio =  self.programSettings['buildSizeXYZ'].value[2] / self.dimZ * currentScale
 			# Restrict input scalingFactor if necessary.
-			if smallestRatio < modelSettings['Scaling'].value:
-				modelSettings['Scaling'].setValue(smallestRatio)
+			if smallestRatio < self.settings['Scaling'].value:
+				self.settings['Scaling'].setValue(smallestRatio)
 			
 			# Scale. *******************
 			# First, reset scale to 1.
 			self.stlScaleTransform.Scale(1/self.stlScaleTransform.GetScale()[0], 1/self.stlScaleTransform.GetScale()[1], 1/self.stlScaleTransform.GetScale()[2])
 			# Change scale value.
-			self.stlScaleTransform.Scale(modelSettings['Scaling'].value, modelSettings['Scaling'].value, modelSettings['Scaling'].value)
+			self.stlScaleTransform.Scale(self.settings['Scaling'].value, self.settings['Scaling'].value, self.settings['Scaling'].value)
 			self.stlScaleFilter.Update()	# Update to get new bounds.
 
 			# Position. ****************
 			clearRangeX = self.programSettings['buildSizeXYZ'].value[0] - self.__getSize(self.stlRotationFilter)[0]
 			clearRangeY = self.programSettings['buildSizeXYZ'].value[1] - self.__getSize(self.stlRotationFilter)[1]
 			positionZMax = self.programSettings['buildSizeXYZ'].value[2] - self.__getSize(self.stlRotationFilter)[2]
-			if modelSettings['Bottom clearance'].value > positionZMax:
-				modelSettings['Bottom clearance'].setValue(positionZMax)
-			self.stlPositionTransform.Translate(  (self.__getSize(self.stlRotationFilter)[0]/2 + clearRangeX * (modelSettings['Position X'].value / 100.0)) - self.stlPositionTransform.GetPosition()[0],      (self.__getSize(self.stlRotationFilter)[1]/2 + clearRangeY * (modelSettings['Position Y'].value / 100.0)) - self.stlPositionTransform.GetPosition()[1],       self.__getSize(self.stlRotationFilter)[2]/2 - self.stlPositionTransform.GetPosition()[2] + modelSettings['Bottom clearance'].value)
+			if self.settings['Bottom clearance'].value > positionZMax:
+				self.settings['Bottom clearance'].setValue(positionZMax)
+			self.stlPositionTransform.Translate(  (self.__getSize(self.stlRotationFilter)[0]/2 + clearRangeX * (self.settings['Position X'].value / 100.0)) - self.stlPositionTransform.GetPosition()[0],      (self.__getSize(self.stlRotationFilter)[1]/2 + clearRangeY * (self.settings['Position Y'].value / 100.0)) - self.stlPositionTransform.GetPosition()[1],       self.__getSize(self.stlRotationFilter)[2]/2 - self.stlPositionTransform.GetPosition()[2] + self.settings['Bottom clearance'].value)
 			self.stlPositionFilter.Update()
 
 			# Recalculate normals.
@@ -638,12 +683,13 @@ class modelData:
 			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()/1000.0) )
 			self.modelBoundingBoxTextActor.SetAttachmentPoint(self.getBounds()[1], self.getBounds()[3], self.getBounds()[5])
 
-	def updateBottomPlate(self, settings):#sizeX, sizeY, sizeZ, centerX, centerY, centerZ):
+	def updateBottomPlate(self):
 		if self.filename != "":
-			self.bottomPlate.SetXLength(self.inputPolydata.GetBounds()[1] - self.inputPolydata.GetBounds()[0])
-			self.bottomPlate.SetYLength(self.inputPolydata.GetBounds()[3] - self.inputPolydata.GetBounds()[2])
-			self.bottomPlate.SetZLength(settings.getBottomPlateThickness())
-			self.bottomPlate.SetCenter( (self.inputPolydata.GetBounds()[0] + self.inputPolydata.GetBounds()[1]) / 2.0, (self.inputPolydata.GetBounds()[2] + self.inputPolydata.GetBounds()[3]) / 2.0, settings.getBottomPlateThickness()/2.0)
+			modelBounds = self.getBounds()
+			self.bottomPlate.SetXLength(modelBounds[1] - modelBounds[0])
+			self.bottomPlate.SetYLength(modelBounds[3] - modelBounds[2])
+			self.bottomPlate.SetZLength(self.settings['Bottom plate thickness'].value)
+			self.bottomPlate.SetCenter( (modelBounds[0] + modelBounds[1]) / 2.0, (modelBounds[2] + modelBounds[3]) / 2.0, self.settings['Bottom plate thickness'].value/2.0)
 			self.bottomPlate.Update()
 		
 	
@@ -661,17 +707,22 @@ class modelData:
 	# Update supports. ########################################################
 	def updateSupports(self):
 		if self.filename != "":
+			# Update overhang.
 			self.updateOverhang()
-#			# Create cones if not existant.
-#			if self.cones == None:
-#				self.cones = 
-#				if vtk.VTK_MAJOR_VERSION <= 5 and self.filename != "":
-#					self.conesMapper.SetInput(self.cones.GetOutput())
-#				elif self.filename != "":
-#					self.conesMapper.SetInputConnection(self.cones.GetOutput())
 		
 			# Clear all inputs from cones data.
-			self.cones.RemoveAllInputs()
+			self.supports.RemoveAllInputs()
+			
+			# Create one super small cone to have at least one input
+			# to the vtkAppendPolyData in case no model intersections
+			# were found.
+			cone = vtk.vtkConeSource()
+			# Set cone dimensions.
+			cone.SetRadius(.01)
+			cone.SetHeight(.01)
+			cone.SetResolution(6)
+			cone.SetCenter([-.1,-.1,-.1])
+			self.supports.AddInput(cone.GetOutput())
 	
 	#TODO: Add support regions using	overhangRegionFilter.Update();
 	
@@ -785,13 +836,19 @@ class modelData:
 						cylinderGeomFilter.Update()
 		
 						# Append the cone to the cones polydata.
-						self.cones.AddInput(coneGeomFilter.GetOutput())
+						self.supports.AddInput(coneGeomFilter.GetOutput())
 						# Delete the cone. Vtk delete() method does not work in python because of garbage collection.
 						del cone
 						# Append the cylinder to the cones polydata.
-						self.cones.AddInput(cylinderGeomFilter.GetOutput())
+						self.supports.AddInput(cylinderGeomFilter.GetOutput())
 						del cylinder
 
+
+	# Update slices. ##########################################################
+	
+	
+	
+	
 
 	def getPolydataBottomPlate(self):
 		return self.bottomPlate.GetOutput()
@@ -894,22 +951,38 @@ class modelData:
 		self.modelBoundingBoxTextActor.GetProperty().SetOpacity(opacity)
 		
 	def getPolydataSupports(self):
-		return self.cones.GetOutput()
+		return self.supports.GetOutput()
 	
 	def getActorSupports(self):
-		return self.conesActor
+		return self.supportsActor
 		
 	def hideActorSupports(self):
-		self.conesActor.SetVisibility(False)
+		self.supportsActor.SetVisibility(False)
 	
 	def showActorSupports(self):
-		self.conesActor.SetVisibility(True)
+		self.supportsActor.SetVisibility(True)
 		
 	def colorActorSupports(self, r, g, b):
-		self.conesActor.GetProperty().SetColor(r,g,b)		
+		self.supportsActor.GetProperty().SetColor(r,g,b)		
 	
 	def setOpacitySupports(self, opacity):
-		self.conesActor.GetProperty().SetOpacity(opacity)	
+		self.supportsActor.GetProperty().SetOpacity(opacity)
+		
+	
+	def getActorSlices(self):
+		return self.cuttingFilterActor
+		
+	def hideActorSlices(self):
+		self.cuttingFilterActor.SetVisibility(False)
+	
+	def showActorSlices(self):
+		self.cuttingFilterActor.SetVisibility(True)
+		
+	def colorActorSlices(self, r, g, b):
+		self.cuttingFilterActor.GetProperty().SetColor(r,g,b)		
+	
+	def setOpacitySlices(self, opacity):
+		self.cuttingFilterActor.GetProperty().SetOpacity(opacity)	
 		
 		
 	###########################################################################

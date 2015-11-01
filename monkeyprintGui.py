@@ -169,6 +169,11 @@ class boxSettings(gtk.VBox):
 		
 		self.notebook.show()
 
+		# Set gui state. This controls which tabs are clickable.
+		# 0: Model modifications active.
+		# 1: Model modifications, supports and slicing active.
+		# 2: All active.
+		# Use setGuiState function to set the state. Do not set manually.
 		self.setGuiState(0)
 
 		# Create console for debug output.
@@ -220,7 +225,7 @@ class boxSettings(gtk.VBox):
 		self.frameModels.show()
 		
 		# Create model list view using the model list.
-		self.modelListView = modelListView(self.settings, self.modelList, self.modelCollection, self.renderView, self.update, self.console)
+		self.modelListView = modelListView(self.settings, self.modelList, self.modelCollection, self.renderView, self.updateAllEntries, self.console)
 		self.frameModels.add(self.modelListView)
 		self.modelListView.show()
 		
@@ -231,19 +236,19 @@ class boxSettings(gtk.VBox):
 		self.boxModelModifications = gtk.VBox()
 		self.frameModifications.add(self.boxModelModifications)
 		self.boxModelModifications.show()
-		self.entryScaling = entry('Scaling', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entryScaling = entry('Scaling', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryScaling, expand=False, fill=False)
-		self.entryRotationX = entry('Rotation X', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entryRotationX = entry('Rotation X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationX, expand=False, fill=False)
-		self.entryRotationY = entry('Rotation Y', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entryRotationY = entry('Rotation Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationY, expand=False, fill=False)
-		self.entryRotationZ = entry('Rotation Z', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entryRotationZ = entry('Rotation Z', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationZ, expand=False, fill=False)
-		self.entryPositionX = entry('Position X', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entryPositionX = entry('Position X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryPositionX, expand=False, fill=False)
-		self.entryPositionY = entry('Position Y', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entryPositionY = entry('Position Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryPositionY, expand=False, fill=False)
-		self.entryBottomClearance = entry('Bottom clearance', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entryBottomClearance = entry('Bottom clearance', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryBottomClearance, expand=False, fill=False)
 
 	
@@ -257,7 +262,7 @@ class boxSettings(gtk.VBox):
 		self.supportsTab.pack_start(self.frameModels, padding = 5)
 		self.frameModels.show()
 		# Create model list view using the model list.
-		self.modelListView = modelListView(self.settings, self.modelList, self.modelCollection, self.renderView, self.update, self.console)
+		self.modelListView = modelListView(self.settings, self.modelList, self.modelCollection, self.renderView, self.updateAllEntries, self.console)
 		self.frameModels.add(self.modelListView)
 		self.modelListView.show()
 		
@@ -268,13 +273,13 @@ class boxSettings(gtk.VBox):
 		self.boxSupportPattern = gtk.VBox()
 		self.frameSupportPattern.add(self.boxSupportPattern)
 		self.boxSupportPattern.show()
-		self.entryOverhangAngle = entry('Overhang angle', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entryOverhangAngle = entry('Overhang angle', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entryOverhangAngle, expand=False, fill=False)
-		self.entrySupportSpacingX = entry('Spacing X', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entrySupportSpacingX = entry('Spacing X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportSpacingX, expand=False, fill=False)
-		self.entrySupportSpacingY = entry('Spacing Y', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entrySupportSpacingY = entry('Spacing Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportSpacingY, expand=False, fill=False)
-		self.entrySupportMaxHeight = entry('Maximum height', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entrySupportMaxHeight = entry('Maximum height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportMaxHeight, expand=False, fill=False)
 		
 		# Create support geometry frame.
@@ -284,11 +289,11 @@ class boxSettings(gtk.VBox):
 		self.boxSupportGeometry = gtk.VBox()
 		self.frameSupportGeometry.add(self.boxSupportGeometry)
 		self.boxSupportGeometry.show()
-		self.entrySupportBaseDiameter = entry('Base diameter', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entrySupportBaseDiameter = entry('Base diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportBaseDiameter, expand=False, fill=False)
-		self.entrySupportTipDiameter = entry('Tip diameter', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entrySupportTipDiameter = entry('Tip diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportTipDiameter, expand=False, fill=False)
-		self.entrySupportTipHeight = entry('Cone height', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entrySupportTipHeight = entry('Cone height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportTipHeight, expand=False, fill=False)
 
 		# Create bottom plate frame.
@@ -298,14 +303,9 @@ class boxSettings(gtk.VBox):
 		self.boxBottomPlate = gtk.VBox()
 		self.frameBottomPlate.add(self.boxBottomPlate)
 		self.boxBottomPlate.show()
-		self.entrySupportBottomPlateThickness = entry('Bottom plate thickness', modelCollection=self.modelCollection, customFunctions=[self.renderView.render, self.update])
+		self.entrySupportBottomPlateThickness = entry('Bottom plate thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxBottomPlate.pack_start(self.entrySupportBottomPlateThickness, expand=False, fill=False)
-	
-#	def setSensitive(self, tab, val):
-#		self.notebook.get_tab_label(self.notebook.get_nth_page(tab)).set_sensitive(val)
-#	
-#	def getSensitive(self, tab):
-#		return self.notebook.get_tab_label(self.notebook.get_nth_page(tab)).get_sensitive()
+
 	
 	def setGuiState(self, state):
 		for i in range(self.notebook.get_n_pages()):
@@ -313,10 +313,23 @@ class boxSettings(gtk.VBox):
 				self.notebook.set_tab_sensitive(i, True)
 			else:
 				self.notebook.set_tab_sensitive(i, False)
+	
+	# Function to update the current model after a change was made.
+	# Updates model supports or slicing dependent on
+	# the current page of the settings notebook.
+	def updateCurrentModel(self):
+		if self.notebook.getCurrentPage() == 0:
+			self.modelCollection.getCurrentModel().updateModel()
+		elif self.notebook.getCurrentPage() == 1:
+			self.modelCollection.getCurrentModel().updateSupports()
+		elif self.notebook.getCurrentPage() == 2:
+			self.modelCollection.getCurrentModel().updateSlices()
+		elif self.notebook.getCurrentPage() == 3:
+			self.modelCollection.getCurrentModel().updatePrint()
 			
 	
 	# Update all the settings if the current model has changed.
-	def update(self, state=None):
+	def updateAllEntries(self, state=None):
 		self.entryScaling.update()
 		self.entryRotationX.update()
 		self.entryRotationY.update()
@@ -404,21 +417,22 @@ class entry(gtk.HBox):
 		# If focus was lost and tab key was pressed or if return key was pressed, set the value.
 		if (event.type.value_name == "GDK_FOCUS_CHANGE" and self.entry.has_focus()==False and self.tabKeyPressed) or (event.type.value_name == "GDK_KEY_PRESS" and event.keyval == gtk.keysyms.Return):
 			# Set value.
+			# In case a model collection was provided...
 			if self.modelCollection != None:
-				# Set the new value in the current model's settings.
+				# ... set the new value in the current model's settings.
 				self.modelCollection.getCurrentModel().settings[self.string].setValue(self.entry.get_text())
 				# Call the models update function. This might change the settings value again.
-				self.modelCollection.getCurrentModel().update()
-				self.modelCollection.getCurrentModel().updateSupports()
+#				self.modelCollection.getCurrentModel().update()
+#				self.modelCollection.getCurrentModel().updateSupports()
 				# Call the custom functions specified for the setting.
 				if self.customFunctions != None:
 					for function in self.customFunctions:
 						function()
-				# Set the entrys text field as it might have changed during the function call.
+				# Set the entrys text field as it might have changed during the previous function call.
 				self.entry.set_text(str(self.modelCollection.getCurrentModel().settings[self.string].value))
-			# If this is not a model setting but a printer setting:
+			# If this is not a model setting but a printer setting...
 			elif self.settings != None:
-				# Set the value to the settings.
+				# ... write the value to the settings.
 				self.settings[self.string].setValue(self.entry.get_text())
 				# Set the entry text in case the setting was changed by settings object.
 				self.entry.set_text(str(self.settings[self.string].value))
