@@ -744,7 +744,11 @@ class modelListView(gtk.VBox):
 		
 	# Active state toggled callback.
 	def callbackToggleChanged(self, cell, path, model):
+		# Toggle active flag in model list.
 		model[path][3] = not model[path][3]
+		# Toggle active flag in model collection.
+		self.modelCollection.getCurrentModel().setActive(model[path][3])
+		# Console output.
 		if self.console:
 			if model[path][3] == True:
 				self.console.addLine("Model " + model[path][0] + " activated.")
