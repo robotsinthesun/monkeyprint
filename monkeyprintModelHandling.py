@@ -171,6 +171,7 @@ class modelCollection(dict):
 		self.currentModelId = ""
 		# Load default model to fill settings for gui.
 		self.add("default", "")	# Don't provide file name.
+		# Create the image stack.
 	
 	# Function to retrieve id of the current model.
 	def getCurrentModelId(self):
@@ -194,6 +195,7 @@ class modelCollection(dict):
 		self[modelId] = modelContainer(filename, self.programSettings)
 		# Set new model as current model.
 		self.currentModelId = modelId
+		# 
 	
 	# Function to remove a model from the model collection
 	def remove(self, modelId):
@@ -1302,7 +1304,48 @@ class modelData:
 		return center
 
 
-
+class sliceStack():
+	def __init__(self, programSettings):
+		# Internalise settings.
+		self.programSettings = programSettings
+		# Create black dummy image.
+		# TODO: convert whole workflow to single channel 8 bit.
+		self.imageBlack = numpy.zeros((self.programSettings['Projector size X'], self.programSettings['Projector size Y'], 3), numpy.uint8)
+		# Create the slice array.
+		self.sliceArray = [self.imageBlack]
+	
+	# Update the height of the stack if a new model has been added.
+	def update(self, stackHeight):
+		# If stack is smaller than given height...
+		if len(self.sliceArray) < stackHeight:
+			# ... add black images.
+			for i in range(stackHeight - self.sliceArray):
+				self.sliceArray.append[self.imageBlack]
+		# If stack is higher than given height...
+		elif len(self.sliceArray) < stackHeight:
+			# ... remove obsolete slices.
+			self.sliceArray = self.sliceArray[:stackHeight]
+	
+	# Function to return an image.
+	def getImage(self,index):
+		# If index in bounds...
+		if index < len(self.sliceArray):
+			# ... return the image.
+			return self.sliceArray[index]
+			
+	# Function to add an image to a specific slice and at a specific position.
+	def addImage(self, index, position):
+		# If index in bounds...
+		if index < len(self.sliceArray):
+			# Get the image.
+			img = self.sliceArray[index]
+			# 
+		
+	
+	
+	
+				
+		
 
 
 

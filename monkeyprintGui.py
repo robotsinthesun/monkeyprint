@@ -152,9 +152,7 @@ class boxSettings(gtk.VBox):
 
 
 		# Add slicing page, append to notebook and pass custom function.
-		self.slicingTab = gtk.VBox()
-		self.slicingTab.show()
-		self.slicingTab.add(gtk.Label('slicing stuff'))
+		self.createSlicingTab()
 		self.notebook.append_page(self.slicingTab, gtk.Label('Slicing'))
 #		self.notebook.set_tab_sensitive(2, False)
 		self.notebook.set_custom_function(2, self.tabSwitchSlicesUpdate)
@@ -305,6 +303,33 @@ class boxSettings(gtk.VBox):
 		self.boxBottomPlate.show()
 		self.entrySupportBottomPlateThickness = entry('Bottom plate thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxBottomPlate.pack_start(self.entrySupportBottomPlateThickness, expand=False, fill=False)
+	
+	def createSlicingTab(self):
+		# Create tab box.
+		self.slicingTab = gtk.VBox()
+		self.slicingTab.show()
+
+		# Create slicing parameters frame.
+		self.frameSlicing = gtk.Frame(label="Slicing parameters")
+		self.slicingTab.pack_start(self.frameSlicing, padding = 5)
+		self.frameSlicing.show()
+		
+		# Create hollow and fill frame.
+		self.frameHollow = gtk.Frame(label="Fill parameters")
+		self.slicingTab.pack_start(self.frameHollow, padding = 5)
+		self.frameHollow.show()
+		
+		# Create preview frame.
+		self.framePreview = gtk.Frame(label="Slice preview")
+		self.slicingTab.pack_start(self.framePreview, padding = 5)
+		self.framePreview.show()
+		self.boxPreview = gtk.HBox()
+		self.framePreview.add(self.boxPreview)
+		self.boxPreview.show()
+		self.previewSlider = monkeyprintGuiHelper.imageSlider()
+		self.boxPreview.pack_start(self.previewSlider, expand=True, fill=True, padding=5)
+		self.previewSlider.show()
+		
 
 	
 	def setGuiState(self, state):
