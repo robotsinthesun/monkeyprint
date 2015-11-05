@@ -28,19 +28,22 @@ import monkeyprintGui
 # Test if this file is executed as the main application contrary to being executed as a model from inside another file.
 if __name__ == "__main__":
 
+	# Create a debug console text buffer.
+	console = monkeyprintGui.consoleText()
+
 	# Create settings dictionary object for machine and program settings.
 	programSettings = monkeyprintSettings.programSettings()
 
 	# Create model collection object.
 	# This object contains model data and settings data for each model.
 	# Pass printer and program settings.
-	modelCollection = monkeyprintModelHandling.modelCollection(programSettings)
+	modelCollection = monkeyprintModelHandling.modelCollection(programSettings, console)
 
 	# Create gui.
-	gui = monkeyprintGui.gui(modelCollection, programSettings)
+	gui = monkeyprintGui.gui(modelCollection, programSettings, console)	
 	
 	# Create version message.
-	gui.console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value))
+	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value))
 
 	# Start the gui main loop.
 	gui.main()

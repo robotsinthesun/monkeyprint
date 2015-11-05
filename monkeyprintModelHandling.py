@@ -29,16 +29,17 @@ import Image, ImageTk
 import monkeyprintSettings
 
 class modelContainer:
-	def __init__(self, filename, programSettings):
+	def __init__(self, filename, programSettings, console=None):
 	
 		# Internalise data.
 		self.filename = filename
+		self.console=console
 		
 		# Create settings object.
 		self.settings = monkeyprintSettings.modelSettings()
 		
 		# Create model object.
-		self.model = modelData(filename, self.settings, programSettings)
+		self.model = modelData(filename, self.settings, programSettings, self.console)
 		
 		# Active flag. Only do updates if model is active.
 		self.flagActive = True
@@ -49,7 +50,8 @@ class modelContainer:
 		self.hideBottomPlate()
 		self.hideSlices()
 
-
+	def getHeight(self):
+		return self.model.getHeight()
 	
 	def updateModel(self):
 		self.model.updateModel()
@@ -127,10 +129,10 @@ class modelContainer:
 		self.model.hideActorOverhang()
 	
 	def showBottomPlate(self):
-		pass
+		self.model.showActorBottomPlate()
 
 	def hideBottomPlate(self):
-		pass
+		self.model.hideActorBottomPlate()
 	
 	def opaqueBottomPlate(self):
 		self.model.setOpacityBottomPlate(1.0)
@@ -151,10 +153,10 @@ class modelContainer:
 		self.model.setOpacitySupports(.5)
 	
 	def showSlices(self):
-		pass
+		self.model.showActorSlices()
 	
 	def hideSlices(self):
-		pass
+		self.model.hideActorSlices()
 	
 
 ################################################################################
@@ -162,16 +164,18 @@ class modelContainer:
 ################################################################################
 
 class modelCollection(dict):
-	def __init__(self, programSettings):
+	def __init__(self, programSettings, console=None):
 		# Call super class init function.
 		dict.__init__(self)
 		# Internalise settings.
 		self.programSettings = programSettings
+		self.console = console
+		# Create the image stack.
+		self.sliceStack = sliceStack(self.programSettings)
 		# Create current model id.
 		self.currentModelId = ""
 		# Load default model to fill settings for gui.
 		self.add("default", "")	# Don't provide file name.
-		# Create the image stack.
 	
 	# Function to retrieve id of the current model.
 	def getCurrentModelId(self):
@@ -192,16 +196,38 @@ class modelCollection(dict):
 	
 	# Add a model to the collection.
 	def add(self, modelId, filename):
-		self[modelId] = modelContainer(filename, self.programSettings)
+		self[modelId] = modelContainer(filename, self.programSettings, self.console)
 		# Set new model as current model.
 		self.currentModelId = modelId
-		# 
+		# Update slice stack height.
+		self.updateSliceStack()
 	
 	# Function to remove a model from the model collection
 	def remove(self, modelId):
 		if self[modelId]:
 			del self[modelId]
 	
+	# Function to retrieve the highest model. This dictates the slice stack height.
+	def getMaxHeight(self):
+		height = 0
+		# Loop through all models.
+		for model in self:
+			# If model higher than current height value...
+			if height < self[model].getHeight():
+				# ... set new height value.
+				height = self[model].getHeight()
+		if self.console != None:
+			self.console.addLine('Maximum model height: ' + str(height) + ' mm.')
+		return height
+	
+	# Update the slice stack. Set it's height according to max model
+	# height and layer height.
+	def updateSliceStack(self):
+		numberOfSlices = int(math.floor(self.getMaxHeight() / self.programSettings['Layer height'].value))
+		self.console.addLine('Slice stack updated to ' + str(numberOfSlices) + ' slices.')
+		self.sliceStack.update(numberOfSlices)
+		
+		
 	# Adjust view for model manipulation.
 	def viewDefault(self):
 		for model in self:
@@ -250,6 +276,8 @@ class modelCollection(dict):
 		for model in self:
 			# TODO: test if model is enabled.
 			self[model].updateSlices()
+	
+	
 	
 
 
@@ -305,7 +333,7 @@ class modelData:
 	# Construction method definition. #########################################
 	###########################################################################
 	
-	def __init__(self, filename, settings, programSettings):
+	def __init__(self, filename, settings, programSettings, console=None):
 		# Set up variables.
 		# General.
 		self.filenameStl = ""
@@ -313,6 +341,7 @@ class modelData:
 		self.flagActive = True
 		self.settings = settings
 		self.programSettings = programSettings
+		self.console = console
 		# For model positioning.
 		self.rotationXOld = 0
 		self.rotationYOld = 0
@@ -646,11 +675,14 @@ class modelData:
 			self.stlPositionFilter.Update()
 			# If there are no points in 'vtkPolyData' something went wrong
 			if self.stlPolyData.GetNumberOfPoints() == 0:
-				print "No points found in stl file."
+				if self.console:
+					self.console.addLine("No points found in stl file.")
 			else:
-				print 'Model loaded successfully.'
-				print '   ' + str(self.stlPolyData.GetNumberOfPoints()) + " points loaded."
-				print '   ' + str(self.stlPolyData.GetNumberOfPolys()) + " polygons loaded."
+				if self.console:
+					self.console.addLine('Model loaded successfully.')
+					self.console.addLine('   ' + str(self.stlPolyData.GetNumberOfPoints()) + " points loaded.")
+					self.console.addLine('   ' + str(self.stlPolyData.GetNumberOfPolys()) + " polygons loaded.")
+
 			# Set up the initial model scaling, rotation and position. ###########
 			self.updateModel()
 
@@ -680,7 +712,10 @@ class modelData:
 	
 	
 	def getHeight(self):
-		return self.__getBounds(self.stlPositionFilter)[5]
+		if self.filename != "":
+			return self.__getBounds(self.stlPositionFilter)[5]
+		else:
+			return 0
 	'''
 	# Load a model of given filename.
 	def loadInputFile(self, filename, settings):	# Import 
@@ -1304,42 +1339,79 @@ class modelData:
 		return center
 
 
+################################################################################
+# A list of all the slices. ####################################################
+################################################################################
+# Contains all slices for preview and will be continuously updated
+# in a background thread.
 class sliceStack():
 	def __init__(self, programSettings):
 		# Internalise settings.
 		self.programSettings = programSettings
+		# Create noisy images.
+		self.numberOfNoisyImages = 10
+		self.imagesNoisy = [self.createImageNoisy()]
+		for i in range(1,self.numberOfNoisyImages):
+			self.imagesNoisy.append(self.createImageNoisy())
 		# Create black dummy image.
 		# TODO: convert whole workflow to single channel 8 bit.
-		self.imageBlack = numpy.zeros((self.programSettings['Projector size X'], self.programSettings['Projector size Y'], 3), numpy.uint8)
-		# Create the slice array.
+		self.imageBlack = numpy.zeros((self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value, 3), numpy.uint8)
+		# Create error image. TODO make this a monkey skull...
+		self.imageError = self.imageBlack
+		# Create the slice array with a first black image.
 		self.sliceArray = [self.imageBlack]
+
+	# Create random noise image.
+	def createImageNoisy(self):
+		imageNoisy = numpy.random.rand(self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value, 3) * 255
+		imageNoisy = numpy.uint8(imageNoisy)
+		return imageNoisy
+	
 	
 	# Update the height of the stack if a new model has been added.
 	def update(self, stackHeight):
 		# If stack is smaller than given height...
 		if len(self.sliceArray) < stackHeight:
+			# Last random number.
+			noisyImageIndex = 0
 			# ... add black images.
-			for i in range(stackHeight - self.sliceArray):
-				self.sliceArray.append[self.imageBlack]
+			for i in range(stackHeight - len(self.sliceArray)):
+				# Add a noisy image randomly chosen from the noisy image list.
+				self.sliceArray.append(self.imagesNoisy[noisyImageIndex])
+				if noisyImageIndex < self.numberOfNoisyImages-1:
+					noisyImageIndex = noisyImageIndex +1
+				else:
+					noisyImageIndex = 0
 		# If stack is higher than given height...
-		elif len(self.sliceArray) < stackHeight:
+		elif len(self.sliceArray) > stackHeight:
 			# ... remove obsolete slices.
 			self.sliceArray = self.sliceArray[:stackHeight]
 	
+
+	# Return stack height.
+	def getStackHeight(self):
+		return len(self.sliceArray)
+
+
 	# Function to return an image.
 	def getImage(self,index):
 		# If index in bounds...
-		if index < len(self.sliceArray):
+		if int(index) < len(self.sliceArray):
 			# ... return the image.
-			return self.sliceArray[index]
+			return self.sliceArray[int(index)]
+		else:
+			return self.imageError
+		
 			
 	# Function to add an image to a specific slice and at a specific position.
-	def addImage(self, index, position):
+	def addImage(self, image, index, position):
 		# If index in bounds...
 		if index < len(self.sliceArray):
 			# Get the image.
 			img = self.sliceArray[index]
-			# 
+			# Add it to the existing slice.
+			# Set region black for testing.
+			self.sliceArray[index][10:20][50:150][:] = zeros(10,100,3)
 		
 	
 	

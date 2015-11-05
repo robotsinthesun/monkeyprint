@@ -71,7 +71,6 @@ class modelSettings(dict):
 		self['Tip diameter'] = setting(value=0.5,	lower=0.1,	upper=0.5,	unit='mm')
 		self['Cone height'] = setting(value=2.5,	lower=1.0,	upper=10.0,	unit='mm')
 		self['Bottom plate thickness'] = setting(value=0.5,	lower=0.1,	upper=1.0,	unit='mm')
-		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')
 		self['Print hollow'] = setting(value=True)
 		self['Fill'] = setting(value=True)
 		self['Shell wall thickness'] = setting(value=2.0, lower=0.5, upper=10.0, unit='mm')
@@ -117,6 +116,7 @@ class programSettings(dict):
 		self['Ramp slope'] = setting(value='15', default='15')
 		self['Build platform speed'] = setting(value='10', default='10')
 		self['Show fill'] = setting(value=True)
+		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')
 	# Load default settings.
 	def loadDefaults(self):
 		# Loop through all settings.
