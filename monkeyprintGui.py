@@ -195,6 +195,8 @@ class boxSettings(gtk.VBox):
 		# Set render actor visibilities.
 		self.modelCollection.viewDefault()
 		self.renderView.render()
+		# Enable model management load and remove buttons.
+		self.modelListView.setSensitive(True)
 
 	
 	def tabSwitchSupportsUpdate(self):
@@ -203,6 +205,11 @@ class boxSettings(gtk.VBox):
 		# Set render actor visibilities.
 		self.modelCollection.viewSupports()
 		self.renderView.render()
+		# Activate slice tab if not already activated.
+		if self.getGuiState() == 1:
+			self.setGuiState(2)
+		# Disable model management load and remove buttons.
+		self.modelListView.setSensitive(False)
 
 
 	def tabSwitchSlicesUpdate(self):
@@ -211,9 +218,12 @@ class boxSettings(gtk.VBox):
 		# Set render actor visibilites.
 		self.modelCollection.viewSlices()
 		self.renderView.render()
+		# Disable model management load and remove buttons.
+		self.modelListView.setSensitive(False)
 	
 	def tabSwitchPrintUpdate(self):
-		pass
+		# Disable model management load and remove buttons.
+		self.modelListView.setSensitive(False)
 				
 
 
@@ -328,9 +338,29 @@ class boxSettings(gtk.VBox):
 		self.boxSlicingParameters.pack_start(self.entryLayerHeight, expand=False, fill=False)
 		
 		# Create hollow and fill frame.
-		self.frameHollow = gtk.Frame(label="Fill parameters")
-		self.slicingTab.pack_start(self.frameHollow, padding = 5)
-		self.frameHollow.show()
+		self.frameFill = gtk.Frame(label="Fill parameters")
+		self.slicingTab.pack_start(self.frameFill, padding = 5)
+		self.frameFill.show()
+		self.boxFill = gtk.VBox()
+		self.frameFill.add(self.boxFill)
+		self.boxFill.show()
+		# Checkbox for hollow prints.
+		self.checkboxHollow = gtk.CheckButton(label="Print hollow?")
+		self.boxFill.pack_start(self.checkboxHollow, expand=True, fill=True)
+		self.checkboxHollow.show()
+		self.checkboxHollow.connect("toggled", self.callbackCheckButtonHollow)
+		# Checkbox for fill structures.
+		self.checkboxFill = gtk.CheckButton(label="Use fill?")
+		self.boxFill.pack_start(self.checkboxFill, expand=True, fill=True)
+		self.checkboxFill.show()
+		self.checkboxFill.connect("toggled", self.callbackCheckButtonFill)
+		# Entries.
+		self.entryShellThickness = entry('Shell wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.boxFill.pack_start(self.entryShellThickness, expand=True, fill=True)
+		self.entryFillSpacing = entry('Fill spacing', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.boxFill.pack_start(self.entryFillSpacing, expand=True, fill=True)
+		self.entryFillThickness = entry('Fill wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.boxFill.pack_start(self.entryFillThickness, expand=True, fill=True)
 		
 		# Create preview frame.
 		self.framePreview = gtk.Frame(label="Slice preview")
@@ -342,15 +372,29 @@ class boxSettings(gtk.VBox):
 		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection.sliceStack, self.console)
 		self.boxPreview.pack_start(self.previewSlider, expand=True, fill=True, padding=5)
 		self.previewSlider.show()
+	
+	def callbackCheckButtonHollow(self, widget, data=None):
+		self.modelCollection.getCurrentModel().settings['Print hollow'].setValue(widget.get_active())
+		
+	def callbackCheckButtonFill(self, widget, data=None):
+		self.modelCollection.getCurrentModel().settings['Fill'].setValue(widget.get_active())
+		
 		
 
-	
+# TODO should these two be placed in the notebook class?	
 	def setGuiState(self, state):
 		for i in range(self.notebook.get_n_pages()):
 			if i<=state:
 				self.notebook.set_tab_sensitive(i, True)
 			else:
 				self.notebook.set_tab_sensitive(i, False)
+	
+	def getGuiState(self):
+		tab = 0
+		for i in range(self.notebook.get_n_pages()):
+			if self.notebook.is_tab_sensitivte(i):
+				tab = i
+		return tab
 	
 	# Function to update the current model after a change was made.
 	# Updates model supports or slicing dependent on
@@ -672,14 +716,13 @@ class modelListView(gtk.VBox):
 		self.modelSelection.select_iter(newIter)
 		# Make supports and slice tab available if this is the first model.
 		if len(self.modelList)< 2:
-			self.guiUpdateFunction(state=2)
+			self.guiUpdateFunction(state=1)
 	
 	# Remove an item and set the selection to the next.
 	def remove(self, currentIter):
 		# Get the path of the current iter.
 		currentPath = self.modelList.get_path(currentIter)[0]
 		deletePath = currentPath
-		print currentPath
 		# Check what to select next.
 		# If current selection at end of list but not the last element...
 		if currentPath == len(self.modelList) - 1 and len(self.modelList) > 1:
@@ -820,6 +863,12 @@ class modelListView(gtk.VBox):
 			self.renderView.render()
 			# Update the gui.
 			self.guiUpdateFunction()
+	
+	# Disable buttons so models can only be loaded in first tab.
+	def setSensitive(self, sensitive):
+		self.buttonLoad.set_sensitive(sensitive)
+		self.buttonRemove.set_sensitive(sensitive)
+
 
 
 # Window for firmware upload. ##################################################

@@ -1037,6 +1037,8 @@ class modelData:
 		
 		return self.cvImagePattern
 	
+	# Update slice actor.
+	
 	# Update slice image.
 	def updateSlice(self, layerHeight, sliceNumber):
 		if self.filename != "" and self.isActive():
