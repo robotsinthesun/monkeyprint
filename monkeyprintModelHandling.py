@@ -25,6 +25,7 @@ import cv2
 import numpy
 import random
 import Image, ImageTk
+import Queue, threading
 
 import monkeyprintSettings
 
@@ -49,6 +50,9 @@ class modelContainer:
 		self.hideSupports()
 		self.hideBottomPlate()
 		self.hideSlices()
+		
+		# Model slice image stack.
+		
 
 	def getHeight(self):
 		return self.model.getHeight()
@@ -60,8 +64,8 @@ class modelContainer:
 		self.model.updateBottomPlate()
 		self.model.updateSupports()
 	
-	def updateSlices(self):
-		pass
+	def updateSlice(self, sliceNumber):
+		self.model.updateSlice3d(sliceNumber)
 	
 	def getAllActors(self):
 		return (	self.getActor(),
@@ -272,10 +276,10 @@ class modelCollection(dict):
 			# TODO: test if model is enabled.
 			self[model].updateSupports()
 	
-	def updateAllSlices(self):
+	def updateAllSlices(self, sliceNumber):
 		for model in self:
 			# TODO: test if model is enabled.
-			self[model].updateSlices()
+			self[model].updateSlice(sliceNumber)
 	
 	
 	
@@ -349,6 +353,7 @@ class modelData:
 		# For slicing.
 #TODO		self.printFlag = printFlag
 		self.extrusionVector = (0,0,-1)
+		self.sliceStack = sliceStack()
 		
 		
 		# Set up pipeline. ###################################################
@@ -418,39 +423,62 @@ class modelData:
 
 
 			# The following is for 3D slice data. ################################
-
+			# Create cutting plane, cutting filter and cut line polydata twice,
+			# one for 3d display and one for slice image generation in background.
 			# Create cutting plane.
 			self.cuttingPlane = vtk.vtkPlane()
 			self.cuttingPlane.SetNormal(0,0,1)
 			self.cuttingPlane.SetOrigin(0,0,0.001)	# Make sure bottom plate is cut properly.
+			self.cuttingPlane2 = vtk.vtkPlane()
+			self.cuttingPlane2.SetNormal(0,0,1)
+			self.cuttingPlane2.SetOrigin(0,0,0.001)	# Make sure bottom plate is cut properly.
 			# Create cutting filter for model.
 			self.cuttingFilterModel = vtk.vtkCutter()
 			self.cuttingFilterModel.SetCutFunction(self.cuttingPlane)
 			self.cuttingFilterModel.SetInput(self.stlPositionFilter.GetOutput())
+			self.cuttingFilterModel2 = vtk.vtkCutter()
+			self.cuttingFilterModel2.SetCutFunction(self.cuttingPlane)
+			self.cuttingFilterModel2.SetInput(self.stlPositionFilter.GetOutput())
 			# Create cutting filter for supports.
 			self.cuttingFilterSupports = vtk.vtkCutter()
 			self.cuttingFilterSupports.SetCutFunction(self.cuttingPlane)
 			self.cuttingFilterSupports.SetInput(self.supports.GetOutput())
+			self.cuttingFilterSupports2 = vtk.vtkCutter()
+			self.cuttingFilterSupports2.SetCutFunction(self.cuttingPlane)
+			self.cuttingFilterSupports2.SetInput(self.supports.GetOutput())
 			# Create cutting filter for bottom plate.
 			self.cuttingFilterBottomPlate = vtk.vtkCutter()
 			self.cuttingFilterBottomPlate.SetCutFunction(self.cuttingPlane)
 			self.cuttingFilterBottomPlate.SetInput(self.bottomPlate.GetOutput())
+			self.cuttingFilterBottomPlate2 = vtk.vtkCutter()
+			self.cuttingFilterBottomPlate2.SetCutFunction(self.cuttingPlane)
+			self.cuttingFilterBottomPlate2.SetInput(self.bottomPlate.GetOutput())
 			# Create polylines from cutter output for model.
 			self.sectionStripperModel = vtk.vtkStripper()
 			self.sectionStripperModel.SetInput(self.cuttingFilterModel.GetOutput())
+			self.sectionStripperModel2 = vtk.vtkStripper()
+			self.sectionStripperModel2.SetInput(self.cuttingFilterModel.GetOutput())
 			#TODO: remove scalars so color is white.
 			#self.sectionStripperModel.GetOutput().GetPointData().RemoveArray('normalsZ')
 			# Create polylines from cutter output for supports.
 			self.sectionStripperSupports = vtk.vtkStripper()
 			self.sectionStripperSupports.SetInput(self.cuttingFilterSupports.GetOutput())
+			self.sectionStripperSupports2 = vtk.vtkStripper()
+			self.sectionStripperSupports2.SetInput(self.cuttingFilterSupports.GetOutput())
 			# Create polylines from cutter output for bottom plate.
 			self.sectionStripperBottomPlate = vtk.vtkStripper()
 			self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
+			self.sectionStripperBottomPlate2 = vtk.vtkStripper()
+			self.sectionStripperBottomPlate2.SetInput(self.cuttingFilterBottomPlate.GetOutput())
 			# Combine cut lines from model, supports and bottom plate. This is for display only.
 			self.combinedCutlines = vtk.vtkAppendPolyData()
 			self.combinedCutlines.AddInput(self.sectionStripperModel.GetOutput())
 			self.combinedCutlines.AddInput(self.sectionStripperSupports.GetOutput())
 			self.combinedCutlines.AddInput(self.sectionStripperBottomPlate.GetOutput())
+			self.combinedCutlines2 = vtk.vtkAppendPolyData()
+			self.combinedCutlines2.AddInput(self.sectionStripperModel.GetOutput())
+			self.combinedCutlines2.AddInput(self.sectionStripperSupports.GetOutput())
+			self.combinedCutlines2.AddInput(self.sectionStripperBottomPlate.GetOutput())
 			# Create a small cone to have at least one input
 			# to the slice line vtkAppendPolyData in case no
 			# model intersections were found.
@@ -461,6 +489,7 @@ class modelData:
 			cone.SetResolution(6)
 			cone.SetCenter([-.1,-.1,-.1])
 			self.combinedCutlines.AddInput(cone.GetOutput())
+			self.combinedCutlines2.AddInput(cone.GetOutput())
 			# Extrude cut polyline of model.
 			self.extruderModel = vtk.vtkLinearExtrusionFilter()
 			self.extruderModel.SetInput(self.sectionStripperModel.GetOutput())
@@ -710,35 +739,12 @@ class modelData:
 		inputPolydata.GetPointData().SetScalars(normalsZ)
 		return inputPolydata
 	
-	
 	def getHeight(self):
 		if self.filename != "":
 			return self.__getBounds(self.stlPositionFilter)[5]
 		else:
 			return 0
-	'''
-	# Load a model of given filename.
-	def loadInputFile(self, filename, settings):	# Import 
 
-		# Set filename.
-#		self.filenameStl = filename
-		# Load model.
-#		self.stlReader.SetFileName(filename)#settings.getFilename())#self.filenameStl)
-		self.stlPositionFilter.Update()
-		# If there are no points in 'vtkPolyData' something went wrong
-		if self.stlPolyData.GetNumberOfPoints() == 0:
-			print "No points found in stl file."
-		else:
-			print 'Model loaded successfully.'
-			print '   ' + str(self.stlPolyData.GetNumberOfPoints()) + " points loaded."
-			print '   ' + str(self.stlPolyData.GetNumberOfPolys()) + " polygons loaded."
-
-		# Set up the initial model scaling, rotation and position. ###########
-		# Now, all we need to do is to set up the transformation matrices.
-		# Fortunately, we have a method for this. Inputs: scaling, rotX [°], rotY [°], rotZ [°], posXRel [%], posYRel [%], posZ [mm].
-#		self.setTransform(modelSettings.[0], modelSettings.[1], modelSettings.[2], modelSettings.[3], modelSettings.[4], modelSettings.[5], modelSettings.[6])
-		self.update(settings)
-	'''
 	def getSize(self):
 		return self.__getSize(self.stlPositionFilter)
 	
@@ -1038,12 +1044,20 @@ class modelData:
 		return self.cvImagePattern
 	
 	# Update slice actor.
+	def updateSlice3d(self, sliceNumber):
+		if self.filename != "" and self.isActive():
+			# Update pipeline with slice position given by layer height and slice number.
+			self.cuttingPlane.SetOrigin(0,0,self.programSettings['Layer height'].value*sliceNumber)
+			self.extruderModel.SetVector(0,0,-sliceNumber*self.programSettings['Layer height'].value-1)
+			self.extruderSupports.SetVector(0,0,-sliceNumber*self.programSettings['Layer height'].value-1)
+			self.extruderBottomPlate.SetVector(0,0,-sliceNumber*self.programSettings['Layer height'].value-1)
+			self.combinedSliceImageModelSupportsBottomPlate.Update()
 	
 	# Update slice image.
 	def updateSlice(self, layerHeight, sliceNumber):
 		if self.filename != "" and self.isActive():
 						
-			print "UPDATING SLICE " + str(sliceNumber) + "."
+#			print "UPDATING SLICE " + str(sliceNumber) + "."
 			self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber)
 			self.extruderModel.SetVector(0,0,-sliceNumber*layerHeight-1)
 			self.extruderSupports.SetVector(0,0,-sliceNumber*layerHeight-1)
@@ -1347,25 +1361,45 @@ class modelData:
 # Contains all slices for preview and will be continuously updated
 # in a background thread.
 class sliceStack():
-	def __init__(self, programSettings):
-		# Internalise settings.
-		self.programSettings = programSettings
-		# Create noisy images.
+	def __init__(self, programSettings=None):
+		# Set width and height.
+		# If program settings are supplied...
+		if programSettings != None:
+			# use projector width and height.
+			self.width = programSettings['Projector size X'].value
+			self.height = programSettings['Projector size Y'].value
+		else:
+			# use dummy width and height until setSize function is called.
+			self.width = 10
+			self.height = 10
+		# Load initial images.
+		self.createDummyImages()	
+		# Create the slice array with a first black image.
+		self.sliceArray = [self.imageBlack]
+	
+	# Set size function.
+	def setSize(self, width, height):
+		self.width = width
+		self.height = height
+		self.createDummyImages()
+
+
+	# Create dummy images.
+	def createDummyImages(self):
+		# Create some different noisy images.
 		self.numberOfNoisyImages = 10
 		self.imagesNoisy = [self.createImageNoisy()]
 		for i in range(1,self.numberOfNoisyImages):
 			self.imagesNoisy.append(self.createImageNoisy())
 		# Create black dummy image.
-		# TODO: convert whole workflow to single channel 8 bit.
-		self.imageBlack = numpy.zeros((self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value, 3), numpy.uint8)
+		self.imageBlack = numpy.zeros((self.width, self.height, 3), numpy.uint8)
 		# Create error image. TODO make this a monkey skull...
 		self.imageError = self.imageBlack
-		# Create the slice array with a first black image.
-		self.sliceArray = [self.imageBlack]
-
+		
+		
 	# Create random noise image.
 	def createImageNoisy(self):
-		imageNoisy = numpy.random.rand(self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value, 3) * 255
+		imageNoisy = numpy.random.rand(self.width, self.height, 3) * 255
 		imageNoisy = numpy.uint8(imageNoisy)
 		return imageNoisy
 	
@@ -1389,6 +1423,35 @@ class sliceStack():
 			# ... remove obsolete slices.
 			self.sliceArray = self.sliceArray[:stackHeight]
 	
+	
+	# Set stack noisy. Type may be 'black' or 'noisy'
+	def resetStack(self, imgType='black', start=None, end=None):
+		if start == None: start = 0
+		if end == None: end = getStackHeight()
+		# Last random number.
+		noisyImageIndex = 0
+		for i in range(start, end):
+			# Get image.
+			if imgType == 'noisy':
+				img = (self.imagesNoisy[noisyImageIndex])
+			elif imgType == 'black':
+				img = (self.imageBlack)
+			# If slice exists...
+			if i < getStackHeight:
+				# set image.
+				self.sliceArray[i] = img
+			# If slice doesn't exist...
+			elif i >= getStackHeight:
+				# append image.
+				self.sliceArray.append(img)
+			# Set next noisy image index.
+			if noisyImageIndex < self.numberOfNoisyImages-1:
+				noisyImageIndex = noisyImageIndex +1
+			else:
+				noisyImageIndex = 0
+
+	
+		
 
 	# Return stack height.
 	def getStackHeight(self):

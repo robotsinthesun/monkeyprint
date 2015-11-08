@@ -214,7 +214,8 @@ class boxSettings(gtk.VBox):
 
 	def tabSwitchSlicesUpdate(self):
 		# Update slices.
-		self.modelCollection.updateAllSlices()
+		# This should run automatically.
+#		self.modelCollection.updateAllSlices(0)
 		# Set render actor visibilites.
 		self.modelCollection.viewSlices()
 		self.renderView.render()
@@ -369,7 +370,7 @@ class boxSettings(gtk.VBox):
 		self.boxPreview = gtk.HBox()
 		self.framePreview.add(self.boxPreview)
 		self.boxPreview.show()
-		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection.sliceStack, self.console)
+		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection.sliceStack, self.console, customFunctions=[self.modelCollection.updateAllSlices, self.renderView.render])
 		self.boxPreview.pack_start(self.previewSlider, expand=True, fill=True, padding=5)
 		self.previewSlider.show()
 	
