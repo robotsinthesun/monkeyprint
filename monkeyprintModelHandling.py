@@ -26,21 +26,23 @@ import numpy
 import random
 import Image, ImageTk
 import Queue, threading
+import monkeyprintImageHandling as imageHandling
 
 import monkeyprintSettings
 
 class modelContainer:
-	def __init__(self, filename, programSettings, console=None):
+	def __init__(self, filename, programSettings, sliceStack, console=None):
 	
 		# Internalise data.
 		self.filename = filename
 		self.console=console
+		self.sliceStack = sliceStack
 		
 		# Create settings object.
 		self.settings = monkeyprintSettings.modelSettings()
 		
 		# Create model object.
-		self.model = modelData(filename, self.settings, programSettings, self.console)
+		self.model = modelData(filename, self.settings, programSettings, self.sliceStack, self.console)
 		
 		# Active flag. Only do updates if model is active.
 		self.flagActive = True
@@ -66,6 +68,9 @@ class modelContainer:
 	
 	def updateSlice(self, sliceNumber):
 		self.model.updateSlice3d(sliceNumber)
+	
+	def updateSliceStack(self):
+		self.model.updateSliceStack()
 	
 	def getAllActors(self):
 		return (	self.getActor(),
@@ -200,7 +205,7 @@ class modelCollection(dict):
 	
 	# Add a model to the collection.
 	def add(self, modelId, filename):
-		self[modelId] = modelContainer(filename, self.programSettings, self.console)
+		self[modelId] = modelContainer(filename, self.programSettings, self.sliceStack, self.console)
 		# Set new model as current model.
 		self.currentModelId = modelId
 		# Update slice stack height.
@@ -230,8 +235,11 @@ class modelCollection(dict):
 		numberOfSlices = int(math.floor(self.getMaxHeight() / self.programSettings['Layer height'].value))
 		self.console.addLine('Slice stack updated to ' + str(numberOfSlices) + ' slices.')
 		self.sliceStack.update(numberOfSlices)
+		# Update all models' slice stacks.
+		for model in self:
+			self[model].updateSliceStack()
 		
-		
+		self.programSettings['Layer height'].value
 	# Adjust view for model manipulation.
 	def viewDefault(self):
 		for model in self:
@@ -337,7 +345,7 @@ class modelData:
 	# Construction method definition. #########################################
 	###########################################################################
 	
-	def __init__(self, filename, settings, programSettings, console=None):
+	def __init__(self, filename, settings, programSettings, sliceStack, console=None):
 		# Set up variables.
 		# General.
 		self.filenameStl = ""
@@ -345,6 +353,7 @@ class modelData:
 		self.flagActive = True
 		self.settings = settings
 		self.programSettings = programSettings
+		self.sliceStack = sliceStack
 		self.console = console
 		# For model positioning.
 		self.rotationXOld = 0
@@ -353,7 +362,7 @@ class modelData:
 		# For slicing.
 #TODO		self.printFlag = printFlag
 		self.extrusionVector = (0,0,-1)
-		self.sliceStack = sliceStack()
+	#	self.sliceStack = sliceStack()
 		
 		
 		# Set up pipeline. ###################################################
@@ -1054,21 +1063,16 @@ class modelData:
 			self.combinedSliceImageModelSupportsBottomPlate.Update()
 	
 	# Update slice image.
-	def updateSlice(self, layerHeight, sliceNumber):
+	def updateSlice(self, sliceNumber):
 		if self.filename != "" and self.isActive():
-						
-#			print "UPDATING SLICE " + str(sliceNumber) + "."
+			
+			layerHeight = 	self.programSettings['Layer height'].value
+			# Update the pipeline.
 			self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber)
 			self.extruderModel.SetVector(0,0,-sliceNumber*layerHeight-1)
 			self.extruderSupports.SetVector(0,0,-sliceNumber*layerHeight-1)
 			self.extruderBottomPlate.SetVector(0,0,-sliceNumber*layerHeight-1)
 			self.combinedSliceImageModelSupportsBottomPlate.Update()
-		
-#			# Limit shell thickness.
-#			if self.settings.getShellThickness() < 1.0:		# TODO: get min and max values from settings dict
-#				self.settings.setShellThickness(1.0)
-#			elif self.settings.getShellThickness() > 5.0:
-#				self.settings.setShellThickness(5.0)	
 		
 			# Get pixel values from vtk image data. #########################
 			self.imageArray = self.combinedSliceImageModelSupportsBottomPlate.GetOutput().GetPointData().GetScalars()
@@ -1172,6 +1176,24 @@ class modelData:
 				else:
 					self.imageArrayNumpy = self.imageArrayNumpyWall
 
+	# Update whole image stack in an extra thread.
+	def updateSliceStack(self):
+		if self.filename != "" and self.isActive():
+			# Convert bounds to pixels.
+			bounds = [	int(self.getBounds()[0] / self.programSettings['Layer height'].value),
+						int(self.getBounds()[1] / self.programSettings['Layer height'].value),
+						int(self.getBounds()[2] / self.programSettings['Layer height'].value),
+						int(self.getBounds()[3] / self.programSettings['Layer height'].value),
+						int(self.getBounds()[4] / self.programSettings['Layer height'].value),
+						int(self.getBounds()[5] / self.programSettings['Layer height'].value)	]
+			# Add empty images to the slice stack at the position of the model.
+			self.sliceStack.newModelStack(bounds)
+	
+	# Move the image stack in case the model was moved.
+	def moveSliceStack(self):
+		pass
+		
+	
 # TODO is this needed any more?	
 	def pointsEqual(self, pointA, pointB, tolerance):
 		return (abs(pointA[0] - pointB[0]) < tolerance and abs(pointA[1] - pointB[1]) < tolerance)
@@ -1362,6 +1384,7 @@ class modelData:
 # in a background thread.
 class sliceStack():
 	def __init__(self, programSettings=None):
+		self.programSettings = programSettings
 		# Set width and height.
 		# If program settings are supplied...
 		if programSettings != None:
@@ -1381,69 +1404,46 @@ class sliceStack():
 	def setSize(self, width, height):
 		self.width = width
 		self.height = height
-		self.createDummyImages()
 
 
 	# Create dummy images.
 	def createDummyImages(self):
 		# Create some different noisy images.
 		self.numberOfNoisyImages = 10
-		self.imagesNoisy = [self.createImageNoisy()]
+		self.imagesNoisy = [imageHandling.createImageNoisy(self.width, self.height)]
 		for i in range(1,self.numberOfNoisyImages):
-			self.imagesNoisy.append(self.createImageNoisy())
+			self.imagesNoisy.append(imageHandling.createImageNoisy(self.width, self.height))
 		# Create black dummy image.
-		self.imageBlack = numpy.zeros((self.width, self.height, 3), numpy.uint8)
+		self.imageBlack = imageHandling.createImageGray(self.width, self.height,0)
 		# Create error image. TODO make this a monkey skull...
-		self.imageError = self.imageBlack
+		self.imageError = imageHandling.createImageNoisy(self.width, self.height)
 		
 		
 	# Create random noise image.
-	def createImageNoisy(self):
-		imageNoisy = numpy.random.rand(self.width, self.height, 3) * 255
-		imageNoisy = numpy.uint8(imageNoisy)
-		return imageNoisy
+#	def createImageNoisy(self, width=None, height=None):
+#		imageNoisy = numpy.random.rand(width, height, 3) * 255
+#		imageNoisy = numpy.uint8(imageNoisy)
+#		return imageNoisy
+
 	
-	
-	# Update the height of the stack if a new model has been added.
-	def update(self, stackHeight):
-		# If stack is smaller than given height...
-		if len(self.sliceArray) < stackHeight:
-			# Last random number.
-			noisyImageIndex = 0
-			# ... add black images.
-			for i in range(stackHeight - len(self.sliceArray)):
-				# Add a noisy image randomly chosen from the noisy image list.
-				self.sliceArray.append(self.imagesNoisy[noisyImageIndex])
-				if noisyImageIndex < self.numberOfNoisyImages-1:
-					noisyImageIndex = noisyImageIndex +1
-				else:
-					noisyImageIndex = 0
-		# If stack is higher than given height...
-		elif len(self.sliceArray) > stackHeight:
-			# ... remove obsolete slices.
-			self.sliceArray = self.sliceArray[:stackHeight]
-	
-	
-	# Set stack noisy. Type may be 'black' or 'noisy'
-	def resetStack(self, imgType='black', start=None, end=None):
-		if start == None: start = 0
-		if end == None: end = getStackHeight()
+	# Set stack with "uniform" image. Type may be 'black' or 'noisy'
+	def update(self, end, start=0, imgType='noisy'):
 		# Last random number.
 		noisyImageIndex = 0
 		for i in range(start, end):
 			# Get image.
 			if imgType == 'noisy':
-				img = (self.imagesNoisy[noisyImageIndex])
+				img = self.imagesNoisy[noisyImageIndex]
 			elif imgType == 'black':
 				img = (self.imageBlack)
 			# If slice exists...
-			if i < getStackHeight:
+			if i < self.getStackHeight():
 				# set image.
-				self.sliceArray[i] = img
+				self.sliceArray[i] = numpy.copy(img)
 			# If slice doesn't exist...
-			elif i >= getStackHeight:
+			elif i >= self.getStackHeight():
 				# append image.
-				self.sliceArray.append(img)
+				self.sliceArray.append(numpy.copy(img))
 			# Set next noisy image index.
 			if noisyImageIndex < self.numberOfNoisyImages-1:
 				noisyImageIndex = noisyImageIndex +1
@@ -1451,6 +1451,25 @@ class sliceStack():
 				noisyImageIndex = 0
 
 	
+	# Add new image stack at given position.
+	def newModelStack(self, bounds, start=0):
+		# Convert stack height, position and size to pixels.
+		stackHeight = int(bounds[5])
+		for i in range(start, bounds[5]):#stackHeight):
+			print i
+			print bounds
+			# TODO: find a better solution to extrude array using numpy
+	#		img = self.createImageNoisy(bounds[1]-bounds[0],bounds[3]-bounds[2])
+			img = imageHandling.createImageGray(bounds[1]-bounds[0], bounds[3]-bounds[2], 0)
+			img = img + i
+			print img
+			# Make B/W so we can see the difference...
+	#		img = img.[]
+	#		print "Image size: " + str(img.shape)
+	#		print "Slice size: " + str(self.sliceArray[i][bounds[0]:bounds[1],bounds[2]:bounds[3]].shape)
+			self.sliceArray[i] = imageHandling.insert(self.sliceArray[i], img, [bounds[0],bounds[2]])#self.sliceArray[i][bounds[0]:bounds[1],bounds[2]:bounds[3]] = img
+#			print self.sliceArray[i][bounds[0]:bounds[1],bounds[2]:bounds[3]]
+
 		
 
 	# Return stack height.

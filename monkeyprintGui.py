@@ -117,7 +117,7 @@ class boxSettings(gtk.VBox):
 	def __init__(self, settings, modelCollection, renderView, console=None):
 		gtk.VBox.__init__(self)
 		self.show()
-		
+		#TODO: rename settings to programsettings
 		# Internalise data.
 		self.settings = settings
 		self.modelCollection = modelCollection
@@ -370,7 +370,7 @@ class boxSettings(gtk.VBox):
 		self.boxPreview = gtk.HBox()
 		self.framePreview.add(self.boxPreview)
 		self.boxPreview.show()
-		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection.sliceStack, self.console, customFunctions=[self.modelCollection.updateAllSlices, self.renderView.render])
+		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection.sliceStack, self.settings, self.console, customFunctions=[self.modelCollection.updateAllSlices, self.renderView.render])
 		self.boxPreview.pack_start(self.previewSlider, expand=True, fill=True, padding=5)
 		self.previewSlider.show()
 	
