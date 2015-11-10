@@ -107,7 +107,7 @@ class renderView(gtk.VBox):
 		self.checkButtonAxes.show()
 		
 		# Make build volume box.
-		self.buildVolume = monkeyprintModelHandling.buildVolume(self.settings['buildSizeXYZ'].value)
+		self.buildVolume = monkeyprintModelHandling.buildVolume([self.settings['Build size X'].value, self.settings['Build size Y'].value, self.settings['Build size Z'].value])
 		self.addActor(self.buildVolume.getActor())
 		
 	def callbackResetButton(self, widget, data=None):

@@ -3,6 +3,7 @@
 from matplotlib import pyplot as plot
 import numpy
 import Image
+import math
 
 def array2image(a):
     if a.typecode() == Numeric.UnsignedInt8:
@@ -54,10 +55,11 @@ def insert(img, imgIns, pos):
 	return img
 
 def imgMultiply(img1, img2, pos):
-	bounds = [	pos[1],
-				pos[1]+img2.shape[0],
-				pos[0], 
-				pos[0]+img2.shape[1]	]
+	bounds = [	int(pos[1]),
+				int(pos[1]+img2.shape[0]),
+				int(pos[0]), 
+				int(pos[0]+img2.shape[1])	]
+	print bounds
 	# Convert to uint32, otherwise multiply will wrap inside 255.
 	img1 = numpy.uint32(img1)
 	img2 = numpy.uint32(img2)
