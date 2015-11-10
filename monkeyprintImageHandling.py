@@ -59,11 +59,23 @@ def imgMultiply(img1, img2, pos):
 				int(pos[1]+img2.shape[0]),
 				int(pos[0]), 
 				int(pos[0]+img2.shape[1])	]
-	print bounds
 	# Convert to uint32, otherwise multiply will wrap inside 255.
 	img1 = numpy.uint32(img1)
 	img2 = numpy.uint32(img2)
 	img1[bounds[0]:bounds[1] , bounds[2]:bounds[3] ] = (img1[bounds[0]:bounds[1] , bounds[2]:bounds[3] ] * img2) / 255
+	numpy.clip(img1, 0, 255, out=img1)
+	img1 = numpy.uint8(img1)
+	return img1
+
+def imgAdd(img1, img2, pos):
+	bounds = [	int(pos[1]),
+				int(pos[1]+img2.shape[0]),
+				int(pos[0]), 
+				int(pos[0]+img2.shape[1])	]
+	# Convert to uint32, otherwise multiply will wrap inside 255.
+	img1 = numpy.uint32(img1)
+	img2 = numpy.uint32(img2)
+	img1[bounds[0]:bounds[1] , bounds[2]:bounds[3] ] = (img1[bounds[0]:bounds[1] , bounds[2]:bounds[3] ] + img2)
 	numpy.clip(img1, 0, 255, out=img1)
 	img1 = numpy.uint8(img1)
 	return img1

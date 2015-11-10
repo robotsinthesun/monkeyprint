@@ -1177,7 +1177,7 @@ class modelData:
 			# Kill 3rd dimension.
 			self.imageArrayNumpy = numpy.squeeze(self.imageArrayNumpy)
 			# Add the image to the stack.
-	#		self.sliceStack.addSlice(sliceNumber, self.imageArrayNumpy, position)
+			self.sliceStack.addSlice(sliceNumber, self.imageArrayNumpy, position)
 
 # TODO: is it better to update fill with ROI or to use old full image pattern and shift it?		
 			# Update fill pattern image.
@@ -1591,15 +1591,12 @@ class sliceStack():
 			
 	# Function to add an image to a specific slice and at a specific position.
 	def addSlice(self, index, image, position):
+		position = [	position[0] * self.programSettings['pxPerMm'].value,
+					position[1] * self.programSettings['pxPerMm'].value	]
 		# If index in bounds...
 		if index < len(self.sliceArray):
 			# Get the image.
-			print self.sliceArray[int(index)].shape
-			print numpy.squeeze(image).shape
-			imageHandling.imgMultiply(self.sliceArray[int(index)], image, position)
-			# Add it to the existing slice.
-			# Set region black for testing.
-			#self.sliceArray[index][10:20][50:150][:] = zeros(10,100,3)
+			self.sliceArray[int(index)] =  imageHandling.imgAdd(self.sliceArray[int(index)], image, position)
 		
 	
 	
