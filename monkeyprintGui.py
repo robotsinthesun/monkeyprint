@@ -27,6 +27,7 @@ import monkeyprintModelViewer
 import monkeyprintGuiHelper
 import subprocess # Needed to call avrdude.
 import vtk
+import threading
 
 
 boxSettingsWidth = 350
@@ -45,6 +46,11 @@ class gui(gtk.Window):
 		self.maximize()
 		# Show the window.
 		self.show()
+		
+		# Allow background threads. Very important, otherwise threads will be
+		# blocked by gui main thread.
+		gtk.gdk.threads_init()
+		
 		
 		# Internalise model collection.
 		self.modelCollection = modelCollection
@@ -95,6 +101,13 @@ class gui(gtk.Window):
 		response = dialog.run()
 		dialog.destroy()
 		if response == gtk.RESPONSE_YES:
+			# Get all threads.
+			runningThreads = threading.enumerate()
+			# End kill threads. Main gui thread is the first...
+			for i in range(len(runningThreads)):
+				if i != 0:
+					runningThreads[i].stop()
+				i += i
 			gtk.main_quit()
 			return False # returning False makes "destroy-event" be signalled to the window.
 		else:

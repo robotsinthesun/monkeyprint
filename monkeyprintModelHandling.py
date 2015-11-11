@@ -23,6 +23,7 @@ from vtk.util import numpy_support	# Functions to convert between numpy and vtk
 import math
 import cv2
 import numpy
+import time
 import random
 import Image, ImageTk
 import Queue, threading
@@ -68,7 +69,9 @@ class modelContainer:
 	
 	def updateSlice(self, sliceNumber):
 		self.model.updateSlice3d(sliceNumber)
-		self.model.updateSlice(sliceNumber)
+		self.model.startBackgroundSlicer()
+
+		#self.model.updateSlice(sliceNumber)
 	
 	def updateSliceStack(self):
 		self.model.updateSliceStack()
@@ -369,6 +372,16 @@ class modelData:
 #TODO		self.printFlag = printFlag
 		self.extrusionVector = (0,0,-1)
 	#	self.sliceStack = sliceStack()
+		
+		# Background thread for updating the slices on demand.
+		if self.filename != "":
+			# Queue for communication.
+			self.queueStatus = Queue.Queue(maxsize=1)
+			# Initialise the thread.
+			self.slicerThread = backgroundSlicer(self.updateSlice, self.settings, self.programSettings, self.queueStatus, self.console)
+			self.slicerThread.start()
+			print "Slicer thread initialised"
+			
 		
 		
 		# Set up pipeline. ###################################################
@@ -821,6 +834,17 @@ class modelData:
 		
 	def getBounds(self):
 		return self.__getBounds(self.stlPositionFilter)
+
+	def getBoundsSafety(self):
+		bounds = self.__getBounds(self.stlPositionFilter)
+		dist = self.programSettings['Model safety distance'].value
+		bounds = [	bounds[0]-dist,
+					bounds[1]+dist,
+					bounds[2]-dist,
+					bounds[3]+dist,
+					bounds[4]-dist,
+					bounds[5]+dist	]
+		return bounds
 	
 	def getBoundsOverhang(self):
 		return self.__getBounds(self.overhangClipFilter)
@@ -865,14 +889,15 @@ class modelData:
 			self.dimX = self.__getSize(self.stlRotationFilter)[0]
 			self.dimY = self.__getSize(self.stlRotationFilter)[1]
 			self.dimZ = self.__getSize(self.stlRotationFilter)[2]
-			# Compare the ratio of model size to build volume size in all dimensions with each other.
+			# 
+			# Compare the ratio of model size plus safety distance to build volume size in all dimensions with each other.
 			# Return smallest ratio as maximum scaling.
 			smallestRatio = 1
-			if (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) <= (self.programSettings['buildSizeXYZ'].value[1] / self.dimY) and (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) <= (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ):
-				smallestRatio =  self.programSettings['buildSizeXYZ'].value[0] / self.dimX * currentScale
-			elif (self.programSettings['buildSizeXYZ'].value[1] / self.dimY) <= (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) and (self.programSettings['buildSizeXYZ'].value[1] / self.dimY) <= (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ):
-				smallestRatio =  self.programSettings['buildSizeXYZ'].value[1] / self.dimY * currentScale
-			elif (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ) <= (self.programSettings['buildSizeXYZ'].value[0] / self.dimX) and (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ) <= (self.programSettings['buildSizeXYZ'].value[1] / self.dimY):
+			if ((self.programSettings['buildSizeXYZ'].value[0]-2*self.programSettings['Model safety distance'].value) / self.dimX) <= ((self.programSettings['buildSizeXYZ'].value[1]-2*self.programSettings['Model safety distance'].value) / self.dimY) and ((self.programSettings['buildSizeXYZ'].value[0]-2*self.programSettings['Model safety distance'].value) / self.dimX) <= (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ):
+				smallestRatio =  (self.programSettings['buildSizeXYZ'].value[0]-2*self.programSettings['Model safety distance'].value) / self.dimX * currentScale
+			elif ((self.programSettings['buildSizeXYZ'].value[1]-2*self.programSettings['Model safety distance'].value) / self.dimY) <= ((self.programSettings['buildSizeXYZ'].value[0]-2*self.programSettings['Model safety distance'].value) / self.dimX) and ((self.programSettings['buildSizeXYZ'].value[1]-2*self.programSettings['Model safety distance'].value) / self.dimY) <= (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ):
+				smallestRatio =  (self.programSettings['buildSizeXYZ'].value[1]-2*self.programSettings['Model safety distance'].value) / self.dimY * currentScale
+			elif (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ) <= ((self.programSettings['buildSizeXYZ'].value[0]-2*self.programSettings['Model safety distance'].value) / self.dimX) and (self.programSettings['buildSizeXYZ'].value[2] / self.dimZ) <= ((self.programSettings['buildSizeXYZ'].value[1]-2*self.programSettings['Model safety distance'].value) / self.dimY):
 				smallestRatio =  self.programSettings['buildSizeXYZ'].value[2] / self.dimZ * currentScale
 			# Restrict input scalingFactor if necessary.
 			if smallestRatio < self.settings['Scaling'].value:
@@ -886,12 +911,13 @@ class modelData:
 			self.stlScaleFilter.Update()	# Update to get new bounds.
 
 			# Position. ****************
-			clearRangeX = self.programSettings['buildSizeXYZ'].value[0] - self.__getSize(self.stlRotationFilter)[0]
-			clearRangeY = self.programSettings['buildSizeXYZ'].value[1] - self.__getSize(self.stlRotationFilter)[1]
+			# Subtract safety distance from build volume in X and Y directions. Z doesn't need safety space.
+			clearRangeX = (self.programSettings['buildSizeXYZ'].value[0]-2*self.programSettings['Model safety distance'].value) - self.__getSize(self.stlRotationFilter)[0]
+			clearRangeY = (self.programSettings['buildSizeXYZ'].value[1]-2*self.programSettings['Model safety distance'].value) - self.__getSize(self.stlRotationFilter)[1]
 			positionZMax = self.programSettings['buildSizeXYZ'].value[2] - self.__getSize(self.stlRotationFilter)[2]
 			if self.settings['Bottom clearance'].value > positionZMax:
 				self.settings['Bottom clearance'].setValue(positionZMax)
-			self.stlPositionTransform.Translate(  (self.__getSize(self.stlRotationFilter)[0]/2 + clearRangeX * (self.settings['Position X'].value / 100.0)) - self.stlPositionTransform.GetPosition()[0],      (self.__getSize(self.stlRotationFilter)[1]/2 + clearRangeY * (self.settings['Position Y'].value / 100.0)) - self.stlPositionTransform.GetPosition()[1],       self.__getSize(self.stlRotationFilter)[2]/2 - self.stlPositionTransform.GetPosition()[2] + self.settings['Bottom clearance'].value)
+			self.stlPositionTransform.Translate(  ((self.__getSize(self.stlRotationFilter)[0]/2 + clearRangeX * (self.settings['Position X'].value / 100.0)) - self.stlPositionTransform.GetPosition()[0]) + self.programSettings['Model safety distance'].value,      ((self.__getSize(self.stlRotationFilter)[1]/2 + clearRangeY * (self.settings['Position Y'].value / 100.0)) - self.stlPositionTransform.GetPosition()[1]) + self.programSettings['Model safety distance'].value,       self.__getSize(self.stlRotationFilter)[2]/2 - self.stlPositionTransform.GetPosition()[2] + self.settings['Bottom clearance'].value)
 			self.stlPositionFilter.Update()
 
 			# Recalculate normals.
@@ -904,6 +930,9 @@ class modelData:
 			self.modelBoundingBox.SetZLength(self.getSize()[2])
 			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()/1000.0) )
 			self.modelBoundingBoxTextActor.SetAttachmentPoint(self.getBounds()[1], self.getBounds()[3], self.getBounds()[5])
+
+			# Reslice.
+			self.startBackgroundSlicer()
 
 	def updateBottomPlate(self):
 		if self.filename != "" and self.isActive():
@@ -1064,6 +1093,7 @@ class modelData:
 						# Append the cylinder to the cones polydata.
 						self.supports.AddInput(cylinderGeomFilter.GetOutput())
 						del cylinder
+			self.startBackgroundSlicer()
 
 	# Update slices. ##########################################################
 	def updateFillPattern(self):
@@ -1117,9 +1147,26 @@ class modelData:
 			self.extruderBottomPlate.SetVector(0,0,-sliceNumber*self.programSettings['Layer height'].value-1)
 			self.combinedSliceImageModelSupportsBottomPlate.Update()
 	
+	def startBackgroundSlicer(self):
+		if self.filename!="":
+			if self.console != None:
+				self.console.addLine('Slicer started.')
+			if self.queueStatus.empty():
+				# 1 is start, -1 is stop.
+				self.queueStatus.put(1)
+	
+	def stopBackgroundSlicer(self):
+		if self.filename!="":
+			if self.queueStatus.empty():
+				# 1 is start, -1 is stop.
+				self.queueStatus.put(0)
+			
+	
 	# Update slice image.
 	def updateSlice(self, sliceNumber):
 		if self.filename != "" and self.isActive():
+			print sliceNumber
+			
 			# Get layer height from settings.
 			layerHeight = 	self.programSettings['Layer height'].value
 			
@@ -1178,6 +1225,8 @@ class modelData:
 			self.imageArrayNumpy = numpy.squeeze(self.imageArrayNumpy)
 			# Add the image to the stack.
 			self.sliceStack.addSlice(sliceNumber, self.imageArrayNumpy, position)
+			
+			#self.startBackgroundSlicer()
 
 # TODO: is it better to update fill with ROI or to use old full image pattern and shift it?		
 			# Update fill pattern image.
@@ -1601,9 +1650,80 @@ class sliceStack():
 	
 	
 	
-				
+# TODO: Slicer thread cannot write to GUI elements, for example console.
+# Make a listener function in the gui for the console that is called every n milliseconds
+# and check a communication queue.			
+class backgroundSlicer(threading.Thread):
+	def __init__(self, slicingFunction, settings, programSettings, queueStatus, console=None):
+		# Internalise inputs.
+		self.slicingFunction = slicingFunction
+		self.settings = settings
+		self.programSettings = programSettings
+		self.queueStatus = queueStatus
+		self.console = console
+		# Flag to request slicer stop and go into idle mode.
+		self.stopFlag = False
+		# Thread stop event.
+		self.stopThread = threading.Event()
+		# Call super class init function.
+		super(backgroundSlicer, self).__init__()
 		
+		# Call queue listener function.
+	#	self.idle()
+	
+	def run(self):
+		if self.console != None:
+			self.console.addLine("Background slicer started")
+		print "Background slicer started"
+		self.idle()
 
+	def checkQueue(self):
+		queueFlag = None
+		if self.queueStatus.qsize():
+			queueFlag = self.queueStatus.get()
+		return queueFlag
+	
+	# Continuously check queue for start signals.
+	def idle(self):
+		while not self.stopThread.isSet():
+			if self.console != None:
+				self.console.addLine("Background slicer idle.")
+			# Run as long as nothing is in the queue.
+			statusFlag = None
+			while statusFlag==None and not self.stopThread.isSet():
+				statusFlag = self.checkQueue()
+				time.sleep(0.1)
+			# React to status flag.
+			if statusFlag == 1:
+				# Start the slicer.
+				print "Running slicer"
+				self.runSlicer()
+			elif statusFlag == -1:
+				# Stop the slicer.
+				self.stopFlag = True
+		
+	def runSlicer(self):
+		while not self.stopThread.isSet():
+			# Process all slices.
+			for i in range(100):
+				self.slicingFunction(i)
+				print i
+				# Check 
+				# If stop flag set...
+				if self.stopFlag:
+					# ...reset stop flag and exit.
+					print 'Slicer stopped.'
+					self.stopFlag = False
+					break
+			print 'Slicer done'
+			self.idle()
+	
+	def stop(self):
+		print "Stopping slicer thread"
+		self.stopThread.set()
+		
+		
+			
 
 
 

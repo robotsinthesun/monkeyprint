@@ -97,7 +97,7 @@ class programSettings(dict):
 		self['Build size Z'] = setting(value=150.0, default=150.0)
 		self['projectorSizeXY'] = setting(value=[1024,768])
 		self['projectorPositionXY'] = setting(value=[1280,0])
-		self['buildSizeXYZ'] = setting(value=[102,79,150])
+		self['buildSizeXYZ'] = setting(value=[102.4,76.8,150.0])
 		self['pxPerMm'] =  setting(value=self['projectorSizeXY'].value[0] / self['buildSizeXYZ'].value[0])
 		self['avrdudeMCU'] = setting(value='atmega32u4')
 		self['avrdudeProgrammer'] = setting(value='avr109')
@@ -117,6 +117,7 @@ class programSettings(dict):
 		self['Build platform speed'] = setting(value='10', default='10')
 		self['Show fill'] = setting(value=True)
 		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')
+		self['Model safety distance'] = setting(value=1.0, unit='mm')
 	# Load default settings.
 	def loadDefaults(self):
 		# Loop through all settings.
