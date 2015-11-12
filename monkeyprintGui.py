@@ -21,7 +21,7 @@
 
 import pygtk
 pygtk.require('2.0')
-import gtk
+import gtk, gobject
 #import gtkGLExtVTKRenderWindowInteractor
 import monkeyprintModelViewer
 import monkeyprintGuiHelper
@@ -50,6 +50,9 @@ class gui(gtk.Window):
 		# Allow background threads. Very important, otherwise threads will be
 		# blocked by gui main thread.
 		gtk.gdk.threads_init()
+		
+		# Add slice thread listener function to run every 10 ms.
+		slicerListenerId = gobject.timeout_add(10, modelCollection.checkSlicerThreads)
 		
 		
 		# Internalise model collection.
@@ -226,7 +229,8 @@ class boxSettings(gtk.VBox):
 
 
 	def tabSwitchSlicesUpdate(self):
-		# Update slices.
+		# Update slice stack height.
+		self.modelCollection.updateSliceStack()
 		# This should run automatically.
 #		self.modelCollection.updateAllSlices(0)
 		# Set render actor visibilites.
