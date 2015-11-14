@@ -109,8 +109,11 @@ class gui(gtk.Window):
 			# End kill threads. Main gui thread is the first...
 			for i in range(len(runningThreads)):
 				if i != 0:
-					runningThreads[i].stop()
-				i += i
+					print "Stopping slicer thread " + str(i) + "."
+					runningThreads[i].join(timeout=10000)	# Timeout in ms.
+					print "Slicer thread " + str(i) + " finished."
+					del runningThreads[i]
+				i += i	
 			gtk.main_quit()
 			return False # returning False makes "destroy-event" be signalled to the window.
 		else:
@@ -387,7 +390,8 @@ class boxSettings(gtk.VBox):
 		self.boxPreview = gtk.HBox()
 		self.framePreview.add(self.boxPreview)
 		self.boxPreview.show()
-		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection.sliceStack, self.settings, self.console, customFunctions=[self.modelCollection.updateAllSlices, self.renderView.render])
+		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection, self.settings, self.console, customFunctions=[self.modelCollection.updateAllSlices, self.renderView.render])
+#		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection.sliceStack, self.settings, self.console, customFunctions=[self.modelCollection.updateAllSlices, self.renderView.render])
 		self.boxPreview.pack_start(self.previewSlider, expand=True, fill=True, padding=5)
 		self.previewSlider.show()
 	
