@@ -109,11 +109,9 @@ class gui(gtk.Window):
 			# End kill threads. Main gui thread is the first...
 			for i in range(len(runningThreads)):
 				if i != 0:
-					print "Stopping slicer thread " + str(i) + "."
-					runningThreads[i].join(timeout=10000)	# Timeout in ms.
+					runningThreads[-1].join(timeout=10000)	# Timeout in ms.
 					print "Slicer thread " + str(i) + " finished."
-					del runningThreads[i]
-				i += i	
+					del runningThreads[-1]
 			gtk.main_quit()
 			return False # returning False makes "destroy-event" be signalled to the window.
 		else:
@@ -232,6 +230,8 @@ class boxSettings(gtk.VBox):
 
 
 	def tabSwitchSlicesUpdate(self):
+		# Update slider.
+		self.previewSlider.updateSlider()
 		# Update slice stack height.
 		self.modelCollection.updateSliceStack()
 		# This should run automatically.
@@ -245,10 +245,6 @@ class boxSettings(gtk.VBox):
 	def tabSwitchPrintUpdate(self):
 		# Disable model management load and remove buttons.
 		self.modelListView.setSensitive(False)
-				
-
-
-	
 	
 	def createModelTab(self):
 		# Create tab box.
@@ -272,19 +268,19 @@ class boxSettings(gtk.VBox):
 		self.boxModelModifications = gtk.VBox()
 		self.frameModifications.add(self.boxModelModifications)
 		self.boxModelModifications.show()
-		self.entryScaling = entry('Scaling', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryScaling = entry('Scaling', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryScaling, expand=False, fill=False)
-		self.entryRotationX = entry('Rotation X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryRotationX = entry('Rotation X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationX, expand=False, fill=False)
-		self.entryRotationY = entry('Rotation Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryRotationY = entry('Rotation Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationY, expand=False, fill=False)
-		self.entryRotationZ = entry('Rotation Z', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryRotationZ = entry('Rotation Z', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationZ, expand=False, fill=False)
-		self.entryPositionX = entry('Position X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryPositionX = entry('Position X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryPositionX, expand=False, fill=False)
-		self.entryPositionY = entry('Position Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryPositionY = entry('Position Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryPositionY, expand=False, fill=False)
-		self.entryBottomClearance = entry('Bottom clearance', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryBottomClearance = entry('Bottom clearance', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryBottomClearance, expand=False, fill=False)
 
 	
@@ -309,13 +305,13 @@ class boxSettings(gtk.VBox):
 		self.boxSupportPattern = gtk.VBox()
 		self.frameSupportPattern.add(self.boxSupportPattern)
 		self.boxSupportPattern.show()
-		self.entryOverhangAngle = entry('Overhang angle', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryOverhangAngle = entry('Overhang angle', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entryOverhangAngle, expand=False, fill=False)
-		self.entrySupportSpacingX = entry('Spacing X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entrySupportSpacingX = entry('Spacing X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportSpacingX, expand=False, fill=False)
-		self.entrySupportSpacingY = entry('Spacing Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entrySupportSpacingY = entry('Spacing Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportSpacingY, expand=False, fill=False)
-		self.entrySupportMaxHeight = entry('Maximum height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entrySupportMaxHeight = entry('Maximum height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportMaxHeight, expand=False, fill=False)
 		
 		# Create support geometry frame.
@@ -325,11 +321,11 @@ class boxSettings(gtk.VBox):
 		self.boxSupportGeometry = gtk.VBox()
 		self.frameSupportGeometry.add(self.boxSupportGeometry)
 		self.boxSupportGeometry.show()
-		self.entrySupportBaseDiameter = entry('Base diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entrySupportBaseDiameter = entry('Base diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportBaseDiameter, expand=False, fill=False)
-		self.entrySupportTipDiameter = entry('Tip diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entrySupportTipDiameter = entry('Tip diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportTipDiameter, expand=False, fill=False)
-		self.entrySupportTipHeight = entry('Cone height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entrySupportTipHeight = entry('Cone height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportTipHeight, expand=False, fill=False)
 
 		# Create bottom plate frame.
@@ -339,7 +335,7 @@ class boxSettings(gtk.VBox):
 		self.boxBottomPlate = gtk.VBox()
 		self.frameBottomPlate.add(self.boxBottomPlate)
 		self.boxBottomPlate.show()
-		self.entrySupportBottomPlateThickness = entry('Bottom plate thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entrySupportBottomPlateThickness = entry('Bottom plate thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxBottomPlate.pack_start(self.entrySupportBottomPlateThickness, expand=False, fill=False)
 	
 	def createSlicingTab(self):
@@ -355,7 +351,7 @@ class boxSettings(gtk.VBox):
 		self.frameSlicing.add(self.boxSlicingParameters)
 		self.boxSlicingParameters.show()
 		# Layer height entry.
-		self.entryLayerHeight = entry('Layer height', settings=self.settings, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryLayerHeight = entry('Layer height', settings=self.settings, customFunctions=[self.updateAllModels, self.updateSlider, self.renderView.render, self.updateAllEntries])
 		self.boxSlicingParameters.pack_start(self.entryLayerHeight, expand=False, fill=False)
 		
 		# Create hollow and fill frame.
@@ -365,22 +361,27 @@ class boxSettings(gtk.VBox):
 		self.boxFill = gtk.VBox()
 		self.frameFill.add(self.boxFill)
 		self.boxFill.show()
+		self.boxFillCheckbuttons = gtk.HBox()
+		self.boxFill.pack_start(self.boxFillCheckbuttons)
+		self.boxFillCheckbuttons.show()
 		# Checkbox for hollow prints.
 		self.checkboxHollow = gtk.CheckButton(label="Print hollow?")
-		self.boxFill.pack_start(self.checkboxHollow, expand=True, fill=True)
+		self.boxFillCheckbuttons.pack_start(self.checkboxHollow, expand=True, fill=True)
+		self.checkboxHollow.set_active(True)
 		self.checkboxHollow.show()
 		self.checkboxHollow.connect("toggled", self.callbackCheckButtonHollow)
 		# Checkbox for fill structures.
 		self.checkboxFill = gtk.CheckButton(label="Use fill?")
-		self.boxFill.pack_start(self.checkboxFill, expand=True, fill=True)
+		self.boxFillCheckbuttons.pack_start(self.checkboxFill, expand=True, fill=True)
+		self.checkboxFill.set_active(True)
 		self.checkboxFill.show()
 		self.checkboxFill.connect("toggled", self.callbackCheckButtonFill)
 		# Entries.
-		self.entryShellThickness = entry('Shell wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryShellThickness = entry('Shell wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryShellThickness, expand=True, fill=True)
-		self.entryFillSpacing = entry('Fill spacing', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryFillSpacing = entry('Fill spacing', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryFillSpacing, expand=True, fill=True)
-		self.entryFillThickness = entry('Fill wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
+		self.entryFillThickness = entry('Fill wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryFillThickness, expand=True, fill=True)
 		
 		# Create preview frame.
@@ -390,16 +391,19 @@ class boxSettings(gtk.VBox):
 		self.boxPreview = gtk.HBox()
 		self.framePreview.add(self.boxPreview)
 		self.boxPreview.show()
-		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection, self.settings, self.console, customFunctions=[self.modelCollection.updateAllSlices, self.renderView.render])
-#		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection.sliceStack, self.settings, self.console, customFunctions=[self.modelCollection.updateAllSlices, self.renderView.render])
+		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection, self.settings, self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
+#		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection.sliceStack, self.settings, self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
 		self.boxPreview.pack_start(self.previewSlider, expand=True, fill=True, padding=5)
 		self.previewSlider.show()
 	
 	def callbackCheckButtonHollow(self, widget, data=None):
 		self.modelCollection.getCurrentModel().settings['Print hollow'].setValue(widget.get_active())
+		# Update model.
+		self.updateCurrentModel()
 		
 	def callbackCheckButtonFill(self, widget, data=None):
 		self.modelCollection.getCurrentModel().settings['Fill'].setValue(widget.get_active())
+		self.updateCurrentModel()
 		
 		
 
@@ -427,9 +431,14 @@ class boxSettings(gtk.VBox):
 		elif self.notebook.getCurrentPage() == 1:
 			self.modelCollection.getCurrentModel().updateSupports()
 		elif self.notebook.getCurrentPage() == 2:
-			self.modelCollection.getCurrentModel().updateSlices()
+			self.modelCollection.getCurrentModel().setChanged()
+			self.modelCollection.getCurrentModel().updateSliceStack()
 		elif self.notebook.getCurrentPage() == 3:
 			self.modelCollection.getCurrentModel().updatePrint()
+	
+	def updateAllModels(self):
+		if self.notebook.getCurrentPage() == 2:
+			self.modelCollection.updateSliceStack()
 			
 	
 	# Update all the settings if the current model has changed.
@@ -449,13 +458,14 @@ class boxSettings(gtk.VBox):
 		self.entrySupportTipDiameter.update()
 		self.entrySupportTipHeight.update()
 		self.entrySupportBottomPlateThickness.update()
-		self.previewSlider.updateSlider()
+#		self.previewSlider.updateSlider()
 		if state != None:
 			self.setGuiState(state)
 			if state == 0:
 				self.notebook.setCurrentPage(0)
 				
-
+	def updateSlider(self):
+		self.previewSlider.updateSlider()
 	
 	
 	
@@ -531,12 +541,10 @@ class entry(gtk.HBox):
 				# ... set the new value in the current model's settings.
 				self.modelCollection.getCurrentModel().settings[self.string].setValue(self.entry.get_text())
 				# Call the models update function. This might change the settings value again.
-#				self.modelCollection.getCurrentModel().update()
-#				self.modelCollection.getCurrentModel().updateSupports()
-				# Call the custom functions specified for the setting.
-				if self.customFunctions != None:
-					for function in self.customFunctions:
-						function()
+#				# Call the custom functions specified for the setting.
+#				if self.customFunctions != None:
+#					for function in self.customFunctions:
+#						function()
 				# Set the entrys text field as it might have changed during the previous function call.
 				self.entry.set_text(str(self.modelCollection.getCurrentModel().settings[self.string].value))
 			# If this is not a model setting but a printer setting...
@@ -545,6 +553,10 @@ class entry(gtk.HBox):
 				self.settings[self.string].setValue(self.entry.get_text())
 				# Set the entry text in case the setting was changed by settings object.
 				self.entry.set_text(str(self.settings[self.string].value))
+			# Call the custom functions specified for the setting.
+			if self.customFunctions != None:
+				for function in self.customFunctions:
+					function()
 			# Reset tab pressed bool.
 			self.tabKeyPressed = False
 			return
@@ -777,7 +789,7 @@ class modelListView(gtk.VBox):
 		# Remove the item and check if there's a next item.
 		iterValid = self.modelList.remove(currentIter)
 		# Update the slice stack.
-		self.modelCollection.updateSliceStack()
+	#	self.modelCollection.updateSliceStack()
 		# Update the slider.
 		self.guiUpdateFunction()
 		# Refresh view.

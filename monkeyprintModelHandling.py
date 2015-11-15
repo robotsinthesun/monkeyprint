@@ -27,7 +27,7 @@ import time
 import random
 import Image, ImageTk
 import Queue, threading
-from matplotlib import pyplot as plot
+#from matplotlib import pyplot as plot
 import monkeyprintImageHandling as imageHandling
 
 import monkeyprintSettings
@@ -38,7 +38,6 @@ class modelContainer:
 		# Internalise data.
 		self.filename = filename
 		self.console=console
-	#	self.sliceStack = sliceStack
 		
 		# Create settings object.
 		self.settings = monkeyprintSettings.modelSettings()
@@ -49,35 +48,41 @@ class modelContainer:
 		# Active flag. Only do updates if model is active.
 		self.flagActive = True
 		
+		# Update model and supports.
+		self.updateModel()
+		self.updateSupports()
+		
 		# Set inital visibilities.
 		self.hideOverhang()
 		self.hideSupports()
 		self.hideBottomPlate()
 		self.hideSlices()
-		
-		# Model slice image stack.
+
 		
 
 	def getHeight(self):
 		return self.model.getHeight()
 	
+	def setChanged(self):
+		self.model.setChanged()
+	
 	def updateModel(self):
 		self.model.updateModel()
+		self.model.setChanged()
 	
 	def updateSupports(self):
 		self.model.updateBottomPlate()
 		self.model.updateSupports()
+		self.model.setChanged()
 	
 	def updateSlice3d(self, sliceNumber):
 		self.model.updateSlice3d(sliceNumber)
-		#self.model.startBackgroundSlicer()
-
-		#self.model.updateSlice(sliceNumber)
 	
 	def updateSliceStack(self):
-		pass
+		self.model.startBackgroundSlicer()
 	
 	def sliceThreadListener(self):
+		self.model.setChanged()
 		self.model.checkBackgroundSlicer()
 	
 	def getAllActors(self):
@@ -87,8 +92,7 @@ class modelContainer:
 				self.getOverhangActor(),
 				self.getBottomPlateActor(),
 				self.getSupportsActor(),
-				self.getSlicesActor(),
-				self.getExtruderActor()
+				self.getSlicesActor()
 				)
 	
 	def setActive(self, active):
@@ -119,9 +123,6 @@ class modelContainer:
 	
 	def getSlicesActor(self):
 		return self.model.getActorSlices()
-	
-	def getExtruderActor(self):
-		return self.model.getActorExtruder()
 
 	def showBox(self):
 		self.model.showBoundingBox()
@@ -191,8 +192,6 @@ class modelCollection(dict):
 		# Internalise settings.
 		self.programSettings = programSettings
 		self.console = console
-		# Create the image stack.
-	#	self.sliceStack = sliceStack(self.programSettings)
 		# Create slice image.
 		self.sliceImage = imageHandling.createImageGray(self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value, 0)
 		self.sliceImageBlack = numpy.empty_like(self.sliceImage)
@@ -207,7 +206,6 @@ class modelCollection(dict):
 	
 	# Function to retrieve current model.
 	def getCurrentModel(self):
-#		print "Returning model " + self.currentModelId + "."
 		return self[self.currentModelId]
 	
 	# Function to change to current model.
@@ -223,13 +221,13 @@ class modelCollection(dict):
 		self[modelId] = modelContainer(filename, self.programSettings, self.console)
 		# Set new model as current model.
 		self.currentModelId = modelId
-		# Update slice stack height.
-		self.updateSliceStack()
 	
 	# Function to remove a model from the model collection
 	def remove(self, modelId):
 		if self[modelId]:
-			self[modelId].model.killSlicerThread()
+			self[modelId].model.killBackgroundSlicer()
+			# Explicitly delete model data to free memory from slice images.
+			del self[modelId].model
 			del self[modelId]
 	
 	# Function to retrieve the highest model. This dictates the slice stack height.
@@ -318,9 +316,8 @@ class modelCollection(dict):
 			self[model].updateSupports()
 	
 	# Update the 3d slice view for all models.
-	def updateAllSlices(self, sliceNumber):
+	def updateAllSlices3d(self, sliceNumber):
 		for model in self:
-			# TODO: test if model is enabled.
 			self[model].model.updateSlice3d(sliceNumber)
 	
 	# Function that is called every n milliseconds from gtk main loop to
@@ -401,6 +398,8 @@ class modelData:
 		self.rotationYOld = 0
 		self.rotationZOld = 0
 		
+		self.flagChanged = False
+		
 		# Set up the slice stack. Has one slice only at first...
 		self.sliceStack = sliceStack()
 		self.slicePosition = (0,0)
@@ -412,8 +411,7 @@ class modelData:
 			# Initialise the thread.
 			self.slicerThread = backgroundSlicer(self.settings, self.programSettings, self.queueSlicerIn, self.queueSlicerOut)
 			self.slicerThread.start()
-			
-		
+				
 		
 		# Set up pipeline. ###################################################
 		# Stl
@@ -489,176 +487,43 @@ class modelData:
 			self.cuttingPlane = vtk.vtkPlane()
 			self.cuttingPlane.SetNormal(0,0,1)
 			self.cuttingPlane.SetOrigin(0,0,0.001)	# Make sure bottom plate is cut properly.
-			self.cuttingPlane2 = vtk.vtkPlane()
-			self.cuttingPlane2.SetNormal(0,0,1)
-			self.cuttingPlane2.SetOrigin(0,0,0.001)	# Make sure bottom plate is cut properly.
 			# Create cutting filter for model.
 			self.cuttingFilterModel = vtk.vtkCutter()
 			self.cuttingFilterModel.SetCutFunction(self.cuttingPlane)
 			self.cuttingFilterModel.SetInput(self.stlPositionFilter.GetOutput())
-			self.cuttingFilterModel2 = vtk.vtkCutter()
-			self.cuttingFilterModel2.SetCutFunction(self.cuttingPlane)
-			self.cuttingFilterModel2.SetInput(self.stlPositionFilter.GetOutput())
 			# Create cutting filter for supports.
 			self.cuttingFilterSupports = vtk.vtkCutter()
 			self.cuttingFilterSupports.SetCutFunction(self.cuttingPlane)
 			self.cuttingFilterSupports.SetInput(self.supports.GetOutput())
-			self.cuttingFilterSupports2 = vtk.vtkCutter()
-			self.cuttingFilterSupports2.SetCutFunction(self.cuttingPlane)
-			self.cuttingFilterSupports2.SetInput(self.supports.GetOutput())
 			# Create cutting filter for bottom plate.
 			self.cuttingFilterBottomPlate = vtk.vtkCutter()
 			self.cuttingFilterBottomPlate.SetCutFunction(self.cuttingPlane)
 			self.cuttingFilterBottomPlate.SetInput(self.bottomPlate.GetOutput())
-			self.cuttingFilterBottomPlate2 = vtk.vtkCutter()
-			self.cuttingFilterBottomPlate2.SetCutFunction(self.cuttingPlane)
-			self.cuttingFilterBottomPlate2.SetInput(self.bottomPlate.GetOutput())
 			# Create polylines from cutter output for model.
 			self.sectionStripperModel = vtk.vtkStripper()
 			self.sectionStripperModel.SetInput(self.cuttingFilterModel.GetOutput())
-			self.sectionStripperModel2 = vtk.vtkStripper()
-			self.sectionStripperModel2.SetInput(self.cuttingFilterModel.GetOutput())
 			#TODO: remove scalars so color is white.
 			#self.sectionStripperModel.GetOutput().GetPointData().RemoveArray('normalsZ')
 			# Create polylines from cutter output for supports.
 			self.sectionStripperSupports = vtk.vtkStripper()
 			self.sectionStripperSupports.SetInput(self.cuttingFilterSupports.GetOutput())
-			self.sectionStripperSupports2 = vtk.vtkStripper()
-			self.sectionStripperSupports2.SetInput(self.cuttingFilterSupports.GetOutput())
 			# Create polylines from cutter output for bottom plate.
 			self.sectionStripperBottomPlate = vtk.vtkStripper()
 			self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
-			self.sectionStripperBottomPlate2 = vtk.vtkStripper()
-			self.sectionStripperBottomPlate2.SetInput(self.cuttingFilterBottomPlate.GetOutput())
 			# Combine cut lines from model, supports and bottom plate. This is for display only.
 			self.combinedCutlines = vtk.vtkAppendPolyData()
 			self.combinedCutlines.AddInput(self.sectionStripperModel.GetOutput())
 			self.combinedCutlines.AddInput(self.sectionStripperSupports.GetOutput())
 			self.combinedCutlines.AddInput(self.sectionStripperBottomPlate.GetOutput())
-			self.combinedCutlines2 = vtk.vtkAppendPolyData()
-			self.combinedCutlines2.AddInput(self.sectionStripperModel.GetOutput())
-			self.combinedCutlines2.AddInput(self.sectionStripperSupports.GetOutput())
-			self.combinedCutlines2.AddInput(self.sectionStripperBottomPlate.GetOutput())
 			# Create a small cone to have at least one input
 			# to the slice line vtkAppendPolyData in case no
 			# model intersections were found.
 			cone = vtk.vtkConeSource()
-			# Set cone dimensions.
 			cone.SetRadius(.01)
 			cone.SetHeight(.01)
 			cone.SetResolution(6)
 			cone.SetCenter([-.1,-.1,-.1])
 			self.combinedCutlines.AddInput(cone.GetOutput())
-			self.combinedCutlines2.AddInput(cone.GetOutput())
-			# Extrude cut polyline of model.
-			self.extruderModel = vtk.vtkLinearExtrusionFilter()
-			self.extruderModel.SetInput(self.sectionStripperModel2.GetOutput())
-			self.extruderModel.SetScaleFactor(1)
-			self.extruderModel.CappingOn()
-			self.extruderModel.SetExtrusionTypeToVectorExtrusion()
-			self.extruderModel.SetVector(self.extrusionVector)	# Adjust this later on to extrude each slice to Z = 0.
-			# Extrude cut polyline of supports.
-			self.extruderSupports = vtk.vtkLinearExtrusionFilter()
-			self.extruderSupports.SetInput(self.sectionStripperSupports2.GetOutput())
-			self.extruderSupports.SetScaleFactor(1)
-			self.extruderSupports.CappingOn()
-			self.extruderSupports.SetExtrusionTypeToVectorExtrusion()
-			self.extruderSupports.SetVector(self.extrusionVector)	# Adjust this later on to extrude each slice to Z = 0.
-			# Extrude cut polyline.
-			self.extruderBottomPlate = vtk.vtkLinearExtrusionFilter()
-			self.extruderBottomPlate.SetInput(self.sectionStripperBottomPlate2.GetOutput())
-			self.extruderBottomPlate.SetScaleFactor(1)
-			self.extruderBottomPlate.CappingOn()
-			self.extruderBottomPlate.SetExtrusionTypeToVectorExtrusion()
-			self.extruderBottomPlate.SetVector(self.extrusionVector)	# Adjust this later on to extrude each slice to Z = 0.
-			# Create images for slice processing (hollowing, fill pattern).
-			# Create a numpy array to set the vtkImageData scalars. That's much faster than looping through the points.
-			# Make single channel image first as numpy_to_vtk only takes one channel.
-			'''
-			self.cvImage = numpy.ones((self.getSize()[1], self.getSize()[0]), numpy.uint8)
-			self.cvImage *= 255.
-			# Create black image.
-			self.cvImageBlack = numpy.zeros((self.getSize()[1], self.getSize()[0]), numpy.uint8)
-			# Create VTK image.
-			self.image = vtk.vtkImageData()
-			self.image.GetPointData().SetScalars(numpy_support.numpy_to_vtk(self.cvImage))
-			self.image.SetDimensions(self.getSize()[0], self.getSize()[1],1)
-			self.image.SetSpacing(1.0/self.programSettings['pxPerMm'].value, 1.0/self.programSettings['pxPerMm'].value, 1.0/self.programSettings['pxPerMm'].value) # (0.1,0.1,0.1)
-			self.image.SetExtent(0, self.getSize()[0]-1,0, self.getSize()[1]-1, 0, 0)
-			self.image.SetScalarTypeToUnsignedChar()
-			self.image.SetNumberOfScalarComponents(1)
-			self.image.AllocateScalars()
-			'''
-			#self.cvImage = numpy.ones((self.programSettings['Projector size Y'].value, self.programSettings['Projector size X'].value), numpy.uint8)
-			# TODO update to set size
-			self.cvImage = numpy.ones((300, 300), numpy.uint8)
-			self.cvImage *= 255.
-			#self.cvImageBlack = numpy.zeros((self.programSettings['Projector size Y'].value, self.programSettings['Projector size X'].value), numpy.uint8)
-			# TODO update to set size
-			self.cvImageBlack = numpy.zeros((300, 300), numpy.uint8)
-			# Create image.
-			self.image = vtk.vtkImageData()
-			self.image.GetPointData().SetScalars(numpy_support.numpy_to_vtk(self.cvImage))
-			# TODO update to set size
-			self.image.SetDimensions(300,300,1)#self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value,1)
-			self.image.SetSpacing(1./self.programSettings['pxPerMm'].value, 1./self.programSettings['pxPerMm'].value, 1./self.programSettings['pxPerMm'].value)
-			# TODO update to set size
-			self.image.SetExtent(0, 300-1,0, 300-1,0,0)	# px
-			# TODO update to set size
-			self.image.SetOrigin(362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0)	# mm
-			self.image.SetScalarTypeToUnsignedChar()
-			self.image.SetNumberOfScalarComponents(1)
-			self.image.AllocateScalars()
-			# Create image stencil from extruded polyline for model.
-			self.extruderStencilModel = vtk.vtkPolyDataToImageStencil()
-			self.extruderStencilModel.SetTolerance(0)
-			self.extruderStencilModel.SetInput(self.extruderModel.GetOutput())
-			# TODO update to set size
-			self.extruderStencilModel.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
-			self.extruderStencilModel.SetOutputSpacing((0.1,0.1,0.1))
-			self.extruderStencilModel.SetOutputWholeExtent(self.image.GetExtent())
-			# Create image stencil from extruded polyline for supports.
-			self.extruderStencilSupports = vtk.vtkPolyDataToImageStencil()
-			self.extruderStencilSupports.SetTolerance(0)
-			self.extruderStencilSupports.SetInput(self.extruderSupports.GetOutput())
-			self.extruderStencilSupports.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
-			self.extruderStencilSupports.SetOutputSpacing((0.1,0.1,0.1))
-			self.extruderStencilSupports.SetOutputWholeExtent(self.image.GetExtent())
-			# Create image stencil from extruded polyline for bottom plate.
-			self.extruderStencilBottomPlate = vtk.vtkPolyDataToImageStencil()
-			self.extruderStencilBottomPlate.SetTolerance(0)
-			self.extruderStencilBottomPlate.SetInput(self.extruderBottomPlate.GetOutput())
-			self.extruderStencilBottomPlate.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
-			self.extruderStencilBottomPlate.SetOutputSpacing((0.1,0.1,0.1))
-			self.extruderStencilBottomPlate.SetOutputWholeExtent(self.image.GetExtent())
-			# Cut white image with stencil.
-			self.stencilModel = vtk.vtkImageStencil()
-			self.stencilModel.SetInput(self.image)
-			self.stencilModel.SetStencil(self.extruderStencilModel.GetOutput())
-			self.stencilModel.ReverseStencilOff()
-			self.stencilModel.SetBackgroundValue(0.0)
-			# Cut white image with stencil.
-			self.stencilSupports = vtk.vtkImageStencil()
-			self.stencilSupports.SetInput(self.image)
-			self.stencilSupports.SetStencil(self.extruderStencilSupports.GetOutput())
-			self.stencilSupports.ReverseStencilOff()
-			self.stencilSupports.SetBackgroundValue(0.0)
-			# Cut white image with stencil.
-			self.stencilBottomPlate = vtk.vtkImageStencil()
-			self.stencilBottomPlate.SetInput(self.image)
-			self.stencilBottomPlate.SetStencil(self.extruderStencilBottomPlate.GetOutput())
-			self.stencilBottomPlate.ReverseStencilOff()
-			self.stencilBottomPlate.SetBackgroundValue(0.0)
-			# Add up model and supports images.
-			self.combinedSliceImageModelSupports = vtk.vtkImageMathematics()
-			self.combinedSliceImageModelSupports.SetInput1(self.stencilModel.GetOutput())
-			self.combinedSliceImageModelSupports.SetInput2(self.stencilSupports.GetOutput())
-			self.combinedSliceImageModelSupports.SetOperationToAdd()
-			# Add model/supports and bottom plate images.
-			self.combinedSliceImageModelSupportsBottomPlate = vtk.vtkImageMathematics()
-			self.combinedSliceImageModelSupportsBottomPlate.SetInput1(self.combinedSliceImageModelSupports.GetOutput())
-			self.combinedSliceImageModelSupportsBottomPlate.SetInput2(self.stencilBottomPlate.GetOutput())
-			self.combinedSliceImageModelSupportsBottomPlate.SetOperationToAdd()
 		
 			# Bounding box. Create cube and set outline filter.
 			self.modelBoundingBox = vtk.vtkCubeSource()
@@ -747,33 +612,6 @@ class modelData:
 		if self.filename != "":
 			self.cuttingFilterActor.SetMapper(self.cuttingFilterMapper)
 		
-		# Extruder mapper. ***************************************************
-		self.extruderFilterMapper = vtk.vtkPolyDataMapper()
-		if vtk.VTK_MAJOR_VERSION <= 5 and self.filename != "":
-			self.extruderFilterMapper.SetInput(self.extruderModel.GetOutput())
-		elif self.filename != "":
-			self.extruderFilterMapper.SetInputConnection(self.extruderModel.GetOutputPort())	
-		# Cut lines actor.
-		self.extruderModelActor = vtk.vtkActor()
-		if self.filename != "":
-			self.extruderModelActor.SetMapper(self.extruderFilterMapper)
-		'''
-		# Stencil mapper. ***************************************************
-		self.stencilMapper = vtk.vtkPolyDataMapper()
-		if vtk.VTK_MAJOR_VERSION <= 5 and self.filename != "":
-			self.stencilMapper.SetInput(self.extruderStencilModel.GetOutput())
-		elif self.filename != "":
-			self.stencilMapper.SetInputConnection(self.extruderStencilModel.GetOutputPort())	
-		# Cut lines actor.
-		self.stencilActor = vtk.vtkActor()
-		if self.filename != "":
-			self.stencilActor.SetMapper(self.stencilMapper)
-		'''	
-		# Image slice actor.
-		self.imageActor = vtk.vtkImageActor()
-		if self.filename != "":
-			#self.imageActor.SetInput(self.combinedSliceImageModelSupportsBottomPlate.GetOutput())
-			self.imageActor.SetInput(self.combinedSliceImageModelSupportsBottomPlate.GetOutput())
 		# Text actor for model size. *****************************************
 		self.modelBoundingBoxTextActor = vtk.vtkCaptionActor2D()
 		self.modelBoundingBoxTextActor.GetTextActor().SetTextScaleModeToNone()
@@ -814,7 +652,7 @@ class modelData:
 					self.console.addLine('   ' + str(self.stlPolyData.GetNumberOfPolys()) + " polygons loaded.")
 
 			# Set up the initial model scaling, rotation and position. ###########
-			self.updateModel()
+		#	self.updateModel()
 
 
 
@@ -880,10 +718,15 @@ class modelData:
 	def getPolydata(self):
 		return self.stlPositionFilter.GetOutput()
 
+
+	def setChanged(self):
+		self.flagChanged = True
+
+
+
 	###########################################################################
 	# Update methods. #########################################################
 	###########################################################################
-	#TODO: use internal settings object.
 	def updateModel(self):
 		if self.filename != "" and self.isActive():
 			# Move model to origin. ****
@@ -965,9 +808,8 @@ class modelData:
 			self.bottomPlate.SetCenter( (modelBounds[0] + modelBounds[1]) / 2.0, (modelBounds[2] + modelBounds[3]) / 2.0, self.settings['Bottom plate thickness'].value/2.0)
 			self.bottomPlate.Update()
 		
-	
-	#TODO: update doesn't work right after instantiation			
-	def updateOverhang(self):#, overhangAngle):
+
+	def updateOverhang(self):
 		if self.filename != "" and self.isActive():
 			# Calculate clipping threshold based on Z component..
 			# Z normals are 1 if pointing upwards, -1 if downwards and 0 if pointing sideways.
@@ -982,7 +824,6 @@ class modelData:
 		if self.filename != "" and self.isActive():
 			# Update overhang.
 			self.updateOverhang()
-			print 'foobar'
 		
 			# Clear all inputs from cones data.
 			self.supports.RemoveAllInputs()
@@ -1031,7 +872,7 @@ class modelData:
 			# Number of points in X and Y.
 			nX = nXMin + nXMax + 1	# +1 because of center support, nXMin and nXMax only give number of supports to each side of center.
 			nY = nYMin + nYMax + 1	# +1 because of center support...
-
+			i = 0
 			# Loop through point grid and check for intersections.
 			for iX in range(nX):
 				for iY in range(nY):
@@ -1116,73 +957,31 @@ class modelData:
 						# Append the cylinder to the cones polydata.
 						self.supports.AddInput(cylinderGeomFilter.GetOutput())
 						del cylinder
-			# Reslice. Does not work before supports are created...
-			#self.startBackgroundSlicer()
-			# Fill the slice stack with new dummy images that fit the model size.
-			self.sliceStack.reset(self.getSliceSize()[0], self.getSliceSize()[1], self.getNumberOfSlices())
-			self.startBackgroundSlicer()
-	'''
-	# Update slices. ##########################################################
-	def updateFillPattern(self):
-		# Create an opencv image with rectangular pattern for filling large model areas.
-		self.cvImagePattern = numpy.zeros((self.programSettings['Projector size Y'].value, self.programSettings['Projector size X'].value), numpy.uint8)
+						i += 1
+			print "Created " + str(i) + " supports."
 
-		# Limit operation to within model bounds.
-		roi = [	self.getBounds()[0], self.getBounds()[1],
-				self.getBounds()[2], self.getBounds()[3]	]
 
-		# Limit fill pattern spacing.
-#		if self.settings.getFillSpacing() < 1.0:		# TODO: get min and max values from settings dict
-#			self.settings.setFillSpacing(1.0)
-#		elif self.settings.getFillSpacing() > 10.0:
-#			self.settings.setFillSpacing(10.0)
-#		
-#		# Limit fill wall thickness.
-#		if self.settings.getFillWallThickness() < 0.1:		# TODO: get min and max values from settings dict
-#			self.settings.setFillWallThickness(0.1)
-#		elif self.settings.getFillWallThickness() > 0.5:
-#			self.settings.setFillWallThickness(0.5)		
-
-		# TODO use ROI.
-		# Set every Nth vertical line (and it's  neighbour or so) white.
-		spacing = self.settings['Fill spacing'].value * self.programSettings['pxPerMm'].value
-		wallThickness = self.settings['Fill wall thickness'].value * self.programSettings['pxPerMm'].value
-		for pixelX in range(self.programSettings['Projector size X'].value):
-			if (pixelX / spacing - math.floor(pixelX / spacing)) * spacing < wallThickness:		# TODO: set spacing values from settings dict.
-				self.cvImagePattern[:,pixelX-1] = 255
-		# Set every 15th horizontal line (and it's  neighbour or so) white.
-		for pixelY in range(self.programSettings['Projector size Y'].value):
-			if (pixelY / spacing - math.floor(pixelY / spacing)) * spacing < wallThickness:		# TODO: set spacing values from settings dict.
-				self.cvImagePattern[pixelY-1,:] = 255
-		
-		# Reshape...
-		self.cvImagePattern = self.cvImagePattern.reshape(1, self.programSettings['Projector size Y'].value, self.programSettings['Projector size X'].value)
-		self.cvImagePattern = self.cvImagePattern.transpose(1,2,0)
-		
-		# Expand to 3 channels per pixel.	
-		self.cvImagePattern = numpy.repeat(self.cvImagePattern, 3, axis = 2)	
-		
-		return self.cvImagePattern
-	'''
 	# Update slice actor.
 	def updateSlice3d(self, sliceNumber):
 		if self.filename != "" and self.isActive():
 			# Update pipeline with slice position given by layer height and slice number.
 			self.cuttingPlane.SetOrigin(0,0,self.programSettings['Layer height'].value*sliceNumber)
-			self.extruderModel.SetVector(0,0,-sliceNumber*self.programSettings['Layer height'].value-1)
-			self.extruderSupports.SetVector(0,0,-sliceNumber*self.programSettings['Layer height'].value-1)
-			self.extruderBottomPlate.SetVector(0,0,-sliceNumber*self.programSettings['Layer height'].value-1)
-			self.combinedSliceImageModelSupportsBottomPlate.Update()
+			self.combinedCutlines.Update()
 	
 	def startBackgroundSlicer(self):
-		if self.filename!="":
+		# Only update if this is not default flag and the 
+		# model or supports have been changed before.
+		if self.filename!="" and self.flagChanged==True and self.isActive():
 			if self.console != None:
 				self.console.addLine('Slicer started.')
+			# Reset the slice stack.
+			self.sliceStack.reset(self.getSliceSize()[0], self.getSliceSize()[1], self.getNumberOfSlices())
 			# If there's nothing in the queue...
 			if self.queueSlicerIn.empty():
 				# ... write the model polydata to the queue.
 				self.queueSlicerIn.put([self.stlPositionFilter.GetOutput(), self.supports.GetOutput(), self.bottomPlate.GetOutput()])
-	
+			self.flagChanged = False
+
 	def checkBackgroundSlicer(self):
 		# If a slice stack is in the output queue...
 		if self.queueSlicerOut.qsize():
@@ -1191,7 +990,7 @@ class modelData:
 				self.console.addLine('Slicer done.')
 			self.sliceStack[:] = self.queueSlicerOut.get()
 	
-	def killSlicerThread(self):
+	def killBackgroundSlicer(self):
 		self.slicerThread.stop()
 		
 	def getSizePxXY(self):
@@ -1239,160 +1038,8 @@ class modelData:
 		rim = int(self.programSettings['Model safety distance'].value * self.programSettings['pxPerMm'].value)
 		# Get position in pixels. Include rim.
 		position = (bounds[0]*self.programSettings['pxPerMm'].value-rim, bounds[2]*self.programSettings['pxPerMm'].value-rim)
-		print position
 		return position
-	'''
-	# Update slice image.
-	def updateSlice(self, sliceNumber):
-		if self.filename != "" and self.isActive():
-			print sliceNumber
-			
-			# Get layer height from settings.
-			layerHeight = 	self.programSettings['Layer height'].value
-			
-			# Define rim size in pixel.
-			rim = 0
-			# Get position. Add rim.
-			position = [self.getBounds()[0] - rim/self.programSettings['pxPerMm'].value, self.getBounds()[2] - rim/self.programSettings['pxPerMm'].value, 0]
-			# Get size in pixels. Add rim twice.
-			width = math.ceil(self.getSize()[0] * self.programSettings['pxPerMm'].value) + rim*2
-			height = math.ceil(self.getSize()[1] * self.programSettings['pxPerMm'].value) + rim*2
-			print "Image width: " + str(width)
-			print "Image height: " + str(height)
-			# Set the image size according to model dimensions.
-			self.cvImage = numpy.ones((height, width), numpy.uint8)
-			self.cvImage *= 255.
-			# Create black image.
-			self.cvImageBlack = numpy.zeros((height, width), numpy.uint8)
-			# Set new VTK image with updated size.
-			self.image.GetPointData().SetScalars(numpy_support.numpy_to_vtk(self.cvImage))
-			self.image.SetDimensions(width, height,1)
-			self.image.SetOrigin(position) # In mm.
-			self.image.SetExtent(0, width-1,0, height-1, 0, 0) # What was the -1 for width and height? Without it doesnt work...
-			self.image.AllocateScalars()
-			# Set new position for extruder stencil
-			self.extruderStencilModel.SetOutputOrigin(position)
-			self.extruderStencilSupports.SetOutputOrigin(position)
-			self.extruderStencilBottomPlate.SetOutputOrigin(position)
-			# Set new height for the cutting plane and extruders.
-			self.cuttingPlane2.SetOrigin(0,0,layerHeight*sliceNumber)
-			self.extruderModel.SetVector(0,0,-sliceNumber*layerHeight-1)
-			self.extruderSupports.SetVector(0,0,-sliceNumber*layerHeight-1)
-			self.extruderBottomPlate.SetVector(0,0,-sliceNumber*layerHeight-1)
-			# Update the pipeline.
-			self.combinedSliceImageModelSupportsBottomPlate.Update()
-		
-			# Get pixel values from vtk image data and turn into numpy array.
-	#		print self.combinedSliceImageModelSupportsBottomPlate.GetOutput()
-			self.imageArray = self.combinedSliceImageModelSupportsBottomPlate.GetOutput().GetPointData().GetScalars()
-	#		print self.imageArray
-			print "Slice number: " + str(sliceNumber)
-			self.imageArrayNumpy = numpy_support.vtk_to_numpy(self.combinedSliceImageModelSupportsBottomPlate.GetOutput().GetPointData().GetScalars())
-		#	print imageArrayNumpy.shape
-			# Get dimensions from vtk image data.
-			dims = self.combinedSliceImageModelSupportsBottomPlate.GetOutput().GetDimensions()
 
-			# Reshape the numpy array according to image dimensions.
-			self.imageArrayNumpy = self.imageArrayNumpy.reshape(dims[2], dims[1], dims[0])
-			self.imageArrayNumpy = self.imageArrayNumpy.transpose(1,2,0)
-		
-			# Cast to uint8.
-			self.imageArrayNumpy = numpy.uint8(self.imageArrayNumpy)
-
-			# Repeat in 3d dimension to get an rgb image.
-	#		self.imageArrayNumpy = numpy.repeat(self.imageArrayNumpy, 3, axis = 2)
-		
-			# Kill 3rd dimension.
-			self.imageArrayNumpy = numpy.squeeze(self.imageArrayNumpy)
-			# Add the image to the stack.
-		#	self.sliceStack.addSlice(sliceNumber, self.imageArrayNumpy, position)
-			return self.imageArrayNumpy
-			
-			#self.startBackgroundSlicer()
-
-# TODO: is it better to update fill with ROI or to use old full image pattern and shift it?		
-			# Update fill pattern image.
-#			self.cvImagePattern = self.updateFillPattern()
-				
-			# Get pixel values from 10 slices above and below. ##################
-			# We need to analyse these to be able to generate closed bottom and top surfaces.
-			# Only use model slice data. Supports and bottom plate have no internal pattern anyway.
-			# Check if we are in the first or last mm of the model, then there should not be a pattern anyways, so we set everything black.
-			# Only do this whole thing if fillFlag is set and fill is shown or print is going.
-			if False:#self.settings['Print hollow'].value == True and (self.programSettings['Show fill'].value == True or self.printFlag == True):
-				wallThicknessTopBottom = self.settings['Shell wall thickness'].value	# [mm]
-# TODO: why not get layer height from settings?
-				if self.inputModelPolydata.GetBounds()[5] > layerHeight*sliceNumber+wallThicknessTopBottom and self.inputModelPolydata.GetBounds()[4] < layerHeight*sliceNumber-wallThicknessTopBottom:
-					# Set cutting plate + wall thickness.
-					self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber+wallThicknessTopBottom)
-					self.extruderModel.SetVector(0,0,-sliceNumber+wallThicknessTopBottom*layerHeight-1)
-					self.stencilModel.Update()
-			
-					# Get data.	
-					self.imageArrayTopMask = self.stencilModel.GetOutput().GetPointData().GetScalars()
-			
-					# Set cutting plate - wall thickness.
-					self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber-wallThicknessTopBottom)
-					self.extruderModel.SetVector(0,0,-sliceNumber+wallThicknessTopBottom*layerHeight-1)
-					self.stencilModel.Update()
-			
-					# Get data.
-					self.imageArrayBottomMask = self.stencilModel.GetOutput().GetPointData().GetScalars()
-			
-					# Get numpy array from vtk image data.
-					self.imageArrayTopMaskNumpy = numpy_support.vtk_to_numpy(self.imageArrayTopMask)
-					self.imageArrayBottomMaskNumpy = numpy_support.vtk_to_numpy(self.imageArrayBottomMask)
-				else:
-					self.imageArrayTopMaskNumpy = self.cvImageBlack
-					self.imageArrayBottomMaskNumpy = self.cvImageBlack
-		
-		
-				# Get dimensions from vtk image data.
-				dims = self.stencilModel.GetOutput().GetDimensions()
-
-				# Reshape the numpy array according to image dimensions.
-				self.imageArrayTopMaskNumpy = self.imageArrayTopMaskNumpy.reshape(dims[2], dims[1], dims[0])
-				self.imageArrayBottomMaskNumpy = self.imageArrayBottomMaskNumpy.reshape(dims[2], dims[1], dims[0])
-				self.imageArrayTopMaskNumpy = self.imageArrayTopMaskNumpy.transpose(1,2,0)
-				self.imageArrayBottomMaskNumpy = self.imageArrayBottomMaskNumpy.transpose(1,2,0)
-	
-				# Cast to uint8.
-				self.imageArrayTopMaskNumpy = numpy.uint8(self.imageArrayTopMaskNumpy)
-				self.imageArrayBottomMaskNumpy = numpy.uint8(self.imageArrayBottomMaskNumpy)
-
-				# Repeat in 3d dimension to get an rgb image.
-				self.imageArrayTopMaskNumpy = numpy.repeat(self.imageArrayTopMaskNumpy, 3, axis = 2)
-				self.imageArrayBottomMaskNumpy = numpy.repeat(self.imageArrayBottomMaskNumpy, 3, axis = 2)		
-
-		
-				# Combine current slice with internal structure pattern. ################
-				# Erode slice image to create wall thickness.
-				wallThickness = self.settings['Shell wall thickness'].value	* self.programSettings['pxPerMm'].value	# [px]
-				self.imageArrayNumpyEroded = cv2.erode(self.imageArrayNumpy, numpy.ones((wallThickness,wallThickness), numpy.uint8), iterations=1)
-	
-				# Multiply mask images with eroded image to prevent wall where mask images are black.
-				self.imageArrayNumpyEroded = cv2.multiply(self.imageArrayNumpyEroded, self.imageArrayTopMaskNumpy)
-				self.imageArrayNumpyEroded = cv2.multiply(self.imageArrayNumpyEroded, self.imageArrayBottomMaskNumpy)
-	
-				# Subtract eroded image from original slice image to create the wall.
-				self.imageArrayNumpyWall = self.imageArrayNumpy
-				self.imageArrayNumpyWall = cv2.subtract(self.imageArrayNumpy, self.imageArrayNumpyEroded)
-		
-				# Shift internal pattern 1 pixel to prevent burning in the pdms coating.
-				patternShift = 1
-				self.cvImagePattern = numpy.roll(self.cvImagePattern, patternShift, axis=0)
-				self.cvImagePattern = numpy.roll(self.cvImagePattern, patternShift, axis=1)
-		
-				# Cut out internal pattern using the eroded image.
-				self.imageArrayNumpyEroded = cv2.multiply(self.imageArrayNumpyEroded, self.cvImagePattern)
-		
-				# Add internal pattern to wall. Write result to original slice image.
-#				self.imageArrayNumpyWall = cv2.add(self.imageArrayNumpyWall, self.imageArrayNumpyEroded)
-				if self.settings.getFill():
-					self.imageArrayNumpy = cv2.add(self.imageArrayNumpyWall, self.imageArrayNumpyEroded)
-				else:
-					self.imageArrayNumpy = self.imageArrayNumpyWall
-	'''
 
 
 	###########################################################################
@@ -1515,11 +1162,9 @@ class modelData:
 	def getActorSlices(self):
 		return self.cuttingFilterActor
 	
-	def getActorExtruder(self):
+	def getActorSliceImage(self):
 		self.imageActor.SetVisibility(True)
 		return self.imageActor
-	#	self.extruderModelActor.SetVisibility(True)
-	#	return self.extruderModelActor
 		
 	def hideActorSlices(self):
 		self.cuttingFilterActor.SetVisibility(False)
@@ -1567,6 +1212,10 @@ class modelData:
 		center[1] = bounds[2] + size[1] / 2.0
 		center[2] = bounds[4] + size[2] / 2.0
 		return center
+
+
+
+
 
 
 ################################################################################
@@ -1633,13 +1282,7 @@ class sliceStack(list):
 		self.imageBlack = imageHandling.createImageGray(self.width, self.height,0)
 		# Create error image. TODO make this a monkey skull...
 		self.imageError = imageHandling.createImageNoisy(self.width, self.height)
-		
-		
-	# Create random noise image.
-#	def createImageNoisy(self, width=None, height=None):
-#		imageNoisy = numpy.random.rand(width, height, 3) * 255
-#		imageNoisy = numpy.uint8(imageNoisy)
-#		return imageNoisy
+
 
 	
 	# Set stack with "uniform" image. Type may be 'black' or 'noisy'
@@ -1716,14 +1359,12 @@ class sliceStack(list):
 		
 
 
+
+
+
 ################################################################################
 # A thread to slice the model in background.	###################################
-################################################################################
-	
-	
-# TODO: Slicer thread should not write to GUI elements, for example console.
-# Make a listener function in the gui for the console that is called every n milliseconds
-# and check a communication queue.			
+################################################################################		
 class backgroundSlicer(threading.Thread):
 	def __init__(self, settings, programSettings, queueSlicerIn, queueSlicerOut):
 		# Internalise inputs.
@@ -1745,7 +1386,7 @@ class backgroundSlicer(threading.Thread):
 		# Create cutting plane.
 		self.cuttingPlane = vtk.vtkPlane()
 		self.cuttingPlane.SetNormal(0,0,1)
-		self.cuttingPlane.SetOrigin(0,0,0)
+		self.cuttingPlane.SetOrigin(0,0,0.001)	# Make sure bottom plate is cut properly.
 		# Create cutting filter for model.
 		self.cuttingFilterModel = vtk.vtkCutter()
 		self.cuttingFilterModel.SetCutFunction(self.cuttingPlane)
@@ -1793,24 +1434,14 @@ class backgroundSlicer(threading.Thread):
 		self.extruderStencilModel = vtk.vtkPolyDataToImageStencil()
 		self.extruderStencilModel.SetTolerance(0)
 		self.extruderStencilModel.SetInput(self.extruderModel.GetOutput())
-		# TODO update to set size
-	#	self.extruderStencilModel.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
-	#	self.extruderStencilModel.SetOutputSpacing((0.1,0.1,0.1))
-	#	self.extruderStencilModel.SetOutputWholeExtent(self.image.GetExtent())
 		# Create image stencil from extruded polyline for supports.
 		self.extruderStencilSupports = vtk.vtkPolyDataToImageStencil()
 		self.extruderStencilSupports.SetTolerance(0)
 		self.extruderStencilSupports.SetInput(self.extruderSupports.GetOutput())
-	#	self.extruderStencilSupports.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
-	#	self.extruderStencilSupports.SetOutputSpacing((0.1,0.1,0.1))
-	#	self.extruderStencilSupports.SetOutputWholeExtent(self.image.GetExtent())
 		# Create image stencil from extruded polyline for bottom plate.
 		self.extruderStencilBottomPlate = vtk.vtkPolyDataToImageStencil()
 		self.extruderStencilBottomPlate.SetTolerance(0)
 		self.extruderStencilBottomPlate.SetInput(self.extruderBottomPlate.GetOutput())
-	#	self.extruderStencilBottomPlate.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
-	#	self.extruderStencilBottomPlate.SetOutputSpacing((0.1,0.1,0.1))
-	#	self.extruderStencilBottomPlate.SetOutputWholeExtent(self.image.GetExtent())
 		# Cut white image with stencil.
 		self.stencilModel = vtk.vtkImageStencil()
 		self.stencilModel.SetInput(self.image)
@@ -1857,21 +1488,16 @@ class backgroundSlicer(threading.Thread):
 
 		
 	def runSlicer(self, inputModel):
-		# Update image size.
-		#TODO
 		# Don't run if stop condition is set.
 		while not self.stopThread.isSet():
 			# Check if new input is in queue. If not...
 			if not self.newInputInQueue():
 				# ...do the slicing.
 				self.sliceStack = self.updateSlices(inputModel)
-				print 'Starting slicer'
 			# If yes...
 			else:
 				# Break the loop, return to idle mode and restart from there.
-				print 'Restarting slicer'
 				break
-			print 'Slicer done'
 			# Write the model to the output queue.
 			self.queueSlicerOut.put(self.sliceStack)
 			break
@@ -1904,49 +1530,32 @@ class backgroundSlicer(threading.Thread):
 			# Get size of the model in mm.
 			bounds = [0 for i in range(6)]
 			inputModel[0].GetBounds(bounds)
-			print "   Slicer thread: Bounds: " + str(bounds)
 			# Get layer height in mm.
 			layerHeight = 	self.programSettings['Layer height'].value
 			# Calc number of layers.
 			numberOfSlices = int(math.ceil(bounds[5] / layerHeight))
-			print "   Slicer thread: Number of layers: " + str(numberOfSlices) + "."
 			# Get rim size in pixels.
 			rim = int(self.programSettings['Model safety distance'].value * self.programSettings['pxPerMm'].value)
-			print "   Slicer thread: Image rim: " + str(rim) + " px."
 			# Get position in pixels. Include rim.
 			position = (int(bounds[0]*self.programSettings['pxPerMm'].value-rim), int(bounds[2]*self.programSettings['pxPerMm'].value-rim), 0)
 			positionMm = (bounds[0]-rim/self.programSettings['pxPerMm'].value, bounds[2]-rim/self.programSettings['pxPerMm'].value, 0)
-			print "   Slicer thread: Image position: " + str(position) + " px."
 			# Get size in pixels. Add rim twice.
 			width = int(math.ceil((bounds[1]-bounds[0]) * self.programSettings['pxPerMm'].value) + rim*2)
 			height = int(math.ceil((bounds[3]-bounds[2]) * self.programSettings['pxPerMm'].value) + rim*2)
-			print "   Slicer thread: Image width: " + str(width) + " px."
-			print "   Slicer thread: Image height: " + str(height) + " px."
 			# Get pixel spacing from settings.
 			spacing = (1./self.programSettings['pxPerMm'].value,)*3
-			print "   Slicer thread: Spacing: " + str(spacing)
 			# Prepare images.
 			self.imageWhite = numpy.ones((height, width), numpy.uint8)
 			self.imageWhite *= 255.
 			self.imageBlack = numpy.zeros((height, width), numpy.uint8)
 			self.imageFill = self.createFillPattern(width, height)
-			'''
-			# Create an opencv image with rectangular pattern for filling large model areas.
-#		self.cvImagePattern = self.createFillPattern(size,size)
-		# Copy to use as base for eroded image and wall image later.
-#		self.imageArrayNumpyEroded = self.cvImagePattern
-#		self.imageArrayNumpyWall = self.cvImagePattern
-#		self.imageArrayNumpy = self.cvImageBlack
-			'''
+
 			# Prepare vtk image and extruder stencils.
 			self.image.GetPointData().SetScalars(numpy_support.numpy_to_vtk(self.imageWhite))
 			self.image.SetOrigin(positionMm[0], positionMm[1], 0)	# mm
 			self.image.SetDimensions(width, height, 1)
 			self.image.SetSpacing(spacing)
 			self.image.AllocateScalars()
-			print "   Image origin: " + str(self.image.GetOrigin())
-			print "   Image extent: " + str(self.image.GetExtent())
-			print "   Image dimensions: " + str(self.image.GetDimensions())
 			
 			# Set new position for extruder stencils.
 			# Model.
@@ -1956,30 +1565,31 @@ class backgroundSlicer(threading.Thread):
 			# Supports.
 			self.extruderStencilSupports.SetOutputOrigin(positionMm)
 			self.extruderStencilSupports.SetOutputWholeExtent(self.image.GetExtent())
-			self.extruderStencilModel.SetOutputSpacing(spacing)
+			self.extruderStencilSupports.SetOutputSpacing(spacing)
 			# Bottom plate.
 			self.extruderStencilBottomPlate.SetOutputOrigin(positionMm)
 			self.extruderStencilBottomPlate.SetOutputWholeExtent(self.image.GetExtent())
-			self.extruderStencilModel.SetOutputSpacing(spacing)
+			self.extruderStencilBottomPlate.SetOutputSpacing(spacing)
 			
 
 			# Loop through slices.
 			for sliceNumber in range(numberOfSlices):
+				# Sleep for a very short period to allow GUI thread some CPU usage.
+				time.sleep(0.01)
 				# Set new height for the cutting plane and extruders.
-				self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber)
-				self.extruderModel.SetVector(0,0,-sliceNumber*layerHeight-1)
-				self.extruderSupports.SetVector(0,0,-sliceNumber*layerHeight-1)
-				self.extruderBottomPlate.SetVector(0,0,-sliceNumber*layerHeight-1)
+				if sliceNumber == 0:
+					slicePosition = 0.001
+				else:
+					slicePosition = layerHeight*sliceNumber
+				self.cuttingPlane.SetOrigin(0,0,slicePosition)
+				self.extruderModel.SetVector(0,0,-slicePosition-1)
+				self.extruderSupports.SetVector(0,0,-slicePosition-1)
+				self.extruderBottomPlate.SetVector(0,0,-slicePosition-1)
 			
 				# Update the pipeline.
 				self.stencilModel.Update()
 				self.stencilSupports.Update()
 				self.stencilBottomPlate.Update()
-		
-#				print "   Image origin: " + str(self.image.GetOrigin())
-#				print "   Image extent: " + str(self.image.GetExtent())
-#				print "   Image dimensions: " + str(self.image.GetDimensions())
-#				print "   Extruder dimensions: " + str(self.extruderModel.GetOutput().GetBounds())
 		
 				# Get pixel values from vtk image data and turn into numpy array.
 				self.imageModel = numpy_support.vtk_to_numpy(self.stencilModel.GetOutput().GetPointData().GetScalars())
@@ -2001,90 +1611,88 @@ class backgroundSlicer(threading.Thread):
 				self.imageSupports = numpy.uint8(self.imageSupports)
 				self.imageBottomPlate = numpy.uint8(self.imageBottomPlate)
 
-				# Create the model fill pattern.
-				'''	
-				# Get pixel values from 10 slices above and below. ##################
+				# Create fill pattern. #####################################
+				# Get pixel values from 10 slices above and below.
 				# We need to analyse these to be able to generate closed bottom and top surfaces.
 				# Only use model slice data. Supports and bottom plate have no internal pattern anyway.
 				# Check if we are in the first or last mm of the model, then there should not be a pattern anyways, so we set everything black.
 				# Only do this whole thing if fillFlag is set and fill is shown or print is going.
-				if self.settings['Print hollow'].value == True and (self.programSettings['Show fill'].value == True or self.printFlag == True):
-					wallThicknessTopBottom = self.settings['Shell wall thickness'].value	# [mm]
-	# TODO: why not get layer height from settings?
-					if self.inputModelPolydata.GetBounds()[5] > layerHeight*sliceNumber+wallThicknessTopBottom and self.inputModelPolydata.GetBounds()[4] < layerHeight*sliceNumber-wallThicknessTopBottom:
-						# Set cutting plate + wall thickness.
-						self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber+wallThicknessTopBottom)
-						self.extruderModel.SetVector(0,0,-sliceNumber+wallThicknessTopBottom*layerHeight-1)
+				if self.settings['Print hollow'].value == True:# and (self.programSettings['Show fill'].value == True or self.printFlag == True):
+					
+					# Get wall thickness from settings.
+					wallThickness = self.settings['Shell wall thickness'].value	# [mm]
+					wallThicknessPx = wallThickness * self.programSettings['pxPerMm'].value
+					
+					# Get top and bottom masks for wall thickness.
+					# Only if we one wall thickness below top or above bottom.
+					if bounds[5] > layerHeight*sliceNumber+wallThickness and bounds[4] < layerHeight*sliceNumber-wallThickness:	
+						
+						# Set cutting plane + wall thickness for top mask.
+						self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber+wallThickness)
+						self.extruderModel.SetVector(0,0,-sliceNumber+wallThickness*layerHeight-1)
 						self.stencilModel.Update()
 				
-						# Get data.	
-						self.imageArrayTopMask = self.stencilModel.GetOutput().GetPointData().GetScalars()
+						# Get mask image data as numpy array.
+						self.imageTopMask = numpy_support.vtk_to_numpy(self.stencilModel.GetOutput().GetPointData().GetScalars())
 				
-						# Set cutting plate - wall thickness.
-						self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber-wallThicknessTopBottom)
-						self.extruderModel.SetVector(0,0,-sliceNumber+wallThicknessTopBottom*layerHeight-1)
+						# Set cutting plate - wall thickness for bottom mask.
+						self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber-wallThickness)
+						self.extruderModel.SetVector(0,0,-sliceNumber+wallThickness*layerHeight-1)
 						self.stencilModel.Update()
 				
-						# Get data.
-						self.imageArrayBottomMask = self.stencilModel.GetOutput().GetPointData().GetScalars()
-				
-						# Get numpy array from vtk image data.
-						self.imageArrayTopMaskNumpy = numpy_support.vtk_to_numpy(self.imageArrayTopMask)
-						self.imageArrayBottomMaskNumpy = numpy_support.vtk_to_numpy(self.imageArrayBottomMask)
+						# Get mask image data as numpy array.
+						self.imageBottomMask = numpy_support.vtk_to_numpy(self.stencilModel.GetOutput().GetPointData().GetScalars())
+						
+						# Now we have the pixel values in a long list. Transform them into a 2d array.
+						self.imageTopMask = self.imageTopMask.reshape(1, height, width)
+						self.imageTopMask = self.imageTopMask.transpose(1,2,0)
+						self.imageBottomMask = self.imageBottomMask.reshape(1, height, width)
+						self.imageBottomMask = self.imageBottomMask.transpose(1,2,0)
+						
+						# Cast to uint8.
+						self.imageTopMask = numpy.uint8(self.imageTopMask)
+						self.imageBottomMask = numpy.uint8(self.imageBottomMask)
+					
+					# If cutting plane is inside top or bottom wall...
 					else:
-						self.imageArrayTopMaskNumpy = self.cvImageBlack
-						self.imageArrayBottomMaskNumpy = self.cvImageBlack
-			
-			
-					# Get dimensions from vtk image data.
-					dims = self.stencilModel.GetOutput().GetDimensions()
+						# ... set masks black.
+						self.imageTopMask = self.imageBlack
+						self.imageBottomMask = self.imageBlack
 	
-					# Reshape the numpy array according to image dimensions.
-					self.imageArrayTopMaskNumpy = self.imageArrayTopMaskNumpy.reshape(dims[2], dims[1], dims[0])
-					self.imageArrayBottomMaskNumpy = self.imageArrayBottomMaskNumpy.reshape(dims[2], dims[1], dims[0])
-					self.imageArrayTopMaskNumpy = self.imageArrayTopMaskNumpy.transpose(1,2,0)
-					self.imageArrayBottomMaskNumpy = self.imageArrayBottomMaskNumpy.transpose(1,2,0)
-		
-					# Cast to uint8.
-					self.imageArrayTopMaskNumpy = numpy.uint8(self.imageArrayTopMaskNumpy)
-					self.imageArrayBottomMaskNumpy = numpy.uint8(self.imageArrayBottomMaskNumpy)
-	
-					# Repeat in 3d dimension to get an rgb image.
-					self.imageArrayTopMaskNumpy = numpy.repeat(self.imageArrayTopMaskNumpy, 3, axis = 2)
-					self.imageArrayBottomMaskNumpy = numpy.repeat(self.imageArrayBottomMaskNumpy, 3, axis = 2)		
-	
-			
-					# Combine current slice with internal structure pattern. ################
-					# Erode slice image to create wall thickness.
-					wallThickness = self.settings['Shell wall thickness'].value	* self.programSettings['pxPerMm'].value	# [px]
-					self.imageArrayNumpyEroded = cv2.erode(self.imageArrayNumpy, numpy.ones((wallThickness,wallThickness), numpy.uint8), iterations=1)
+
+					# Erode model image to create wall thickness.
+					self.imageEroded = cv2.erode(self.imageModel, numpy.ones((wallThicknessPx,wallThicknessPx), numpy.uint8), iterations=1)
 		
 					# Multiply mask images with eroded image to prevent wall where mask images are black.
-					self.imageArrayNumpyEroded = cv2.multiply(self.imageArrayNumpyEroded, self.imageArrayTopMaskNumpy)
-					self.imageArrayNumpyEroded = cv2.multiply(self.imageArrayNumpyEroded, self.imageArrayBottomMaskNumpy)
+					self.imageEroded = cv2.multiply(self.imageEroded, self.imageTopMask)
+					self.imageEroded = cv2.multiply(self.imageEroded, self.imageBottomMask)
 		
 					# Subtract eroded image from original slice image to create the wall.
-					self.imageArrayNumpyWall = self.imageArrayNumpy
-					self.imageArrayNumpyWall = cv2.subtract(self.imageArrayNumpy, self.imageArrayNumpyEroded)
+					self.imageWall = self.imageModel
+					self.imageWall = cv2.subtract(self.imageModel, self.imageEroded)
 			
-					# Shift internal pattern 1 pixel to prevent burning in the pdms coating.
-					patternShift = 1
-					self.cvImagePattern = numpy.roll(self.cvImagePattern, patternShift, axis=0)
-					self.cvImagePattern = numpy.roll(self.cvImagePattern, patternShift, axis=1)
-			
-					# Cut out internal pattern using the eroded image.
-					self.imageArrayNumpyEroded = cv2.multiply(self.imageArrayNumpyEroded, self.cvImagePattern)
-			
+					
 					# Add internal pattern to wall. Write result to original slice image.
-	#				self.imageArrayNumpyWall = cv2.add(self.imageArrayNumpyWall, self.imageArrayNumpyEroded)
-					if self.settings.getFill():
-						self.imageArrayNumpy = cv2.add(self.imageArrayNumpyWall, self.imageArrayNumpyEroded)
+					if self.settings['Fill'].value == True:
+					
+						# Shift internal pattern 1 pixel to prevent burning in the pdms coating.
+						patternShift = 1	# TODO: implement setting for pattern shift.
+						self.imageFill = numpy.roll(self.imageFill, patternShift, axis=0)
+						self.imageFill = numpy.roll(self.imageFill, patternShift, axis=1)
+			
+						# Cut out internal pattern using the eroded image.
+						# Don't write to image pattern as we need it later.
+						self.imageEroded = cv2.multiply(self.imageEroded, self.imageFill)
+						# Set image.
+						self.imageModel = cv2.add(self.imageWall, self.imageEroded)
 					else:
-						self.imageArrayNumpy = self.imageArrayNumpyWall
-				'''
-				self.imageFill = numpy.roll(self.imageFill, 1, axis=0)
-				self.imageFill = numpy.roll(self.imageFill, 1, axis=1)
-				#self.sliceStack.append(self.imageFill)
+						self.imageModel = self.imageWall
+					
+				# Combine model, supports and bottom plate images.
+				self.imageModel = cv2.add(self.imageModel, self.imageSupports)
+				self.imageModel = cv2.add(self.imageModel, self.imageBottomPlate)
+				
+				# Write slice image to slice stack.
 				self.sliceStack.append(self.imageModel)
 			return self.sliceStack
 		
@@ -2093,26 +1701,18 @@ class backgroundSlicer(threading.Thread):
 	def createFillPattern(self, width, height):
 		if not self.stopThread.isSet():
 			# Create an opencv image with rectangular pattern for filling large model areas.
-			imagePattern = numpy.zeros((height, width), numpy.uint8)
+			imageFill = numpy.zeros((height, width), numpy.uint8)
 	
 			# Set every Nth vertical line (and it's  neighbour or so) white.
 			spacing = self.settings['Fill spacing'].value * self.programSettings['pxPerMm'].value
 			wallThickness = self.settings['Fill wall thickness'].value * self.programSettings['pxPerMm'].value
 			for pixelX in range(width):
 				if (pixelX / spacing - math.floor(pixelX / spacing)) * spacing < wallThickness:
-					imagePattern[:,pixelX-1] = 255
+					imageFill[:,pixelX-1] = 255
 			for pixelY in range(height):
 				if (pixelY / spacing - math.floor(pixelY / spacing)) * spacing < wallThickness:
-					imagePattern[pixelY-1,:] = 255
-			
-			# Reshape...
-#			imagePattern = imagePattern.reshape(1, height, width)
-#			imagePattern = imagePattern.transpose(1,2,0)
-		
-#			# Expand to 3 channels per pixel.	
-#			self.cvImagePattern = numpy.repeat(self.cvImagePattern, 3, axis = 2)	
-		
-			return imagePattern
+					imageFill[pixelY-1,:] = 255		
+			return imageFill
 			
 
 
