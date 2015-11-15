@@ -609,14 +609,6 @@ class modelData:
 			self.image.SetScalarTypeToUnsignedChar()
 			self.image.SetNumberOfScalarComponents(1)
 			self.image.AllocateScalars()
-# TODO: What's the best order to do the image allocation?
-			# Create an opencv image with rectangular pattern for filling large model areas.
-			# Only, if object is created for printing. Otherwise this is a little slow...
-#			self.cvImagePattern = self.updateFillPattern()
-			# Copy to use as base for eroded image and wall image later.
-#			self.imageArrayNumpyEroded = self.cvImagePattern
-#			self.imageArrayNumpyWall = self.cvImagePattern
-#			self.imageArrayNumpy = self.cvImageBlack
 			# Create image stencil from extruded polyline for model.
 			self.extruderStencilModel = vtk.vtkPolyDataToImageStencil()
 			self.extruderStencilModel.SetTolerance(0)
@@ -629,14 +621,14 @@ class modelData:
 			self.extruderStencilSupports = vtk.vtkPolyDataToImageStencil()
 			self.extruderStencilSupports.SetTolerance(0)
 			self.extruderStencilSupports.SetInput(self.extruderSupports.GetOutput())
-			self.extruderStencilSupports.SetOutputOrigin((0,0,0))
+			self.extruderStencilSupports.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
 			self.extruderStencilSupports.SetOutputSpacing((0.1,0.1,0.1))
 			self.extruderStencilSupports.SetOutputWholeExtent(self.image.GetExtent())
 			# Create image stencil from extruded polyline for bottom plate.
 			self.extruderStencilBottomPlate = vtk.vtkPolyDataToImageStencil()
 			self.extruderStencilBottomPlate.SetTolerance(0)
 			self.extruderStencilBottomPlate.SetInput(self.extruderBottomPlate.GetOutput())
-			self.extruderStencilBottomPlate.SetOutputOrigin((0,0,0))
+			self.extruderStencilBottomPlate.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
 			self.extruderStencilBottomPlate.SetOutputSpacing((0.1,0.1,0.1))
 			self.extruderStencilBottomPlate.SetOutputWholeExtent(self.image.GetExtent())
 			# Cut white image with stencil.
@@ -1748,36 +1740,30 @@ class backgroundSlicer(threading.Thread):
 		# Set up slice stack as list.
 		self.sliceStack = []
 		
-		# Set up the VTK pipeline: Create cutting plane, cutting filter and cut line polydata.
+		# Create the VTK pipeline.
+		self.extrusionVector = (0,0,-1)
 		# Create cutting plane.
 		self.cuttingPlane = vtk.vtkPlane()
 		self.cuttingPlane.SetNormal(0,0,1)
-		self.cuttingPlane.SetOrigin(0,0,0.001)	# Make sure bottom plate is cut properly.
+		self.cuttingPlane.SetOrigin(0,0,0)
 		# Create cutting filter for model.
 		self.cuttingFilterModel = vtk.vtkCutter()
 		self.cuttingFilterModel.SetCutFunction(self.cuttingPlane)
-#		Do this later: self.cuttingFilterModel.SetInput(self.stlPositionFilter.GetOutput())
 		# Create cutting filter for supports.
 		self.cuttingFilterSupports = vtk.vtkCutter()
 		self.cuttingFilterSupports.SetCutFunction(self.cuttingPlane)
-#		Do this later: self.cuttingFilterSupports.SetInput(self.supports.GetOutput())
 		# Create cutting filter for bottom plate.
 		self.cuttingFilterBottomPlate = vtk.vtkCutter()
 		self.cuttingFilterBottomPlate.SetCutFunction(self.cuttingPlane)
-#		Do this later: self.cuttingFilterBottomPlate.SetInput(self.bottomPlate.GetOutput())
 		# Create polylines from cutter output for model.
 		self.sectionStripperModel = vtk.vtkStripper()
 		self.sectionStripperModel.SetInput(self.cuttingFilterModel.GetOutput())
-		#TODO: remove scalars so color is white.
-		#self.sectionStripperModel.GetOutput().GetPointData().RemoveArray('normalsZ')
 		# Create polylines from cutter output for supports.
 		self.sectionStripperSupports = vtk.vtkStripper()
 		self.sectionStripperSupports.SetInput(self.cuttingFilterSupports.GetOutput())
 		# Create polylines from cutter output for bottom plate.
 		self.sectionStripperBottomPlate = vtk.vtkStripper()
 		self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
-		# Z-vector for extruder.
-		self.extrusionVector = (0,0,-1)
 		# Extrude cut polyline of model.
 		self.extruderModel = vtk.vtkLinearExtrusionFilter()
 		self.extruderModel.SetInput(self.sectionStripperModel.GetOutput())
@@ -1798,43 +1784,33 @@ class backgroundSlicer(threading.Thread):
 		self.extruderBottomPlate.SetScaleFactor(1)
 		self.extruderBottomPlate.CappingOn()
 		self.extruderBottomPlate.SetExtrusionTypeToVectorExtrusion()
-		self.extruderBottomPlate.SetVector(self.extrusionVector)
-		# Create VTK image. Make a numpy array first...
-		size = 10 # Set dummy size. Will be fitted to model size later...
-		self.cvImage = numpy.ones((size, size), numpy.uint8)
-		self.cvImage *= 255.
-		self.cvImageBlack = numpy.zeros((size, size), numpy.uint8)
-		# ... and write it to a VTK image.
+		self.extruderBottomPlate.SetVector(self.extrusionVector)	# Adjust this later on to extrude each slice to Z = 0.
+		# Create single channel VTK image.
 		self.image = vtk.vtkImageData()
-		self.image.GetPointData().SetScalars(numpy_support.numpy_to_vtk(self.cvImage))
-		self.image.SetDimensions(size,size,1)
-		self.image.SetSpacing(1./self.programSettings['pxPerMm'].value, 1./self.programSettings['pxPerMm'].value, 1./self.programSettings['pxPerMm'].value)
-		self.image.SetExtent(0, size-1,0, size-1,0,0)	# px
-		self.image.SetOrigin(0. / self.programSettings['pxPerMm'].value, 0. / self.programSettings['pxPerMm'].value, 0)	# mm
 		self.image.SetScalarTypeToUnsignedChar()
 		self.image.SetNumberOfScalarComponents(1)
-		self.image.AllocateScalars()
 		# Create image stencil from extruded polyline for model.
 		self.extruderStencilModel = vtk.vtkPolyDataToImageStencil()
 		self.extruderStencilModel.SetTolerance(0)
 		self.extruderStencilModel.SetInput(self.extruderModel.GetOutput())
-		self.extruderStencilModel.SetOutputOrigin((0. / self.programSettings['pxPerMm'].value, 0. / self.programSettings['pxPerMm'].value, 0))
-		self.extruderStencilModel.SetOutputSpacing((1./self.programSettings['pxPerMm'].value, 1./self.programSettings['pxPerMm'].value, 1./self.programSettings['pxPerMm'].value))
-		self.extruderStencilModel.SetOutputWholeExtent(self.image.GetExtent())
+		# TODO update to set size
+	#	self.extruderStencilModel.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
+	#	self.extruderStencilModel.SetOutputSpacing((0.1,0.1,0.1))
+	#	self.extruderStencilModel.SetOutputWholeExtent(self.image.GetExtent())
 		# Create image stencil from extruded polyline for supports.
 		self.extruderStencilSupports = vtk.vtkPolyDataToImageStencil()
 		self.extruderStencilSupports.SetTolerance(0)
 		self.extruderStencilSupports.SetInput(self.extruderSupports.GetOutput())
-		self.extruderStencilSupports.SetOutputOrigin((0,0,0))
-		self.extruderStencilSupports.SetOutputSpacing((1./self.programSettings['pxPerMm'].value, 1./self.programSettings['pxPerMm'].value, 1./self.programSettings['pxPerMm'].value))
-		self.extruderStencilSupports.SetOutputWholeExtent(self.image.GetExtent())
+	#	self.extruderStencilSupports.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
+	#	self.extruderStencilSupports.SetOutputSpacing((0.1,0.1,0.1))
+	#	self.extruderStencilSupports.SetOutputWholeExtent(self.image.GetExtent())
 		# Create image stencil from extruded polyline for bottom plate.
 		self.extruderStencilBottomPlate = vtk.vtkPolyDataToImageStencil()
 		self.extruderStencilBottomPlate.SetTolerance(0)
 		self.extruderStencilBottomPlate.SetInput(self.extruderBottomPlate.GetOutput())
-		self.extruderStencilBottomPlate.SetOutputOrigin((0,0,0))
-		self.extruderStencilBottomPlate.SetOutputSpacing((1./self.programSettings['pxPerMm'].value, 1./self.programSettings['pxPerMm'].value, 1./self.programSettings['pxPerMm'].value))
-		self.extruderStencilBottomPlate.SetOutputWholeExtent(self.image.GetExtent())
+	#	self.extruderStencilBottomPlate.SetOutputOrigin((362. / self.programSettings['pxPerMm'].value, 234. / self.programSettings['pxPerMm'].value, 0))#((0,0,0))
+	#	self.extruderStencilBottomPlate.SetOutputSpacing((0.1,0.1,0.1))
+	#	self.extruderStencilBottomPlate.SetOutputWholeExtent(self.image.GetExtent())
 		# Cut white image with stencil.
 		self.stencilModel = vtk.vtkImageStencil()
 		self.stencilModel.SetInput(self.image)
@@ -1853,23 +1829,7 @@ class backgroundSlicer(threading.Thread):
 		self.stencilBottomPlate.SetStencil(self.extruderStencilBottomPlate.GetOutput())
 		self.stencilBottomPlate.ReverseStencilOff()
 		self.stencilBottomPlate.SetBackgroundValue(0.0)
-		# Add up model and supports images.
-#		self.combinedSliceImageModelSupports = vtk.vtkImageMathematics()
-#		self.combinedSliceImageModelSupports.SetInput1(self.stencilModel.GetOutput())
-#		self.combinedSliceImageModelSupports.SetInput2(self.stencilSupports.GetOutput())
-#		self.combinedSliceImageModelSupports.SetOperationToAdd()
-#		# Add model/supports and bottom plate images.
-#		self.combinedSliceImageModelSupportsBottomPlate = vtk.vtkImageMathematics()
-#		self.combinedSliceImageModelSupportsBottomPlate.SetInput1(self.combinedSliceImageModelSupports.GetOutput())
-#		self.combinedSliceImageModelSupportsBottomPlate.SetInput2(self.stencilBottomPlate.GetOutput())
-#		self.combinedSliceImageModelSupportsBottomPlate.SetOperationToAdd()
-		
-		# Create an opencv image with rectangular pattern for filling large model areas.
-#		self.cvImagePattern = self.createFillPattern(size,size)
-		# Copy to use as base for eroded image and wall image later.
-#		self.imageArrayNumpyEroded = self.cvImagePattern
-#		self.imageArrayNumpyWall = self.cvImagePattern
-#		self.imageArrayNumpy = self.cvImageBlack
+
 		
 	# Overload the run method.
 	# This will automatically run once the init function is done.	
@@ -1939,7 +1899,7 @@ class backgroundSlicer(threading.Thread):
 			self.cuttingFilterModel.Update()
 			self.cuttingFilterSupports.SetInput(inputModel[1])
 			self.cuttingFilterBottomPlate.SetInput(inputModel[2])
-
+			
 			# Calc slice stack parameters.
 			# Get size of the model in mm.
 			bounds = [0 for i in range(6)]
@@ -1955,7 +1915,7 @@ class backgroundSlicer(threading.Thread):
 			print "   Slicer thread: Image rim: " + str(rim) + " px."
 			# Get position in pixels. Include rim.
 			position = (int(bounds[0]*self.programSettings['pxPerMm'].value-rim), int(bounds[2]*self.programSettings['pxPerMm'].value-rim), 0)
-			positionMm = (bounds[0]-rim/self.programSettings['pxPerMm'].value, bounds[2]-rim/self.programSettings['pxPerMm'].value)
+			positionMm = (bounds[0]-rim/self.programSettings['pxPerMm'].value, bounds[2]-rim/self.programSettings['pxPerMm'].value, 0)
 			print "   Slicer thread: Image position: " + str(position) + " px."
 			# Get size in pixels. Add rim twice.
 			width = int(math.ceil((bounds[1]-bounds[0]) * self.programSettings['pxPerMm'].value) + rim*2)
@@ -1970,17 +1930,17 @@ class backgroundSlicer(threading.Thread):
 			self.imageWhite *= 255.
 			self.imageBlack = numpy.zeros((height, width), numpy.uint8)
 			self.imageFill = self.createFillPattern(width, height)
+			'''
 			# Create an opencv image with rectangular pattern for filling large model areas.
 #		self.cvImagePattern = self.createFillPattern(size,size)
 		# Copy to use as base for eroded image and wall image later.
 #		self.imageArrayNumpyEroded = self.cvImagePattern
 #		self.imageArrayNumpyWall = self.cvImagePattern
 #		self.imageArrayNumpy = self.cvImageBlack
-			
+			'''
 			# Prepare vtk image and extruder stencils.
 			self.image.GetPointData().SetScalars(numpy_support.numpy_to_vtk(self.imageWhite))
 			self.image.SetOrigin(positionMm[0], positionMm[1], 0)	# mm
-		#	self.image.SetExtent(0, width-1,0, height-1,0,0)	# px. Does only work with width and height -1. Why?
 			self.image.SetDimensions(width, height, 1)
 			self.image.SetSpacing(spacing)
 			self.image.AllocateScalars()
@@ -1988,90 +1948,67 @@ class backgroundSlicer(threading.Thread):
 			print "   Image extent: " + str(self.image.GetExtent())
 			print "   Image dimensions: " + str(self.image.GetDimensions())
 			
-			# Set new position for extruder stencil
-			self.extruderStencilModel.SetOutputOrigin(position)
+			# Set new position for extruder stencils.
+			# Model.
+			self.extruderStencilModel.SetOutputOrigin(positionMm)
 			self.extruderStencilModel.SetOutputWholeExtent(self.image.GetExtent())
 			self.extruderStencilModel.SetOutputSpacing(spacing)
-			
-			self.extruderStencilSupports.SetOutputOrigin(position)
+			# Supports.
+			self.extruderStencilSupports.SetOutputOrigin(positionMm)
 			self.extruderStencilSupports.SetOutputWholeExtent(self.image.GetExtent())
 			self.extruderStencilModel.SetOutputSpacing(spacing)
-			
-			self.extruderStencilBottomPlate.SetOutputOrigin(position)
+			# Bottom plate.
+			self.extruderStencilBottomPlate.SetOutputOrigin(positionMm)
 			self.extruderStencilBottomPlate.SetOutputWholeExtent(self.image.GetExtent())
 			self.extruderStencilModel.SetOutputSpacing(spacing)
-
+			
 
 			# Loop through slices.
 			for sliceNumber in range(numberOfSlices):
-				print "Slice number: " + str(sliceNumber)
 				# Set new height for the cutting plane and extruders.
 				self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber)
 				self.extruderModel.SetVector(0,0,-sliceNumber*layerHeight-1)
 				self.extruderSupports.SetVector(0,0,-sliceNumber*layerHeight-1)
 				self.extruderBottomPlate.SetVector(0,0,-sliceNumber*layerHeight-1)
-				print "Extrusion: " + str(-sliceNumber*layerHeight-1)
-			#	print self.extruderModel.GetOutput().GetPointData().GetPoints()
+			
 				# Update the pipeline.
-				
-				self.extruderStencilModel.Update()
-				self.extruderStencilSupports.Update()
-				self.extruderStencilBottomPlate.Update()
 				self.stencilModel.Update()
 				self.stencilSupports.Update()
 				self.stencilBottomPlate.Update()
-		#		self.combinedSliceImageModelSupportsBottomPlate.Update()
+		
+#				print "   Image origin: " + str(self.image.GetOrigin())
+#				print "   Image extent: " + str(self.image.GetExtent())
+#				print "   Image dimensions: " + str(self.image.GetDimensions())
+#				print "   Extruder dimensions: " + str(self.extruderModel.GetOutput().GetBounds())
 		
 				# Get pixel values from vtk image data and turn into numpy array.
-		#		print self.combinedSliceImageModelSupportsBottomPlate.GetOutput()
-				modelOut = self.stencilModel.GetOutput().GetPointData().GetScalars()
-				self.imageModel = numpy_support.vtk_to_numpy(modelOut)
+				self.imageModel = numpy_support.vtk_to_numpy(self.stencilModel.GetOutput().GetPointData().GetScalars())
+				self.imageSupports = numpy_support.vtk_to_numpy(self.stencilSupports.GetOutput().GetPointData().GetScalars())
+				self.imageBottomPlate = numpy_support.vtk_to_numpy(self.stencilBottomPlate.GetOutput().GetPointData().GetScalars())
 				# Now we have the pixel values in a long list. Transform them into a 2d array.
 				self.imageModel = self.imageModel.reshape(1, height, width)
 				self.imageModel = self.imageModel.transpose(1,2,0)
+				self.imageSupports = self.imageSupports.reshape(1, height, width)
+				self.imageSupports = self.imageSupports.transpose(1,2,0)
+				self.imageBottomPlate = self.imageBottomPlate.reshape(1, height, width)
+				self.imageBottomPlate = self.imageBottomPlate.transpose(1,2,0)
 				# Remove 3rd dimension.
 				self.imageModel = numpy.squeeze(self.imageModel)
-				self.imageModel = numpy.uint8(self.imageModel)
-				
-				self.imageSupports = numpy_support.vtk_to_numpy(self.stencilSupports.GetOutput().GetPointData().GetScalars())
-				self.imageBottomPlate = numpy_support.vtk_to_numpy(self.stencilBottomPlate.GetOutput().GetPointData().GetScalars())
-
-			#	plot.imshow(self.imageModel, interpolation='nearest')
-			#	plot.show()
-
-		#		self.imageArrayNumpy = numpy_support.vtk_to_numpy(self.combinedSliceImageModelSupportsBottomPlate.GetOutput().GetPointData().GetScalars())
-			#	print imageArrayNumpy.shape
-				# Get dimensions from vtk image data.
-			#	dims = self.combinedSliceImageModelSupportsBottomPlate.GetOutput().GetDimensions()
-				'''
-				# Reshape the numpy array according to image dimensions.
-				self.imageArrayNumpy = self.imageArrayNumpy.reshape(dims[2], dims[1], dims[0])
-				self.imageArrayNumpy = self.imageArrayNumpy.transpose(1,2,0)
-		
+				self.imageSupports = numpy.squeeze(self.imageSupports)
+				self.imageBottomPlate = numpy.squeeze(self.imageBottomPlate)
 				# Cast to uint8.
-				self.imageArrayNumpy = numpy.uint8(self.imageArrayNumpy)
-	
-				# Repeat in 3d dimension to get an rgb image.
-		#		self.imageArrayNumpy = numpy.repeat(self.imageArrayNumpy, 3, axis = 2)
-			
-				# Kill 3rd dimension.
-				self.imageArrayNumpy = numpy.squeeze(self.imageArrayNumpy)
-				# Add the image to the stack.
-			#	self.sliceStack.addSlice(sliceNumber, self.imageArrayNumpy, position)
-				return self.imageArrayNumpy
-				
-				#self.startBackgroundSlicer()
+				self.imageModel = numpy.uint8(self.imageModel)
+				self.imageSupports = numpy.uint8(self.imageSupports)
+				self.imageBottomPlate = numpy.uint8(self.imageBottomPlate)
 
-	# TODO: is it better to update fill with ROI or to use old full image pattern and shift it?		
-				# Update fill pattern image.
-	#			self.cvImagePattern = self.updateFillPattern()
-					
+				# Create the model fill pattern.
+				'''	
 				# Get pixel values from 10 slices above and below. ##################
 				# We need to analyse these to be able to generate closed bottom and top surfaces.
 				# Only use model slice data. Supports and bottom plate have no internal pattern anyway.
 				# Check if we are in the first or last mm of the model, then there should not be a pattern anyways, so we set everything black.
 				# Only do this whole thing if fillFlag is set and fill is shown or print is going.
-				if False:#self.settings['Print hollow'].value == True and (self.programSettings['Show fill'].value == True or self.printFlag == True):
+				if self.settings['Print hollow'].value == True and (self.programSettings['Show fill'].value == True or self.printFlag == True):
 					wallThicknessTopBottom = self.settings['Shell wall thickness'].value	# [mm]
 	# TODO: why not get layer height from settings?
 					if self.inputModelPolydata.GetBounds()[5] > layerHeight*sliceNumber+wallThicknessTopBottom and self.inputModelPolydata.GetBounds()[4] < layerHeight*sliceNumber-wallThicknessTopBottom:
