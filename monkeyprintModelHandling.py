@@ -82,7 +82,7 @@ class modelContainer:
 		self.model.startBackgroundSlicer()
 	
 	def sliceThreadListener(self):
-		self.model.setChanged()
+#		self.model.setChanged()
 		self.model.checkBackgroundSlicer()
 	
 	def getAllActors(self):
@@ -328,6 +328,12 @@ class modelCollection(dict):
 		return True
 
 
+	# Get all model volumes.
+	def getTotalVolume(self):
+		volume = 0
+		for model in self:
+			volume += self[model].model.getVolume()
+		return volume
 	
 
 
@@ -633,9 +639,12 @@ class modelData:
 		
 		# Get volume.
 		if self.filename != "":
-			self.modelVolume = vtk.vtkMassProperties()
-			self.modelVolume.SetInput(self.stlPositionFilter.GetOutput())
-
+			self.volumeModel = vtk.vtkMassProperties()
+			self.volumeModel.SetInput(self.stlPositionFilter.GetOutput())
+			self.volumeSupports = vtk.vtkMassProperties()
+			self.volumeSupports.SetInput(self.supports.GetOutput())
+			self.volumeBottomPlate = vtk.vtkMassProperties()
+			self.volumeBottomPlate.SetInput(self.bottomPlate.GetOutput())
 		
 
 		# Finally, update the pipeline.
@@ -688,8 +697,17 @@ class modelData:
 		return self.__getSize(self.stlPositionFilter)
 	
 	def getVolume(self):
-		self.modelVolume.Update()
-		return self.modelVolume.GetVolume()
+		if self.filename != "":
+			self.volumeModel.Update()
+			self.volumeSupports.Update()
+			self.volumeBottomPlate.Update()
+			# Get volume in mm³.
+			volume = self.volumeModel.GetVolume() + self.volumeSupports.GetVolume() + self.volumeBottomPlate.GetVolume()
+			# Convert to cm³ and round to 2 decimals.
+			volume = math.trunc(volume / 10.) /100.
+			return volume
+		else:
+			return 0.0
 	
 	def getCenter(self):
 		return self.__getCenter(self.stlPositionFilter)
@@ -795,7 +813,7 @@ class modelData:
 			self.modelBoundingBox.SetXLength(self.getSize()[0])
 			self.modelBoundingBox.SetYLength(self.getSize()[1])
 			self.modelBoundingBox.SetZLength(self.getSize()[2])
-			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()/1000.0) )
+			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )
 			self.modelBoundingBoxTextActor.SetAttachmentPoint(self.getBounds()[1], self.getBounds()[3], self.getBounds()[5])
 
 
@@ -807,6 +825,7 @@ class modelData:
 			self.bottomPlate.SetZLength(self.settings['Bottom plate thickness'].value)
 			self.bottomPlate.SetCenter( (modelBounds[0] + modelBounds[1]) / 2.0, (modelBounds[2] + modelBounds[3]) / 2.0, self.settings['Bottom plate thickness'].value/2.0)
 			self.bottomPlate.Update()
+			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )
 		
 
 	def updateOverhang(self):
@@ -872,7 +891,7 @@ class modelData:
 			# Number of points in X and Y.
 			nX = nXMin + nXMax + 1	# +1 because of center support, nXMin and nXMax only give number of supports to each side of center.
 			nY = nYMin + nYMax + 1	# +1 because of center support...
-			i = 0
+		#	i = 0
 			# Loop through point grid and check for intersections.
 			for iX in range(nX):
 				for iY in range(nY):
@@ -957,9 +976,9 @@ class modelData:
 						# Append the cylinder to the cones polydata.
 						self.supports.AddInput(cylinderGeomFilter.GetOutput())
 						del cylinder
-						i += 1
-			print "Created " + str(i) + " supports."
-
+		#				i += 1
+		#	print "Created " + str(i) + " supports."
+			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )
 
 	# Update slice actor.
 	def updateSlice3d(self, sliceNumber):

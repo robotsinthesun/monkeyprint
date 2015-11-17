@@ -183,11 +183,10 @@ class boxSettings(gtk.VBox):
 
 		
 		# Add print page.
-		self.printTab = gtk.VBox()
-		self.printTab.show()
-		self.printTab.add(gtk.Label('print stuff'))
+		self.createPrintTab()
 		self.notebook.append_page(self.printTab, gtk.Label('Print'))
 #		self.notebook.set_tab_sensitive(3, False)
+		self.notebook.set_custom_function(3, self.tabSwitchPrintUpdate)
 		
 		self.notebook.show()
 
@@ -239,10 +238,18 @@ class boxSettings(gtk.VBox):
 		# Set render actor visibilites.
 		self.modelCollection.viewSlices()
 		self.renderView.render()
+		# Activate print tab if not already activated.
+		if self.getGuiState() == 2:
+			self.setGuiState(3)
 		# Disable model management load and remove buttons.
 		self.modelListView.setSensitive(False)
 	
 	def tabSwitchPrintUpdate(self):
+		# Set render actor visibilites.
+		self.modelCollection.viewPrint()
+		self.renderView.render()
+		# Update the model volume.
+		self.updateVolume()
 		# Disable model management load and remove buttons.
 		self.modelListView.setSensitive(False)
 	
@@ -396,6 +403,43 @@ class boxSettings(gtk.VBox):
 		self.boxPreview.pack_start(self.previewSlider, expand=True, fill=True, padding=5)
 		self.previewSlider.show()
 	
+	def createPrintTab(self):
+		# Create tab box.
+		self.printTab = gtk.VBox()
+		self.printTab.show()
+
+		# Create print parameters frame.
+		self.framePrint = gtk.Frame(label="Print parameters")
+		self.printTab.pack_start(self.framePrint, expand=False, fill=False, padding = 5)
+		self.framePrint.show()
+		self.boxPrintParameters = gtk.VBox()
+		self.framePrint.add(self.boxPrintParameters)
+		self.boxPrintParameters.show()
+		
+		# Create entries.
+		self.entryShellThickness = entry('Exposure time base', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.boxPrintParameters.pack_start(self.entryShellThickness, expand=True, fill=True)
+		self.entryFillSpacing = entry('Exposure time', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.boxPrintParameters.pack_start(self.entryFillSpacing, expand=True, fill=True)
+		self.entryFillThickness = entry('Resin settle time', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.boxPrintParameters.pack_start(self.entryFillThickness, expand=True, fill=True)
+		
+		# Create printing parameters frame.
+		self.frameResinVolume = gtk.Frame(label="Resin volume")
+		self.printTab.pack_start(self.frameResinVolume, padding = 5)
+		self.frameResinVolume.show()
+		self.boxResinVolume = gtk.HBox()
+		self.frameResinVolume.add(self.boxResinVolume)
+		self.boxResinVolume.show()
+		
+		# Resin volume label.
+		self.resinVolumeLabel = gtk.Label("Volume: ")
+		self.boxResinVolume.pack_start(self.resinVolumeLabel, expand=False, fill=False)
+		self.resinVolumeLabel.show()
+	
+	def updateVolume(self):
+		self.resinVolumeLabel.set_text("Volume: " + str(self.modelCollection.getTotalVolume()) + " ml.")
+		
 	def callbackCheckButtonHollow(self, widget, data=None):
 		self.modelCollection.getCurrentModel().settings['Print hollow'].setValue(widget.get_active())
 		# Update model.
