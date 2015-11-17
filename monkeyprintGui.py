@@ -424,9 +424,9 @@ class boxSettings(gtk.VBox):
 		self.entryFillThickness = entry('Resin settle time', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxPrintParameters.pack_start(self.entryFillThickness, expand=True, fill=True)
 		
-		# Create printing parameters frame.
+		# Create model volume frame.
 		self.frameResinVolume = gtk.Frame(label="Resin volume")
-		self.printTab.pack_start(self.frameResinVolume, padding = 5)
+		self.printTab.pack_start(self.frameResinVolume, expand=False, fill=False, padding = 5)
 		self.frameResinVolume.show()
 		self.boxResinVolume = gtk.HBox()
 		self.frameResinVolume.add(self.boxResinVolume)
@@ -436,6 +436,35 @@ class boxSettings(gtk.VBox):
 		self.resinVolumeLabel = gtk.Label("Volume: ")
 		self.boxResinVolume.pack_start(self.resinVolumeLabel, expand=False, fill=False)
 		self.resinVolumeLabel.show()
+		
+		# Create print control frame.
+		self.framePrintControl = gtk.Frame(label="Print control")
+		self.printTab.pack_start(self.framePrintControl, expand=False, fill=False, padding = 5)
+		self.framePrintControl.show()
+		self.boxPrintControl = gtk.HBox()
+		self.framePrintControl.add(self.boxPrintControl)
+		self.boxPrintControl.show()
+		
+		# Create print control buttons.
+		self.boxPrintButtons = gtk.HBox()
+		self.boxPrintControl.pack_start(self.boxPrintButtons, expand=False, fill=False)
+		self.boxPrintButtons.show()
+		self.buttonPrintStart = gtk.Button('Print')
+		self.boxPrintButtons.pack_start(self.buttonPrintStart, expand=False, fill=False)
+		self.buttonPrintStart.show()
+		self.buttonPrintStop = gtk.Button('Stop')
+		self.boxPrintButtons.pack_start(self.buttonPrintStop, expand=False, fill=False)
+		self.buttonPrintStop.show()
+		
+		# Create progress bar.
+		self.progressBar = monkeyprintGuiHelper.printProgressBar()
+		self.boxPrintControl.pack_start(self.progressBar, expand=True, fill=True)
+		self.progressBar.show()
+		self.progressBar.setLimit(100)
+		self.progressBar.setText('foo')
+		self.progressBar.updateValue(50)
+		
+		
 	
 	def updateVolume(self):
 		self.resinVolumeLabel.set_text("Volume: " + str(self.modelCollection.getTotalVolume()) + " ml.")
