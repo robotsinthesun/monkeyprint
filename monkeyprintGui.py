@@ -28,6 +28,7 @@ import monkeyprintGuiHelper
 import subprocess # Needed to call avrdude.
 import vtk
 import threading
+import Queue
 
 
 boxSettingsWidth = 350
@@ -53,6 +54,9 @@ class gui(gtk.Window):
 		
 		# Add slice thread listener function to run every 10 ms.
 		slicerListenerId = gobject.timeout_add(10, modelCollection.checkSlicerThreads)
+		
+		# Queue for qui updates.
+		self.sliceQueue = Queue.Queue(maxsize=1)
 		
 		
 		# Internalise model collection.
@@ -205,7 +209,7 @@ class boxSettings(gtk.VBox):
 		# Custom scrolled window.
 		self.consoleView = consoleView(self.console)
 		self.frameConsole.add(self.consoleView)
-		
+		print self.get_parent_window()		
 	
 	def tabSwitchModelUpdate(self):
 		# Set render actor visibilities.
@@ -451,10 +455,12 @@ class boxSettings(gtk.VBox):
 		self.boxPrintButtons.show()
 		self.buttonPrintStart = gtk.Button('Print')
 		self.boxPrintButtons.pack_start(self.buttonPrintStart, expand=False, fill=False)
+		self.buttonPrintStart.connect('clicked', self.callbackStartPrintProcess)
 		self.buttonPrintStart.show()
 		self.buttonPrintStop = gtk.Button('Stop')
 		self.boxPrintButtons.pack_start(self.buttonPrintStop, expand=False, fill=False)
 		self.buttonPrintStop.show()
+		self.buttonPrintStop.connect('clicked', self.callbackStopPrintProcess)
 		
 		# Create progress bar.
 		self.progressBar = monkeyprintGuiHelper.printProgressBar()
@@ -478,7 +484,41 @@ class boxSettings(gtk.VBox):
 		self.modelCollection.getCurrentModel().settings['Fill'].setValue(widget.get_active())
 		self.updateCurrentModel()
 		
+	
+	
+	def callbackStartPrintProcess(self, data=None):
+		# Create a print start dialog.
+		self.dialogStart = dialogStartPrint()
+		# Run the dialog and get the result.
+		response = self.dialogStart.run()
+		self.dialogStart.destroy()
+		if response==True:
+			self.console.addLine("Starting print")
+			# Disable window close event.
+			# TODO
+			# Start the print.
+			
+			
+
+	
+	def callbackStopPrintProcess(self, data=None):
+		# Create a dialog window with yes/no buttons.
+		dialog = gtk.MessageDialog(	None,
+								gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+								gtk.MESSAGE_QUESTION,
+								gtk.BUTTONS_YES_NO,
+								"Do you really want to cancel the print?")
+          # Set the title.
+		dialog.set_title("Cancel print?")
 		
+		# Check the result and respond accordingly.
+		response = dialog.run()
+		dialog.destroy()
+		if response == gtk.RESPONSE_YES:
+			self.console.addLine("Cancelling print")
+			# Stop the print process.
+			# TODO
+			
 
 # TODO should these two be placed in the notebook class?	
 	def setGuiState(self, state):
@@ -1332,6 +1372,93 @@ class dialogSettings(gtk.Window):
 		# TODO
 		# Close.
 		self.destroy()
+
+
+
+
+# Start print dialogue. ########################################################
+# Start the dialog, evaluate the check boxes on press of OK and exit,
+# or just exit on cancel.
+class dialogStartPrint(gtk.Window):
+	# Override init function.
+	def __init__(self):
+		# Call super class init function.
+		gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+#		self.show()
+		# Set title.
+		self.set_title("Ready to print?")
+		# Set modal.
+		self.set_modal(True)
+		# Associate with parent window (no task bar icon, hide if parent is hidden etc)
+#TODO	print self.get_parent().get_parent_window()
+#TODO	self.set_transient_for(self.get_parent_window())
+		self.result = False
+		# Create check buttons.
+		self.boxCheckbuttons = gtk.VBox()
+		self.add(self.boxCheckbuttons)
+		self.boxCheckbuttons.show()
+		# Checkbutton resin.
+		self.checkboxResin = gtk.CheckButton(label="VAT filled with resin?")
+		self.boxCheckbuttons.pack_start(self.checkboxResin, expand=True, fill=True)
+		self.checkboxResin.set_active(False)
+		self.checkboxResin.show()
+		# Checkbutton build platform.
+		self.checkboxBuild = gtk.CheckButton(label="Build platform empty?")
+		self.boxCheckbuttons.pack_start(self.checkboxBuild, expand=True, fill=True)
+		self.checkboxBuild.set_active(False)
+		self.checkboxBuild.show()
+		# Checkbutton 3rd condition.
+		self.checkboxCustom = gtk.CheckButton(label="Everything else OK?")
+		self.boxCheckbuttons.pack_start(self.checkboxCustom, expand=True, fill=True)
+		self.checkboxCustom.set_active(False)
+		self.checkboxCustom.show()
+	
+		# Create OK and Cancel button.
+		self.buttonBox = gtk.HBox()
+		self.boxCheckbuttons.pack_start(self.buttonBox, expand=False, fill=False)
+		self.buttonBox.show()
+		self.buttonCancel = gtk.Button("Cancel")
+		self.buttonBox.pack_start(self.buttonCancel)
+		self.buttonCancel.show()
+
+		self.buttonOK = gtk.Button("OK")
+		self.buttonOK.set_sensitive(False)
+		self.buttonBox.pack_start(self.buttonOK)
+		self.buttonOK.show()
+
+		
+		# Set callbacks
+		self.buttonOK.connect("clicked", self.callbackOK)
+		self.buttonCancel.connect("clicked", self.callbackCancel)
+		self.checkboxCustom.connect("toggled", self.checkboxCallback)
+		self.checkboxBuild.connect("toggled", self.checkboxCallback)
+		self.checkboxResin.connect("toggled", self.checkboxCallback)
+		
+	def checkboxCallback(self, data=None):
+		if self.checkboxResin.get_active() and self.checkboxBuild.get_active() and self.checkboxCustom.get_active():
+			self.buttonOK.set_sensitive(True)
+		else:
+			self.buttonOK.set_sensitive(False)
+	
+	def callbackOK(self, data=None):
+		self.result=True
+		self.hide()
+		gtk.mainquit()
+		
+	def callbackCancel(self, data=None):
+		self.result=False
+		self.hide()
+		gtk.mainquit()
+
+	# Create run function to start own main loop.
+	# This will wait for button events from the current window.
+	def run(self):
+		self.set_transient_for(self.parent)
+		self.show()
+		gtk.mainloop()
+		return self.result
+
+
 
 
 # Output console. ##############################################################
