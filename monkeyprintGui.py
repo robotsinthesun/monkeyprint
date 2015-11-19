@@ -48,17 +48,6 @@ class gui(gtk.Window):
 		# Show the window.
 		self.show()
 		
-		# Allow background threads. Very important, otherwise threads will be
-		# blocked by gui main thread.
-		gtk.gdk.threads_init()
-		
-		# Add slice thread listener function to run every 10 ms.
-		slicerListenerId = gobject.timeout_add(10, modelCollection.checkSlicerThreads)
-		
-		# Queue for qui updates.
-		self.sliceQueue = Queue.Queue(maxsize=1)
-		
-		
 		# Internalise model collection.
 		self.modelCollection = modelCollection
 
@@ -67,6 +56,15 @@ class gui(gtk.Window):
 		
 		# Internalise console text buffer to write output to.
 		self.console = console
+		
+		# Create queues for inter-thread communication.
+		# Queue for setting print progess bar.
+		self.sliceQueue = Queue.Queue(maxsize=1)
+		# Queue for status infos displayed above the status bar.
+		self.infoQueue = Queue.Queue(maxsize=1)
+		# Queue list.
+		self.queues = [	self.sliceQueue,
+						self.infoQueue		]
 		
 		# Create main box.
 		self.boxMain = gtk.VBox()
@@ -89,9 +87,23 @@ class gui(gtk.Window):
 		self.boxWork.pack_start(self.boxRender)#, expand=True, fill= True)
 		
 		# Create settings box.
-		self.boxSettings = boxSettings(self.settings, self.modelCollection, self.boxRender, self.console)
+		self.boxSettings = boxSettings(self.settings, self.modelCollection, self.boxRender, self.queues, self.console)
 		self.boxSettings.show()
 		self.boxWork.pack_start(self.boxSettings, expand=False, fill=False, padding = 5)
+		
+
+		
+		# Allow background threads. Very important, otherwise threads will be
+		# blocked by gui main thread.
+		gtk.gdk.threads_init()
+		
+		# Add slice thread listener function to run every 10 ms.
+		slicerListenerId = gobject.timeout_add(10, modelCollection.checkSlicerThreads)
+		progressBarUpdateId = gobject.timeout_add(100, self.boxSettings.updateProgressbar)
+		
+		
+		self.infoQueue.put("bar")
+		self.sliceQueue.put(7)
 
 	# Override the close function.
 	def on_closing(self, widget, event, data):
@@ -135,7 +147,7 @@ class gui(gtk.Window):
 # Define a class for the settings box. #########################################
 class boxSettings(gtk.VBox):
 	# Override init function.
-	def __init__(self, settings, modelCollection, renderView, console=None):
+	def __init__(self, settings, modelCollection, renderView, queues, console=None):
 		gtk.VBox.__init__(self)
 		self.show()
 		#TODO: rename settings to programsettings
@@ -144,6 +156,7 @@ class boxSettings(gtk.VBox):
 		self.modelCollection = modelCollection
 		# Import the render view so we are able to add and remove actors.
 		self.renderView = renderView
+		self.queues = queues
 		self.console = console
 		
 		# Create model list.
@@ -209,7 +222,6 @@ class boxSettings(gtk.VBox):
 		# Custom scrolled window.
 		self.consoleView = consoleView(self.console)
 		self.frameConsole.add(self.consoleView)
-		print self.get_parent_window()		
 	
 	def tabSwitchModelUpdate(self):
 		# Set render actor visibilities.
@@ -468,12 +480,19 @@ class boxSettings(gtk.VBox):
 		self.progressBar.show()
 		self.progressBar.setLimit(100)
 		self.progressBar.setText('foo')
-		self.progressBar.updateValue(50)
-		
-		
+		self.progressBar.updateValue(50)	
 	
 	def updateVolume(self):
 		self.resinVolumeLabel.set_text("Volume: " + str(self.modelCollection.getTotalVolume()) + " ml.")
+	
+	def updateProgressbar(self):
+		# If slice number queue has slice number...
+		if self.queues[0].qsize():
+			# ... get slice number and set progress bar.
+			self.progressBar.updateValue(self.queues[0].get()) 
+		# If print info queue has slice number...
+		if self.queues[1].qsize():
+			self.progressBar.setText(self.queues[1].get()) 
 		
 	def callbackCheckButtonHollow(self, widget, data=None):
 		self.modelCollection.getCurrentModel().settings['Print hollow'].setValue(widget.get_active())
