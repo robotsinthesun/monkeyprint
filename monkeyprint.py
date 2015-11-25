@@ -23,6 +23,7 @@
 import monkeyprintModelHandling
 import monkeyprintSettings
 import monkeyprintGui
+import monkeyprintGuiHelper
 
 
 # Test if this file is executed as the main application contrary to being executed as a model from inside another file.

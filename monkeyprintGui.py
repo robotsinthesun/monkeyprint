@@ -66,6 +66,9 @@ class gui(gtk.Window):
 		self.queues = [	self.sliceQueue,
 						self.infoQueue		]
 		
+		# Flag to set during print process.
+		self.printFlag = False
+		
 		# Create main box.
 		self.boxMain = gtk.VBox()
 		self.add(self.boxMain)
@@ -87,7 +90,7 @@ class gui(gtk.Window):
 		self.boxWork.pack_start(self.boxRender)#, expand=True, fill= True)
 		
 		# Create settings box.
-		self.boxSettings = boxSettings(self.settings, self.modelCollection, self.boxRender, self.queues, self.console)
+		self.boxSettings = boxSettings(self.settings, self.modelCollection, self.boxRender, self.queues, self.printFlag, self.console)
 		self.boxSettings.show()
 		self.boxWork.pack_start(self.boxSettings, expand=False, fill=False, padding = 5)
 		
@@ -107,31 +110,38 @@ class gui(gtk.Window):
 
 	# Override the close function.
 	def on_closing(self, widget, event, data):
-		# Create a dialog window with yes/no buttons.
-		dialog = gtk.MessageDialog(self,
-			gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-			gtk.MESSAGE_QUESTION,
-			gtk.BUTTONS_YES_NO,
-			"Do you really want to quit?")
-          # Set the title.
-		dialog.set_title("Quit Monkeyprint?")
-		
-		# Check the result and respond accordingly.
-		response = dialog.run()
-		dialog.destroy()
-		if response == gtk.RESPONSE_YES:
-			# Get all threads.
-			runningThreads = threading.enumerate()
-			# End kill threads. Main gui thread is the first...
-			for i in range(len(runningThreads)):
-				if i != 0:
-					runningThreads[-1].join(timeout=10000)	# Timeout in ms.
-					print "Slicer thread " + str(i) + " finished."
-					del runningThreads[-1]
-			gtk.main_quit()
-			return False # returning False makes "destroy-event" be signalled to the window.
+		# Check if a print is running.
+		if self.printFlag:
+			self.console.addLine('Monkeyprint cannot be closed')
+			self.console.addLine('during a print. Wait for')
+			self.console.addLine('the print to finish or cancel')
+			self.console.addLine('the print if you want to close.')
 		else:
-			return True # returning True avoids it to signal "destroy-event"
+			# Create a dialog window with yes/no buttons.
+			dialog = gtk.MessageDialog(self,
+				gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+				gtk.MESSAGE_QUESTION,
+				gtk.BUTTONS_YES_NO,
+				"Do you really want to quit?")
+     	     # Set the title.
+			dialog.set_title("Quit Monkeyprint?")
+		
+			# Check the result and respond accordingly.
+			response = dialog.run()
+			dialog.destroy()
+			if response == gtk.RESPONSE_YES:
+				# Get all threads.
+				runningThreads = threading.enumerate()
+				# End kill threads. Main gui thread is the first...
+				for i in range(len(runningThreads)):
+					if i != 0:
+						runningThreads[-1].join(timeout=10000)	# Timeout in ms.
+						print "Slicer thread " + str(i) + " finished."
+						del runningThreads[-1]
+				gtk.main_quit()
+				return False # returning False makes "destroy-event" be signalled to the window.
+			else:
+				return True # returning True avoids it to signal "destroy-event"
 	
 	def main(self):
 		# All PyGTK applications must have a gtk.main(). Control ends here
@@ -147,7 +157,7 @@ class gui(gtk.Window):
 # Define a class for the settings box. #########################################
 class boxSettings(gtk.VBox):
 	# Override init function.
-	def __init__(self, settings, modelCollection, renderView, queues, console=None):
+	def __init__(self, settings, modelCollection, renderView, queues, printFlag, console=None):
 		gtk.VBox.__init__(self)
 		self.show()
 		#TODO: rename settings to programsettings
@@ -157,6 +167,7 @@ class boxSettings(gtk.VBox):
 		# Import the render view so we are able to add and remove actors.
 		self.renderView = renderView
 		self.queues = queues
+		self.printFlag = printFlag
 		self.console = console
 		
 		# Create model list.
@@ -490,7 +501,11 @@ class boxSettings(gtk.VBox):
 		if self.queues[0].qsize():
 			# ... get slice number and set progress bar.
 			self.progressBar.updateValue(self.queues[0].get()) 
-		# If print info queue has slice number...
+			# Set 3d view to given slice.
+			# TODO
+			# Set slice view to given slice.
+			# TODO
+		# If print info queue has info...
 		if self.queues[1].qsize():
 			self.progressBar.setText(self.queues[1].get()) 
 		
@@ -514,8 +529,9 @@ class boxSettings(gtk.VBox):
 		if response==True:
 			self.console.addLine("Starting print")
 			# Disable window close event.
-			# TODO
+			self.printFlag = True
 			# Start the print.
+			self.printWindow = monkeyprintGuiHelper.projectorDisplay()
 			
 			
 
@@ -535,8 +551,9 @@ class boxSettings(gtk.VBox):
 		dialog.destroy()
 		if response == gtk.RESPONSE_YES:
 			self.console.addLine("Cancelling print")
+			self.printFlag = False
 			# Stop the print process.
-			# TODO
+			self.printWindow.stop()
 			
 
 # TODO should these two be placed in the notebook class?	
