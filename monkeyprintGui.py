@@ -29,7 +29,7 @@ import subprocess # Needed to call avrdude.
 import vtk
 import threading
 import Queue
-
+import time
 
 boxSettingsWidth = 350
 
@@ -868,14 +868,13 @@ class modelListView(gtk.VBox):
 		dialog.set_current_folder(self.settings['currentFolder'].value)
 		# File filter for the dialog.
 		fileFilter = gtk.FileFilter()
-	#	fileFilter.add_mime_type("image/gif")	TODO
 		fileFilter.set_name("Stl files")
 		fileFilter.add_pattern("*.stl")
 		dialog.add_filter(fileFilter)
 		# Run the dialog and return the file path.
 		response = dialog.run()
 		# Close the dialog.
-		dialog.destroy()
+		print response
 		# Check the response.
 		# If OK was pressed...
 		if response == gtk.RESPONSE_OK:
@@ -920,11 +919,12 @@ class modelListView(gtk.VBox):
 			# Update 3d view.
 			self.renderView.render()
 			
+			dialog.destroy()
 		# If cancel was pressed...
 		elif response == gtk.RESPONSE_CANCEL:
 			#... do nothing.
-			pass
-
+			dialog.destroy()
+			
 	# Delete button callback.
 	def callbackRemove(self, widget, data=None):
 		model, treeiter = self.modelSelection.get_selected()
@@ -991,71 +991,25 @@ class firmwareDialog(gtk.Window):
 		box.pack_start(label, expand=False, fill=False)
 		label.show()
 		
-		# Table for the entries.
-		table = gtk.Table()
-		box.pack_start(table)
-		table.show()
-		# Avrdude options.
-		# MCU.
-		labelMCU = gtk.Label('MCU')
-		table.attach(labelMCU, 0,1,0,1)
-		labelMCU.show()
-		self.entryMCU = gtk.Entry()
-		self.entryMCU.set_text(self.settings['avrdudeMCU'].value)
-		table.attach(self.entryMCU, 1,2,0,1)
-		self.entryMCU.show()
-		# Programmer.
-		labelProgrammer = gtk.Label('Programmer')
-		table.attach(labelProgrammer, 0,1,1,2)
-		labelProgrammer.show()
-		self.entryProgrammer = gtk.Entry()
-		self.entryProgrammer.set_text(self.settings['avrdudeProgrammer'].value)
-		table.attach(self.entryProgrammer, 1,2,1,2)
-		self.entryProgrammer.show()
-		# Port.
-		labelPort = gtk.Label('Port')
-		table.attach(labelPort, 0,1,2,3)
-		labelPort.show()
-		self.entryPort = gtk.Entry()
-		self.entryPort.set_text(self.settings['avrdudePort'].value)
-		table.attach(self.entryPort, 1,2,2,3)
-		self.entryPort.show()
-		# Baud.
-		labelBaud = gtk.Label('Baud')
-		table.attach(labelBaud, 0,1,3,4)
-		labelBaud.show()
-		self.entryBaud = gtk.Entry()
-		self.entryBaud.set_text(str(self.settings['avrdudeBaud'].value))
-		table.attach(self.entryBaud, 1,2,3,4)
-		self.entryBaud.show()
-		# Options.
-		labelOptions = gtk.Label('Options, space separated')
-		table.attach(labelOptions, 0,1,4,5)
-		labelOptions.show()
-		self.entryOptions = gtk.Entry()
-		self.entryOptions.set_text(self.settings['avrdudeOptions'].value)
-		table.attach(self.entryOptions, 1,2,4,5)
-		self.entryOptions.show()
-		# File path.
-		labelPath = gtk.Label('File path')
-		table.attach(labelPath, 0,1,5,6)
-		labelPath.show()
-		self.entryPath = gtk.Entry()
-		self.entryPath.set_text(self.settings['avrdudePath'].value)
-		table.attach(self.entryPath, 1,2,5,6)
-		self.entryPath.show()
-		
+		# Make a box for the entries.
+		boxEntries = gtk.VBox()
+		box.pack_start(boxEntries)
+		boxEntries.show()
+		# Avrdude option entries.
+		self.entryPath = monkeyprintGuiHelper.entry('Firmware path', settings=self.settings, width=20)
+		boxEntries.pack_start(self.entryPath)
+		self.entryMCU = monkeyprintGuiHelper.entry('MCU', settings=self.settings, width=20)
+		boxEntries.pack_start(self.entryMCU)
+		self.entryProgrammer = monkeyprintGuiHelper.entry('Programmer', settings=self.settings, width=20)
+		boxEntries.pack_start(self.entryProgrammer)
+		self.entryPort = monkeyprintGuiHelper.entry('Port', settings=self.settings, width=20)
+		boxEntries.pack_start(self.entryPort)
+		self.entryBaud = monkeyprintGuiHelper.entry('Baud', settings=self.settings, width=20)
+		boxEntries.pack_start(self.entryBaud)
+		self.entryOptions = monkeyprintGuiHelper.entry('Options', settings=self.settings, customFunctions=[self.entryOptionsUpdate], width=20)
+		boxEntries.pack_start(self.entryOptions)
 
-		# Set callback connected to Enter key and focus leave.
-		#self.entry.connect("activate", self.entryCallback, entry)
-#		self.entryMCU.connect("key-press-event", self.entryCallback, entry)
-#		self.entryProgrammer.connect("key-press-event", self.entryCallback, entry)
-#		self.entryPort.connect("key-press-event", self.entryCallback, entry)
-#		self.entryBaud.connect("key-press-event", self.entryCallback, entry)
-#		self.entryOptions.connect("key-press-event", self.entryCallback, entry)
-#		self.entryPath.connect("key-press-event", self.entryCallback, entry)
-		
-		# Buttons.
+		# Make a box for the buttons.
 		boxButtons = gtk.HBox()
 		box.pack_start(boxButtons, expand=False, fill=False)
 		boxButtons.show()
@@ -1074,55 +1028,78 @@ class firmwareDialog(gtk.Window):
 		boxButtons.pack_start(buttonClose, expand=False, fill=False)
 		buttonClose.connect("clicked", self.callbackClose)
 		buttonClose.show()
-
-	def entryCallback(self, widget, event, entry):
-		# Only fire on Return or Tab event.
-		if event.keyval == gtk.keysyms.Tab or event.keyval == gtk.keysyms.Return:
-			# Process options.
-			# Extract additional options into list and eliminate '-' from options.
-			optionList = self.entryOptions.get_text().replace('-','')
-			# Split into option list.
-			optionList = optionList.split(' ')
-			# Add '-' to options. This way users can input options with and without '-'.
-			optionList = ['-' + option for option in optionList]
-			# Concatenate into string for display.
-			optionString = ''
-			for option in optionList:
-				optionString = optionString + option + ' '
-			# Remove trailing space.
-			optionString = optionString[:-1]
-			self.entryOptions.set_text(optionString)
 		
-			# Take the entry texts and put them into settings.
-			self.settings['avrdudeSettings'].value = [self.entryMCU.get_text(), self.entryProgrammer.get_text(), self.entryPort.get_text(), self.entryBaud.get_text(), optionString, self.entryPath.get_text()]
+		# Create an output window for avrdude feedback.
+		self.console = consoleText()
+		self.consoleView = consoleView(self.console)
+		box.pack_start(self.consoleView)
+		self.consoleView.show()
+		
 
-	def callbackFlash(self, widget, data=None):
-		# Create avrdude commandline string.
-		avrdudeString = 'avrdude -p ' + self.entryMCU.get_text() + ' -P ' + self.entryPort.get_text() + ' -c ' + self.entryProgrammer.get_text() + ' ' + self.entryOptions.get_text() + ' -b ' + self.entryBaud.get_text() + ' -U flash:w:' + self.entryPath.get_text()
-		print avrdudeString
+	def entryOptionsUpdate(self):
+		# Process options.
 		# Extract additional options into list and eliminate '-' from options.
-		optionList = self.entryOptions.get_text().replace('-','')
+		optionList = self.entryOptions.entry.get_text().replace('-','')
 		# Split into option list.
 		optionList = optionList.split(' ')
 		# Add '-' to options. This way users can input options with and without '-'.
 		optionList = ['-' + option for option in optionList]
+		# Concatenate into string for settings object.
+		optionString = ''
+		for option in optionList:
+			if option != "-":
+				optionString = optionString + option + ' '
+		# Remove trailing space.
+		optionString = optionString[:-1]
+		# Write to settings and set entry string.
+		self.settings['Options'].value = optionString
+		self.entryOptions.entry.set_text(optionString)
+
+
+	def callbackFlash(self, widget, data=None):
+		# Create avrdude commandline string.
+		avrdudeCommandList = [	'avrdude',
+							'-p', self.settings['MCU'].value,
+							'-P', self.settings['Port'].value,
+							'-c', self.settings['Programmer'].value,
+							'-b', self.settings['Baud'].value,
+							'-U', 'flash:w:' + self.settings['Firmware path'].value
+							]
+		# Append additional options.
+		optionList = self.settings['Options'].value.split(' ')
+		for option in optionList:
+			avrdudeCommandList.append(option)
+		# Console output.
+		self.console.addLine('Running avrdude with options:')
+		self.console.addLine('-p ' + self.settings['MCU'].value + '-P ' + self.settings['Port'].value + '-c ' + self.settings['Programmer'].value + '-b ' + self.settings['Baud'].value + '-U ' + 'flash:w:' + self.settings['Firmware path'].value)
+		time.sleep(1)
 		# Call avrdude and get it's output.
-		try:
-			# Call avrdude. No spaces in options!
-			avrdudeOutput = subprocess.check_output(['avrdude', '-p' + self.entryMCU.get_text(), '-P' + self.entryPort.get_text(), '-c' + self.entryProgrammer.get_text(), '-b' + self.entryBaud.get_text(), '-U flash:w:' + self.entryPath.get_text()] + optionList)
-		except:
-			print 'foo'
+		# Redirect error messages to stdout and stdout to PIPE
+		avrdudeProcess = subprocess.Popen(avrdudeCommandList, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+		output = avrdudeProcess.communicate()[0]
+		# If an error occured...
+		if avrdudeProcess.returncode !=0:
+			#... display the error message.
+			self.console.addLine("Error code: " + str(avrdudeProcess.returncode))
+			self.console.addLine("Error message: " + output)
+			self.console.addLine("Make sure the Arduino is connected correctly.")
+		# In case of success...
+		else:
+			# Print the output.
+			self.console.addLine(output)
+			self.console.addLine("Firmware flashed successfully!")
+
 
 	def callbackDefaults(self, widget, data=None):
-		# Get default settings.
-		self.settings['avrdudeSettings'].value = self.settings['avrdudeSettingsDefault'].value
-		# Set text entries.
-		self.entryMCU.set_text(self.settings['avrdudeSettings'].value[0])
-		self.entryProgrammer.set_text(self.settings['avrdudeSettings'].value[1])
-		self.entryPort.set_text(self.settings['avrdudeSettings'].value[2])
-		self.entryBaud.set_text(self.settings['avrdudeSettings'].value[3])
-		self.entryOptions.set_text(self.settings['avrdudeSettings'].value[4])
-		self.entryPath.set_text(self.settings['avrdudeSettings'].value[5])
+		# Set default settings.
+		self.settings.loadDefaults()
+		# Update entries.
+		self.entryMCU.update()
+		self.entryProgrammer.update()
+		self.entryPort.update()
+		self.entryBaud.update()
+		self.entryPath.update()
+		self.entryOptions.update()
 
 	def callbackClose(self, widget, data=None):
 		self.destroy()
