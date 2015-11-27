@@ -778,12 +778,12 @@ class modelData:
 			# Compare the ratio of model size plus safety distance to build volume size in all dimensions with each other.
 			# Return smallest ratio as maximum scaling.
 			smallestRatio = 1
-			if ((self.programsettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) <= ((self.programsettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY) and ((self.programsettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) <= (self.programsettings['Build size Z'].value / self.dimZ):
-				smallestRatio =  (self.programsettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX * currentScale
-			elif ((self.programsettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY) <= ((self.programsettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) and ((self.programsettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY) <= (self.programsettings['Build size Z'].value / self.dimZ):
-				smallestRatio =  (self.programsettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY * currentScale
-			elif (self.programsettings['Build size Z'].value / self.dimZ) <= ((self.programsettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) and (self.programsettings['Build size Z'].value / self.dimZ) <= ((self.programsettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY):
-				smallestRatio =  self.programsettings['Build size Z'].value / self.dimZ * currentScale
+			if ((self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) <= ((self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY) and ((self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) <= (self.programSettings['Build size Z'].value / self.dimZ):
+				smallestRatio =  (self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX * currentScale
+			elif ((self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY) <= ((self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) and ((self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY) <= (self.programSettings['Build size Z'].value / self.dimZ):
+				smallestRatio =  (self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY * currentScale
+			elif (self.programSettings['Build size Z'].value / self.dimZ) <= ((self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) and (self.programSettings['Build size Z'].value / self.dimZ) <= ((self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY):
+				smallestRatio =  self.programSettings['Build size Z'].value / self.dimZ * currentScale
 			# Restrict input scalingFactor if necessary.
 			if smallestRatio < self.settings['Scaling'].value:
 				self.settings['Scaling'].setValue(smallestRatio)
@@ -797,9 +797,9 @@ class modelData:
 
 			# Position. ****************
 			# Subtract safety distance from build volume in X and Y directions. Z doesn't need safety space.
-			clearRangeX = (self.programsettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) - self.__getSize(self.stlRotationFilter)[0]
-			clearRangeY = (self.programsettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) - self.__getSize(self.stlRotationFilter)[1]
-			positionZMax = self.programsettings['Build size Z'].value - self.__getSize(self.stlRotationFilter)[2]
+			clearRangeX = (self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) - self.__getSize(self.stlRotationFilter)[0]
+			clearRangeY = (self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) - self.__getSize(self.stlRotationFilter)[1]
+			positionZMax = self.programSettings['Build size Z'].value - self.__getSize(self.stlRotationFilter)[2]
 			if self.settings['Bottom clearance'].value > positionZMax:
 				self.settings['Bottom clearance'].setValue(positionZMax)
 			self.stlPositionTransform.Translate(  ((self.__getSize(self.stlRotationFilter)[0]/2 + clearRangeX * (self.settings['Position X'].value / 100.0)) - self.stlPositionTransform.GetPosition()[0]) + self.programSettings['Model safety distance'].value,      ((self.__getSize(self.stlRotationFilter)[1]/2 + clearRangeY * (self.settings['Position Y'].value / 100.0)) - self.stlPositionTransform.GetPosition()[1]) + self.programSettings['Model safety distance'].value,       self.__getSize(self.stlRotationFilter)[2]/2 - self.stlPositionTransform.GetPosition()[2] + self.settings['Bottom clearance'].value)

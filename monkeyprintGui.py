@@ -33,11 +33,15 @@ import Queue
 
 boxSettingsWidth = 350
 
+################################################################################
 # Define a class for the main GUI. #############################################
+################################################################################
 class gui(gtk.Window):
-	# Override init function.
-	def __init__(self, modelCollection, settings, console=None, *args, **kwargs):
-		# Initialise base class gtk window.
+
+	# Override init function. #################################################
+	def __init__(self, modelCollection, programSettings, console=None, *args, **kwargs):
+		
+		# Initialise base class gtk window.********************
 		gtk.Window.__init__(self, *args, **kwargs)
 		# Set function for window close event.
 		self.connect("delete-event", self.on_closing, None)
@@ -48,16 +52,23 @@ class gui(gtk.Window):
 		# Show the window.
 		self.show()
 		
-		# Internalise model collection.
-		self.modelCollection = modelCollection
-
-		# Create print settings object.
-		self.settings = settings
 		
-		# Internalise console text buffer to write output to.
+		
+		# Internalise parameters.******************************
+		self.modelCollection = modelCollection
+		self.programSettings = programSettings
 		self.console = console
 		
-		# Create queues for inter-thread communication.
+		
+		
+		# Create model list.***********************************
+		# List will contain strings for dispayed name,
+		# internal name and file name and a bool for active state.
+		self.modelList = gtk.ListStore(str, str, str, bool)
+		
+		
+		
+		# Create queues for inter-thread communication.********
 		# Queue for setting print progess bar.
 		self.sliceQueue = Queue.Queue(maxsize=1)
 		# Queue for status infos displayed above the status bar.
@@ -66,49 +77,59 @@ class gui(gtk.Window):
 		self.queues = [	self.sliceQueue,
 						self.infoQueue		]
 		
-		# Flag to set during print process.
-		self.printFlag = False
 		
-		# Create main box.
+		
+		# Allow background threads.****************************
+		# Very important, otherwise threads will be
+		# blocked by gui main thread.
+		gtk.gdk.threads_init()
+		
+		# Add thread listener functions to run every 10 ms.****
+		slicerListenerId = gobject.timeout_add(10, modelCollection.checkSlicerThreads)
+		progressBarUpdateId = gobject.timeout_add(100, self.updateProgressbar)
+		
+		self.infoQueue.put("bar")
+		self.sliceQueue.put(7)
+		
+		
+		
+		# Create additional variables.*************************
+		# Flag to set during print process.
+		self.printFlag = False		
+		
+		
+		
+		# Create the main layout. *****************************
+		# Create main box inside of window.
 		self.boxMain = gtk.VBox()
 		self.add(self.boxMain)
 		self.boxMain.show()
 		
-		# Create menu bar and add at top.
-		self.menuBar = menuBar(self.settings)
+		# Create menu bar and pack inside main box at top.
+		self.menuBar = menuBar(self.programSettings)
 		self.boxMain.pack_start(self.menuBar, expand=False, fill=False)
 		self.menuBar.show()
 		
-		# Create work area box.
+		# Create work area box and pack below menu bar.
 		self.boxWork = gtk.HBox()
 		self.boxMain.pack_start(self.boxWork)
 		self.boxWork.show()
 		
-		# Create and pack render box.
-		self.boxRender = monkeyprintModelViewer.renderView(self.settings)
-		self.boxRender.show()
-		self.boxWork.pack_start(self.boxRender)#, expand=True, fill= True)
+		# Create render box and pack inside work area box.
+		self.renderView = monkeyprintModelViewer.renderView(self.programSettings)
+		self.renderView.show()
+		self.boxWork.pack_start(self.renderView)#, expand=True, fill= True)
 		
-		# Create settings box.
-		self.boxSettings = boxSettings(self.settings, self.modelCollection, self.boxRender, self.queues, self.printFlag, self.console)
+		# Create settings box and pack right of render box.
+		self.boxSettings = self.createSettingsBox()
 		self.boxSettings.show()
 		self.boxWork.pack_start(self.boxSettings, expand=False, fill=False, padding = 5)
 		
 
-		
-		# Allow background threads. Very important, otherwise threads will be
-		# blocked by gui main thread.
-		gtk.gdk.threads_init()
-		
-		# Add slice thread listener function to run every 10 ms.
-		slicerListenerId = gobject.timeout_add(10, modelCollection.checkSlicerThreads)
-		progressBarUpdateId = gobject.timeout_add(100, self.boxSettings.updateProgressbar)
-		
-		
-		self.infoQueue.put("bar")
-		self.sliceQueue.put(7)
 
-	# Override the close function.
+
+		
+	# Override the close function. ############################################
 	def on_closing(self, widget, event, data):
 		# Check if a print is running.
 		if self.printFlag:
@@ -139,164 +160,99 @@ class gui(gtk.Window):
 						print "Slicer thread " + str(i) + " finished."
 						del runningThreads[-1]
 				# Save settings to file.
-				self.settings.saveFile()
+				self.programSettings.saveFile()
 				# Terminate the gui.
 				gtk.main_quit()
 				return False # returning False makes "destroy-event" be signalled to the window.
 			else:
 				return True # returning True avoids it to signal "destroy-event"
+
+
+
+
 	
+	# Gui main function. ######################################################
 	def main(self):
 		# All PyGTK applications must have a gtk.main(). Control ends here
 		# and waits for an event to occur (like a key press or mouse event).
 		gtk.main()
 
 
-		
-		
-		
-		
 
-# Define a class for the settings box. #########################################
-class boxSettings(gtk.VBox):
-	# Override init function.
-	def __init__(self, settings, modelCollection, renderView, queues, printFlag, console=None):
-		gtk.VBox.__init__(self)
-		self.show()
-		#TODO: rename settings to programsettings
-		# Internalise data.
-		self.settings = settings
-		self.modelCollection = modelCollection
-		# Import the render view so we are able to add and remove actors.
-		self.renderView = renderView
-		self.queues = queues
-		self.printFlag = printFlag
-		self.console = console
+
+	
+	# Create the notebook.#####################################################
+	def createSettingsBox(self):
 		
-		# Create model list.
-		# List will contain strings for dispayed name,
-		# internal name and file name and a bool for active state.
-		self.modelList = gtk.ListStore(str, str, str, bool)
+		boxSettings = gtk.VBox()
 		
-		# Create model management frame.
+		
+		# Create model management editor. ************************************
 		self.frameModels = gtk.Frame(label="Models")
-		self.pack_start(self.frameModels, padding = 5)
+		boxSettings.pack_start(self.frameModels, padding = 5)
 		self.frameModels.show()
 		# Create model list view using the model list.
-		self.modelListView = modelListView(self.settings, self.modelList, self.modelCollection, self.renderView, self.updateAllEntries, self.console)
+		self.modelListView = modelListView(self.programSettings, self.modelList, self.modelCollection, self.renderView, self.updateAllEntries, self.console)
 		self.frameModels.add(self.modelListView)
 		self.modelListView.show()
 		
-		# Create notebook
-#		self.notebook = gtk.Notebook()
+
+		# Create notebook. ***************************************************
 		self.notebook = monkeyprintGuiHelper.notebook()
-		self.pack_start(self.notebook)
+		boxSettings.pack_start(self.notebook)
+		self.notebook.show()
 		
 		# Create model page, append to notebook and pass custom function.
 		self.createModelTab()
-		# Append to notebook.
 		self.notebook.append_page(self.modelTab, gtk.Label('Models'))
-		# Set update function for switch to model page.
 		self.notebook.set_custom_function(0, self.tabSwitchModelUpdate)
 		
 		# Create supports page, append to notebook and pass custom function.
 		self.createSupportsTab()
 		self.notebook.append_page(self.supportsTab, gtk.Label('Supports'))
-#		self.notebook.set_tab_sensitive(1, False)
 		self.notebook.set_custom_function(1, self.tabSwitchSupportsUpdate)
-
 
 		# Add slicing page, append to notebook and pass custom function.
 		self.createSlicingTab()
 		self.notebook.append_page(self.slicingTab, gtk.Label('Slicing'))
-#		self.notebook.set_tab_sensitive(2, False)
 		self.notebook.set_custom_function(2, self.tabSwitchSlicesUpdate)
 
-		
 		# Add print page.
 		self.createPrintTab()
 		self.notebook.append_page(self.printTab, gtk.Label('Print'))
-#		self.notebook.set_tab_sensitive(3, False)
 		self.notebook.set_custom_function(3, self.tabSwitchPrintUpdate)
-		
-		self.notebook.show()
 
-		# Set gui state. This controls which tabs are clickable.
+
+		# Set gui state. This controls which tabs are clickable.**************
 		# 0: Model modifications active.
 		# 1: Model modifications, supports and slicing active.
 		# 2: All active.
 		# Use setGuiState function to set the state. Do not set manually.
 		self.setGuiState(0)
 
-		# Create console for debug output.
+
+		# Create console for debug output.************************************
 		# Create frame.
 		self.frameConsole = gtk.Frame(label="Output log")
-		self.pack_start(self.frameConsole, padding=5)
+		boxSettings.pack_start(self.frameConsole, padding=5)
 		self.frameConsole.show()
 		# Custom scrolled window.
 		self.consoleView = consoleView(self.console)
 		self.frameConsole.add(self.consoleView)
 	
-	def tabSwitchModelUpdate(self):
-		# Set render actor visibilities.
-		self.modelCollection.viewDefault()
-		self.renderView.render()
-		# Enable model management load and remove buttons.
-		self.modelListView.setSensitive(True)
-
 	
-	def tabSwitchSupportsUpdate(self):
-		# Update supports.
-		self.modelCollection.updateAllSupports()
-		# Set render actor visibilities.
-		self.modelCollection.viewSupports()
-		self.renderView.render()
-		# Activate slice tab if not already activated.
-		if self.getGuiState() == 1:
-			self.setGuiState(2)
-		# Disable model management load and remove buttons.
-		self.modelListView.setSensitive(False)
-
-
-	def tabSwitchSlicesUpdate(self):
-		# Update slider.
-		self.previewSlider.updateSlider()
-		# Update slice stack height.
-		self.modelCollection.updateSliceStack()
-		# This should run automatically.
-#		self.modelCollection.updateAllSlices(0)
-		# Set render actor visibilites.
-		self.modelCollection.viewSlices()
-		self.renderView.render()
-		# Activate print tab if not already activated.
-		if self.getGuiState() == 2:
-			self.setGuiState(3)
-		# Disable model management load and remove buttons.
-		self.modelListView.setSensitive(False)
+		# Return the box. ****************************************************
+		return boxSettings
 	
-	def tabSwitchPrintUpdate(self):
-		# Set render actor visibilites.
-		self.modelCollection.viewPrint()
-		self.renderView.render()
-		# Update the model volume.
-		self.updateVolume()
-		# Disable model management load and remove buttons.
-		self.modelListView.setSensitive(False)
 	
+	
+	
+	# Create notebook pages. ##################################################
+	# Model page.
 	def createModelTab(self):
 		# Create tab box.
 		self.modelTab = gtk.VBox()
 		self.modelTab.show()
-		
-		# Create model management frame.
-#		self.frameModels = gtk.Frame(label="Models")
-#		self.modelTab.pack_start(self.frameModels, padding = 5)
-#		self.frameModels.show()
-		
-		# Create model list view using the model list.
-#		self.modelListView = modelListView(self.settings, self.modelList, self.modelCollection, self.renderView, self.updateAllEntries, self.console)
-#		self.frameModels.add(self.modelListView)
-#		self.modelListView.show()
 		
 		# Create model modification frame.
 		self.frameModifications = gtk.Frame(label="Model modifications")
@@ -305,35 +261,26 @@ class boxSettings(gtk.VBox):
 		self.boxModelModifications = gtk.VBox()
 		self.frameModifications.add(self.boxModelModifications)
 		self.boxModelModifications.show()
-		self.entryScaling = entry('Scaling', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryScaling = monkeyprintGuiHelper.entry('Scaling', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryScaling, expand=False, fill=False)
-		self.entryRotationX = entry('Rotation X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryRotationX = monkeyprintGuiHelper.entry('Rotation X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationX, expand=False, fill=False)
-		self.entryRotationY = entry('Rotation Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryRotationY = monkeyprintGuiHelper.entry('Rotation Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationY, expand=False, fill=False)
-		self.entryRotationZ = entry('Rotation Z', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryRotationZ = monkeyprintGuiHelper.entry('Rotation Z', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationZ, expand=False, fill=False)
-		self.entryPositionX = entry('Position X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryPositionX = monkeyprintGuiHelper.entry('Position X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryPositionX, expand=False, fill=False)
-		self.entryPositionY = entry('Position Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryPositionY = monkeyprintGuiHelper.entry('Position Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryPositionY, expand=False, fill=False)
-		self.entryBottomClearance = entry('Bottom clearance', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryBottomClearance = monkeyprintGuiHelper.entry('Bottom clearance', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryBottomClearance, expand=False, fill=False)
 
-	
+	# Supports page.
 	def createSupportsTab(self):
 		# Create tab box.
 		self.supportsTab = gtk.VBox()
 		self.supportsTab.show()
-
-		# Create model management frame.
-#		self.frameModels = gtk.Frame(label="Models")
-#		self.supportsTab.pack_start(self.frameModels, padding = 5)
-#		self.frameModels.show()
-		# Create model list view using the model list.
-#		self.modelListView = modelListView(self.settings, self.modelList, self.modelCollection, self.renderView, self.updateAllEntries, self.console)
-#		self.frameModels.add(self.modelListView)
-#		self.modelListView.show()
 		
 		# Create support pattern frame.
 		self.frameSupportPattern = gtk.Frame(label="Support pattern")
@@ -342,13 +289,13 @@ class boxSettings(gtk.VBox):
 		self.boxSupportPattern = gtk.VBox()
 		self.frameSupportPattern.add(self.boxSupportPattern)
 		self.boxSupportPattern.show()
-		self.entryOverhangAngle = entry('Overhang angle', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryOverhangAngle = monkeyprintGuiHelper.entry('Overhang angle', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entryOverhangAngle, expand=False, fill=False)
-		self.entrySupportSpacingX = entry('Spacing X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportSpacingX = monkeyprintGuiHelper.entry('Spacing X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportSpacingX, expand=False, fill=False)
-		self.entrySupportSpacingY = entry('Spacing Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportSpacingY = monkeyprintGuiHelper.entry('Spacing Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportSpacingY, expand=False, fill=False)
-		self.entrySupportMaxHeight = entry('Maximum height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportMaxHeight = monkeyprintGuiHelper.entry('Maximum height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportMaxHeight, expand=False, fill=False)
 		
 		# Create support geometry frame.
@@ -358,11 +305,11 @@ class boxSettings(gtk.VBox):
 		self.boxSupportGeometry = gtk.VBox()
 		self.frameSupportGeometry.add(self.boxSupportGeometry)
 		self.boxSupportGeometry.show()
-		self.entrySupportBaseDiameter = entry('Base diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportBaseDiameter = monkeyprintGuiHelper.entry('Base diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportBaseDiameter, expand=False, fill=False)
-		self.entrySupportTipDiameter = entry('Tip diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportTipDiameter = monkeyprintGuiHelper.entry('Tip diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportTipDiameter, expand=False, fill=False)
-		self.entrySupportTipHeight = entry('Cone height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportTipHeight = monkeyprintGuiHelper.entry('Cone height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportTipHeight, expand=False, fill=False)
 
 		# Create bottom plate frame.
@@ -372,9 +319,10 @@ class boxSettings(gtk.VBox):
 		self.boxBottomPlate = gtk.VBox()
 		self.frameBottomPlate.add(self.boxBottomPlate)
 		self.boxBottomPlate.show()
-		self.entrySupportBottomPlateThickness = entry('Bottom plate thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportBottomPlateThickness = monkeyprintGuiHelper.entry('Bottom plate thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxBottomPlate.pack_start(self.entrySupportBottomPlateThickness, expand=False, fill=False)
 	
+	# Slicing page.
 	def createSlicingTab(self):
 		# Create tab box.
 		self.slicingTab = gtk.VBox()
@@ -388,7 +336,7 @@ class boxSettings(gtk.VBox):
 		self.frameSlicing.add(self.boxSlicingParameters)
 		self.boxSlicingParameters.show()
 		# Layer height entry.
-		self.entryLayerHeight = entry('Layer height', settings=self.settings, customFunctions=[self.updateAllModels, self.updateSlider, self.renderView.render, self.updateAllEntries])
+		self.entryLayerHeight = monkeyprintGuiHelper.entry('Layer height', settings=self.programSettings, customFunctions=[self.updateAllModels, self.updateSlider, self.renderView.render, self.updateAllEntries])
 		self.boxSlicingParameters.pack_start(self.entryLayerHeight, expand=False, fill=False)
 		
 		# Create hollow and fill frame.
@@ -414,11 +362,11 @@ class boxSettings(gtk.VBox):
 		self.checkboxFill.show()
 		self.checkboxFill.connect("toggled", self.callbackCheckButtonFill)
 		# Entries.
-		self.entryShellThickness = entry('Shell wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryShellThickness = monkeyprintGuiHelper.entry('Shell wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryShellThickness, expand=True, fill=True)
-		self.entryFillSpacing = entry('Fill spacing', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryFillSpacing = monkeyprintGuiHelper.entry('Fill spacing', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryFillSpacing, expand=True, fill=True)
-		self.entryFillThickness = entry('Fill wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryFillThickness = monkeyprintGuiHelper.entry('Fill wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryFillThickness, expand=True, fill=True)
 		
 		# Create preview frame.
@@ -428,11 +376,11 @@ class boxSettings(gtk.VBox):
 		self.boxPreview = gtk.HBox()
 		self.framePreview.add(self.boxPreview)
 		self.boxPreview.show()
-		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection, self.settings, self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
-#		self.previewSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection.sliceStack, self.settings, self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
-		self.boxPreview.pack_start(self.previewSlider, expand=True, fill=True, padding=5)
-		self.previewSlider.show()
+		self.sliceSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection, self.programSettings, self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
+		self.boxPreview.pack_start(self.sliceSlider, expand=True, fill=True, padding=5)
+		self.sliceSlider.show()
 	
+	# Print page.
 	def createPrintTab(self):
 		# Create tab box.
 		self.printTab = gtk.VBox()
@@ -447,11 +395,11 @@ class boxSettings(gtk.VBox):
 		self.boxPrintParameters.show()
 		
 		# Create entries.
-		self.entryShellThickness = entry('Exposure time base', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryShellThickness = monkeyprintGuiHelper.entry('Exposure time base', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxPrintParameters.pack_start(self.entryShellThickness, expand=True, fill=True)
-		self.entryFillSpacing = entry('Exposure time', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryFillSpacing = monkeyprintGuiHelper.entry('Exposure time', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxPrintParameters.pack_start(self.entryFillSpacing, expand=True, fill=True)
-		self.entryFillThickness = entry('Resin settle time', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryFillThickness = monkeyprintGuiHelper.entry('Resin settle time', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxPrintParameters.pack_start(self.entryFillThickness, expand=True, fill=True)
 		
 		# Create model volume frame.
@@ -494,24 +442,62 @@ class boxSettings(gtk.VBox):
 		self.progressBar.show()
 		self.progressBar.setLimit(100)
 		self.progressBar.setText('foo')
-		self.progressBar.updateValue(50)	
+		self.progressBar.updateValue(50)		
 	
-	def updateVolume(self):
-		self.resinVolumeLabel.set_text("Volume: " + str(self.modelCollection.getTotalVolume()) + " ml.")
 	
-	def updateProgressbar(self):
-		# If slice number queue has slice number...
-		if self.queues[0].qsize():
-			# ... get slice number and set progress bar.
-			self.progressBar.updateValue(self.queues[0].get()) 
-			# Set 3d view to given slice.
-			# TODO
-			# Set slice view to given slice.
-			# TODO
-		# If print info queue has info...
-		if self.queues[1].qsize():
-			self.progressBar.setText(self.queues[1].get()) 
-		
+	# Notebook tab switch callback functions. #################################
+	# Model page.
+	def tabSwitchModelUpdate(self):
+		# Set render actor visibilities.
+		self.modelCollection.viewDefault()
+		self.renderView.render()
+		# Enable model management load and remove buttons.
+		self.modelListView.setSensitive(True)
+
+	# Supports page.
+	def tabSwitchSupportsUpdate(self):
+		# Update supports.
+		self.modelCollection.updateAllSupports()
+		# Set render actor visibilities.
+		self.modelCollection.viewSupports()
+		self.renderView.render()
+		# Activate slice tab if not already activated.
+		if self.getGuiState() == 1:
+			self.setGuiState(2)
+		# Disable model management load and remove buttons.
+		self.modelListView.setSensitive(False)
+
+	# Slicing page.
+	def tabSwitchSlicesUpdate(self):
+		# Update slider.
+		self.sliceSlider.updateSlider()
+		# Update slice stack height.
+		self.modelCollection.updateSliceStack()
+		# Set render actor visibilites.
+		self.modelCollection.viewSlices()
+		self.renderView.render()
+		# Activate print tab if not already activated.
+		if self.getGuiState() == 2:
+			self.setGuiState(3)
+		# Disable model management load and remove buttons.
+		self.modelListView.setSensitive(False)
+	
+	# Print page.
+	def tabSwitchPrintUpdate(self):
+		# Set render actor visibilites.
+		self.modelCollection.viewPrint()
+		self.renderView.render()
+		# Update the model volume.
+		self.updateVolume()
+		# Disable model management load and remove buttons.
+		self.modelListView.setSensitive(False)
+	
+
+	
+	
+	
+	# Other callback function. ################################################
+	
 	def callbackCheckButtonHollow(self, widget, data=None):
 		self.modelCollection.getCurrentModel().settings['Print hollow'].setValue(widget.get_active())
 		# Update model.
@@ -520,9 +506,7 @@ class boxSettings(gtk.VBox):
 	def callbackCheckButtonFill(self, widget, data=None):
 		self.modelCollection.getCurrentModel().settings['Fill'].setValue(widget.get_active())
 		self.updateCurrentModel()
-		
-	
-	
+
 	def callbackStartPrintProcess(self, data=None):
 		# Create a print start dialog.
 		self.dialogStart = dialogStartPrint()
@@ -534,11 +518,8 @@ class boxSettings(gtk.VBox):
 			# Disable window close event.
 			self.printFlag = True
 			# Start the print.
-			self.printWindow = monkeyprintGuiHelper.projectorDisplay()
-			
-			
+			self.printWindow = monkeyprintGuiHelper.projectorDisplay(self.programSettings)
 
-	
 	def callbackStopPrintProcess(self, data=None):
 		# Create a dialog window with yes/no buttons.
 		dialog = gtk.MessageDialog(	None,
@@ -556,10 +537,33 @@ class boxSettings(gtk.VBox):
 			self.console.addLine("Cancelling print")
 			self.printFlag = False
 			# Stop the print process.
-			self.printWindow.stop()
-			
+			self.printWindow.stop()	
+	
 
-# TODO should these two be placed in the notebook class?	
+
+
+
+	# Gui update functions. ###################################################
+	def updateProgressbar(self):
+		# If slice number queue has slice number...
+		if self.queues[0].qsize():
+			# ... get slice number and set progress bar.
+			self.progressBar.updateValue(self.queues[0].get()) 
+			# Set 3d view to given slice.
+			# TODO
+			# Set slice view to given slice.
+			# TODO
+		# If print info queue has info...
+		if self.queues[1].qsize():
+			self.progressBar.setText(self.queues[1].get()) 
+	
+	
+	
+	def updateVolume(self):
+		self.resinVolumeLabel.set_text("Volume: " + str(self.modelCollection.getTotalVolume()) + " ml.")
+	
+
+
 	def setGuiState(self, state):
 		for i in range(self.notebook.get_n_pages()):
 			if i<=state:
@@ -567,12 +571,16 @@ class boxSettings(gtk.VBox):
 			else:
 				self.notebook.set_tab_sensitive(i, False)
 	
+	
+	
 	def getGuiState(self):
 		tab = 0
 		for i in range(self.notebook.get_n_pages()):
 			if self.notebook.is_tab_sensitivte(i):
 				tab = i
 		return tab
+	
+	
 	
 	# Function to update the current model after a change was made.
 	# Updates model supports or slicing dependent on
@@ -588,10 +596,13 @@ class boxSettings(gtk.VBox):
 		elif self.notebook.getCurrentPage() == 3:
 			self.modelCollection.getCurrentModel().updatePrint()
 	
+	
+	
 	def updateAllModels(self):
 		if self.notebook.getCurrentPage() == 2:
 			self.modelCollection.updateSliceStack()
 			
+	
 	
 	# Update all the settings if the current model has changed.
 	def updateAllEntries(self, state=None):
@@ -610,121 +621,20 @@ class boxSettings(gtk.VBox):
 		self.entrySupportTipDiameter.update()
 		self.entrySupportTipHeight.update()
 		self.entrySupportBottomPlateThickness.update()
-#		self.previewSlider.updateSlider()
+#		self.sliceSlider.updateSlider()
 		if state != None:
 			self.setGuiState(state)
 			if state == 0:
 				self.notebook.setCurrentPage(0)
+	
+	
 				
 	def updateSlider(self):
-		self.previewSlider.updateSlider()
+		self.sliceSlider.updateSlider()
 	
 	
 	
-# A text entry including a label on the left. #################################
-# Will call a function passed to it on input. Label, default value and
-# callback function are taken from the settings object.
 
-class entry(gtk.HBox):
-	# Override init function.
-#	def __init__(self, string, settings, function=None):
-	def __init__(self, string, settings=None, modelCollection=None, customFunctions=None):
-		# Call super class init function.
-		gtk.HBox.__init__(self)
-		self.show()
-		
-		self.string = string
-#		self.settings = settings
-		self.modelCollection = modelCollection
-		# Get settings of default model which is the only model during GUI creation.
-		if self.modelCollection != None:
-			self.settings = modelCollection.getCurrentModel().settings
-		# If settings are provided instead of a model collection this is a
-		# printer settings entry.
-		elif settings != None:
-			self.settings = settings
-			
-		self.customFunctions = customFunctions
-		
-		# Make label.
-		self.label = gtk.Label(string+self.settings[string].unit)
-		self.label.set_justify(gtk.JUSTIFY_LEFT)
-		self.pack_start(self.label, expand=True, fill=True)
-		self.label.show()
-		
-		# Make text entry.
-		self.entry = gtk.Entry()
-		self.pack_start(self.entry, expand=False, fill=False)
-		self.entry.show()
-		
-		# Set entry text.
-		self.entry.set_text(str(self.settings[string].value))
-		
-		# A bool to track if focus change was invoked by Tab key.
-		self.tabKeyPressed = False
-			
-		# Set callback connected to Enter key and focus leave.
-		#self.entry.connect("activate", self.entryCallback, entry)
-		self.entry.connect("key-press-event", self.entryCallback, entry)
-		self.entry.connect("focus_out_event", self.entryCallback, entry)
-	
-	
-		
-	def entryCallback(self, widget, event, entry):
-		# Callback provides the following behaviour:
-		# Return key sets the value and calls the function.
-		# Tab key sets the value and calls the function.
-		# Focus-out resets the value if the focus change was not invoked by Tab key.
-		# Note: Tab will first emit a key press event, then a focus out event.
-#		if event.type.value_name == "GDK_FOCUS_CHANGE" and self.entry.has_focus()==False:
-#			print 'foo'
-#		elif event.type.value_name == "GDK_KEY_PRESS" and event.keyval == gtk.keysyms.Return:
-#			print 'bar'
-		# GDK_FOCUS_CHANGE is emitted on focus in or out, so make sure the focus is gone.
-		# If Tab key was pressed, set tabKeyPressed and leave.
-		if event.type.value_name == "GDK_KEY_PRESS" and event.keyval == gtk.keysyms.Tab:
-			self.tabKeyPressed = True
-			return
-		# If focus was lost and tab key was pressed or if return key was pressed, set the value.
-		if (event.type.value_name == "GDK_FOCUS_CHANGE" and self.entry.has_focus()==False and self.tabKeyPressed) or (event.type.value_name == "GDK_KEY_PRESS" and event.keyval == gtk.keysyms.Return):
-			# Set value.
-			# In case a model collection was provided...
-			if self.modelCollection != None:
-				# ... set the new value in the current model's settings.
-				self.modelCollection.getCurrentModel().settings[self.string].setValue(self.entry.get_text())
-				# Call the models update function. This might change the settings value again.
-#				# Call the custom functions specified for the setting.
-#				if self.customFunctions != None:
-#					for function in self.customFunctions:
-#						function()
-				# Set the entrys text field as it might have changed during the previous function call.
-				self.entry.set_text(str(self.modelCollection.getCurrentModel().settings[self.string].value))
-			# If this is not a model setting but a printer setting...
-			elif self.settings != None:
-				# ... write the value to the settings.
-				self.settings[self.string].setValue(self.entry.get_text())
-				# Set the entry text in case the setting was changed by settings object.
-				self.entry.set_text(str(self.settings[self.string].value))
-			# Call the custom functions specified for the setting.
-			if self.customFunctions != None:
-				for function in self.customFunctions:
-					function()
-			# Reset tab pressed bool.
-			self.tabKeyPressed = False
-			return
-		# If focus was lost without tab key press, reset the value.
-		elif event.type.value_name == "GDK_FOCUS_CHANGE" and self.entry.has_focus()==False:
-			#Reset value.
-			if self.modelCollection != None:
-				self.entry.set_text(str(self.modelCollection.getCurrentModel().settings[self.string].value))
-			elif self.settings != None:
-				self.entry.set_text(str(self.settings[self.string].value))
-			return
-
-		
-	# Update the value in the text field if current model has changed.	
-	def update(self):
-		self.entry.set_text(str(self.modelCollection.getCurrentModel().settings[self.string].value))
 
 
 
@@ -964,53 +874,56 @@ class modelListView(gtk.VBox):
 		dialog.add_filter(fileFilter)
 		# Run the dialog and return the file path.
 		response = dialog.run()
-		# Check the response.
-		if response == gtk.RESPONSE_OK:
-			filepath = dialog.get_filename()
-		elif response == gtk.RESPONSE_CANCEL:
-			pass
 		# Close the dialog.
 		dialog.destroy()
-		# Check if file is an stl. If yes, load.
-		if filepath.lower()[-3:] != "stl":
-			if self.console:
-				self.console.addLine("File \"" + filepath + "\" is not an stl file.")
-		else:
-			# Get filename without path.
-			filenameStlParts = filepath.split('/')
-			filename = filenameStlParts[-1]
-			if self.console:
-				self.console.addLine("Loading file \"" + filename + "\".")
-			# Save path for next use.
-			self.settings['currentFolder'].value = filepath[:-len(filenameStlParts[-1])]
-			# Check if there is a file with the same name loaded already.
-			# Use the permanent file id in second row for this.
-			copyNumber = 0
-			for row in self.modelList:
-				# Check if filename already loaded.
-				if filename == row[1][:len(filename)]:
-					# If so, set the copy number to 1.
-					copyNumber = 1
-					# Check if this is a copy already.
-					if len(row[1]) > len(filename):
-						if int(row[1][len(filename)+2:len(row[1])-1]) >= copyNumber:
-							copyNumber = int(row[1][len(filename)+2:len(row[1])-1]) + 1
-			if copyNumber > 0:
-				filename = filename + " (" + str(copyNumber) + ")"
-		# Hide the previous models bounding box.
-		self.modelCollection.getCurrentModel().hideBox()
-		# Load the model into the model collection.
-		self.modelCollection.add(filename, filepath)
-		# Add the filename to the list and set selected.
-		self.add(filename, filename, filepath)	
-		# Activate the remove button which was deactivated when there was no model.
-		self.buttonRemove.set_sensitive(True)
-		# Add actor to render view.
-#		self.renderView.addActor(self.modelCollection.getCurrentModel().getActor())
-		self.renderView.addActors(self.modelCollection.getCurrentModel().getAllActors())
+		# Check the response.
+		# If OK was pressed...
+		if response == gtk.RESPONSE_OK:
+			filepath = dialog.get_filename()		
+			# Check if file is an stl. If yes, load.
+			if filepath.lower()[-3:] != "stl":
+				if self.console:
+					self.console.addLine("File \"" + filepath + "\" is not an stl file.")
+			else:
+				# Get filename without path.
+				filenameStlParts = filepath.split('/')
+				filename = filenameStlParts[-1]
+				if self.console:
+					self.console.addLine("Loading file \"" + filename + "\".")
+				# Save path for next use.
+				self.settings['currentFolder'].value = filepath[:-len(filenameStlParts[-1])]
+				# Check if there is a file with the same name loaded already.
+				# Use the permanent file id in second row for this.
+				copyNumber = 0
+				for row in self.modelList:
+					# Check if filename already loaded.
+					if filename == row[1][:len(filename)]:
+						# If so, set the copy number to 1.
+						copyNumber = 1
+						# Check if this is a copy already.
+						if len(row[1]) > len(filename):
+							if int(row[1][len(filename)+2:len(row[1])-1]) >= copyNumber:
+								copyNumber = int(row[1][len(filename)+2:len(row[1])-1]) + 1
+				if copyNumber > 0:
+					filename = filename + " (" + str(copyNumber) + ")"
+			# Hide the previous models bounding box.
+			self.modelCollection.getCurrentModel().hideBox()
+			# Load the model into the model collection.
+			self.modelCollection.add(filename, filepath)
+			# Add the filename to the list and set selected.
+			self.add(filename, filename, filepath)	
+			# Activate the remove button which was deactivated when there was no model.
+			self.buttonRemove.set_sensitive(True)
+			# Add actor to render view.
+			self.renderView.addActors(self.modelCollection.getCurrentModel().getAllActors())
 
-		
-		self.renderView.render()
+			# Update 3d view.
+			self.renderView.render()
+			
+		# If cancel was pressed...
+		elif response == gtk.RESPONSE_CANCEL:
+			#... do nothing.
+			pass
 
 	# Delete button callback.
 	def callbackRemove(self, widget, data=None):
@@ -1112,7 +1025,7 @@ class firmwareDialog(gtk.Window):
 		table.attach(labelBaud, 0,1,3,4)
 		labelBaud.show()
 		self.entryBaud = gtk.Entry()
-		self.entryBaud.set_text(self.settings['avrdudeBaud'].value)
+		self.entryBaud.set_text(str(self.settings['avrdudeBaud'].value))
 		table.attach(self.entryBaud, 1,2,3,4)
 		self.entryBaud.show()
 		# Options.
@@ -1135,12 +1048,12 @@ class firmwareDialog(gtk.Window):
 
 		# Set callback connected to Enter key and focus leave.
 		#self.entry.connect("activate", self.entryCallback, entry)
-		self.entryMCU.connect("key-press-event", self.entryCallback, entry)
-		self.entryProgrammer.connect("key-press-event", self.entryCallback, entry)
-		self.entryPort.connect("key-press-event", self.entryCallback, entry)
-		self.entryBaud.connect("key-press-event", self.entryCallback, entry)
-		self.entryOptions.connect("key-press-event", self.entryCallback, entry)
-		self.entryPath.connect("key-press-event", self.entryCallback, entry)
+#		self.entryMCU.connect("key-press-event", self.entryCallback, entry)
+#		self.entryProgrammer.connect("key-press-event", self.entryCallback, entry)
+#		self.entryPort.connect("key-press-event", self.entryCallback, entry)
+#		self.entryBaud.connect("key-press-event", self.entryCallback, entry)
+#		self.entryOptions.connect("key-press-event", self.entryCallback, entry)
+#		self.entryPath.connect("key-press-event", self.entryCallback, entry)
 		
 		# Buttons.
 		boxButtons = gtk.HBox()
@@ -1256,11 +1169,11 @@ class dialogSettings(gtk.Window):
 		self.boxSerial.show()
 		# Add entries.
 		# Port.
-		self.entryPort = entry('Port', self.settings)
+		self.entryPort = monkeyprintGuiHelper.entry('Port', self.settings)
 		self.boxSerial.pack_start(self.entryPort)
 		self.entryPort.show()
 		# Baud rate.
-		self.entryBaud = entry('Baud rate', self.settings)
+		self.entryBaud = monkeyprintGuiHelper.entry('Baud rate', self.settings)
 		self.boxSerial.pack_start(self.entryBaud)
 		self.entryBaud.show()
 		# Test button and output for serial communication.
@@ -1287,13 +1200,13 @@ class dialogSettings(gtk.Window):
 		self.frameBuildVolume.add(self.boxBuildVolume)
 		self.boxBuildVolume.show()
 		# Add entries.
-		self.entryBuildSizeX= entry('Build size X', self.settings)
+		self.entryBuildSizeX= monkeyprintGuiHelper.entry('Build size X', self.settings)
 		self.boxBuildVolume.pack_start(self.entryBuildSizeX)
 		self.entryBuildSizeX.show()
-		self.entryBuildSizeY= entry('Build size Y', self.settings)
+		self.entryBuildSizeY= monkeyprintGuiHelper.entry('Build size Y', self.settings)
 		self.boxBuildVolume.pack_start(self.entryBuildSizeY)
 		self.entryBuildSizeY.show()
-		self.entryBuildSizeZ= entry('Build size Z', self.settings)
+		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('Build size Z', self.settings)
 		self.boxBuildVolume.pack_start(self.entryBuildSizeZ)
 		self.entryBuildSizeZ.show()
 		
@@ -1304,16 +1217,16 @@ class dialogSettings(gtk.Window):
 		self.boxProjector = gtk.VBox()
 		self.frameProjector.add(self.boxProjector)
 		self.boxProjector.show()
-		self.entryProjectorSizeX= entry('Projector size X', self.settings)
+		self.entryProjectorSizeX= monkeyprintGuiHelper.entry('Projector size X', self.settings)
 		self.boxProjector.pack_start(self.entryProjectorSizeX, expand=False, fill=False)
 		self.entryProjectorSizeX.show()
-		self.entryProjectorSizeY= entry('Projector size Y', self.settings)
+		self.entryProjectorSizeY= monkeyprintGuiHelper.entry('Projector size Y', self.settings)
 		self.boxProjector.pack_start(self.entryProjectorSizeY, expand=False, fill=False)
 		self.entryProjectorSizeY.show()
-		self.entryProjectorPositionX= entry('Projector position X', self.settings)
+		self.entryProjectorPositionX= monkeyprintGuiHelper.entry('Projector position X', self.settings)
 		self.boxProjector.pack_start(self.entryProjectorPositionX, expand=False, fill=False)
 		self.entryProjectorPositionX.show()
-		self.entryProjectorPositionY= entry('Projector position Y', self.settings)
+		self.entryProjectorPositionY= monkeyprintGuiHelper.entry('Projector position Y', self.settings)
 		self.boxProjector.pack_start(self.entryProjectorPositionY, expand=False, fill=False)
 		self.entryProjectorPositionY.show()
 		
@@ -1331,15 +1244,15 @@ class dialogSettings(gtk.Window):
 		self.boxTilt.show()
 		# Entries.
 		# Resolution.
-		self.entryTiltStepsPerDeg = entry('Tilt steps / °', self.settings)
+		self.entryTiltStepsPerDeg = monkeyprintGuiHelper.entry('Tilt steps / °', self.settings)
 		self.boxTilt.pack_start(self.entryTiltStepsPerDeg, expand=False, fill=False)
 		self.entryTiltStepsPerDeg.show()
 		# Tilt angle.
-		self.entryTiltAngle = entry('Tilt angle', self.settings)
+		self.entryTiltAngle = monkeyprintGuiHelper.entry('Tilt angle', self.settings)
 		self.boxTilt.pack_start(self.entryTiltAngle, expand=False, fill=False)
 		self.entryTiltAngle.show()
 		# Tilt speed.
-		self.entryTiltSpeed = entry('Tilt speed', self.settings)
+		self.entryTiltSpeed = monkeyprintGuiHelper.entry('Tilt speed', self.settings)
 		self.boxTilt.pack_start(self.entryTiltSpeed, expand=False, fill=False)
 		self.entryTiltSpeed.show()
 		
@@ -1352,15 +1265,15 @@ class dialogSettings(gtk.Window):
 		self.boxBuildStepper.show()
 		# Entries.
 		# Resolution.
-		self.entryBuildStepsPerMm = entry('Build steps / mm', self.settings)
+		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build steps / mm', self.settings)
 		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
 		self.entryBuildStepsPerMm.show()
 		# Ramp slope.
-		self.entryBuildRampSlope = entry('Ramp slope', self.settings)
+		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Ramp slope', self.settings)
 		self.boxBuildStepper.pack_start(self.entryBuildRampSlope, expand=False, fill=False)
 		self.entryBuildRampSlope.show()
 		# Tilt speed.
-		self.entryBuildSpeed = entry('Build platform speed', self.settings)
+		self.entryBuildSpeed = monkeyprintGuiHelper.entry('Build platform speed', self.settings)
 		self.boxBuildStepper.pack_start(self.entryBuildSpeed, expand=False, fill=False)
 		self.entryBuildSpeed.show()
 		
