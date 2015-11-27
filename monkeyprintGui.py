@@ -237,7 +237,7 @@ class gui(gtk.Window):
 		boxSettings.pack_start(self.frameConsole, padding=5)
 		self.frameConsole.show()
 		# Custom scrolled window.
-		self.consoleView = consoleView(self.console)
+		self.consoleView = monkeyprintGuiHelper.consoleView(self.console)
 		self.frameConsole.add(self.consoleView)
 	
 	
@@ -985,15 +985,27 @@ class firmwareDialog(gtk.Window):
 		box = gtk.VBox()
 		self.add(box)
 		box.show()
-#TODO: Rebuild with entry objects.		
+		
 		# Description.
+		boxLabel = gtk.HBox()
+		box.pack_start(boxLabel, padding=5)
+		boxLabel.show()
 		label = gtk.Label("Push the reset button on your controller board and press \"Flash firmware\"!")
-		box.pack_start(label, expand=False, fill=False)
+		boxLabel.pack_start(label, expand=False, fill=False, padding=5)
 		label.show()
+		
+		# Horizontal container for entries and buttons.
+		boxEntriesAndButtons = gtk.HBox()
+		box.pack_start(boxEntriesAndButtons, padding=5)
+		boxEntriesAndButtons.show()
+
+		frameEntries = gtk.Frame("Settings")
+		boxEntriesAndButtons.pack_start(frameEntries, padding=5)
+		frameEntries.show()
 		
 		# Make a box for the entries.
 		boxEntries = gtk.VBox()
-		box.pack_start(boxEntries)
+		frameEntries.add(boxEntries)
 		boxEntries.show()
 		# Avrdude option entries.
 		self.entryPath = monkeyprintGuiHelper.entry('Firmware path', settings=self.settings, width=20)
@@ -1008,32 +1020,42 @@ class firmwareDialog(gtk.Window):
 		boxEntries.pack_start(self.entryBaud)
 		self.entryOptions = monkeyprintGuiHelper.entry('Options', settings=self.settings, customFunctions=[self.entryOptionsUpdate], width=20)
 		boxEntries.pack_start(self.entryOptions)
-
+		
+		
 		# Make a box for the buttons.
-		boxButtons = gtk.HBox()
-		box.pack_start(boxButtons, expand=False, fill=False)
+		boxButtons = gtk.VBox()
+		boxEntriesAndButtons.pack_start(boxButtons, expand=True, fill=True, padding=5)
 		boxButtons.show()
+		
 		# Flash button.
 		buttonFlash = gtk.Button("Flash firmware")
-		boxButtons.pack_start(buttonFlash, expand=False, fill=False)
+		boxButtons.pack_start(buttonFlash, expand=True, fill=True)
 		buttonFlash.connect("clicked", self.callbackFlash)
 		buttonFlash.show()
-		# Back to defaults button.
-		buttonDefaults = gtk.Button("Restore defaults")
-		boxButtons.pack_start(buttonDefaults, expand=False, fill=False)
-		buttonDefaults.connect("clicked", self.callbackDefaults)
-		buttonDefaults.show()
-		# Close button.
-		buttonClose = gtk.Button("Close")
-		boxButtons.pack_start(buttonClose, expand=False, fill=False)
-		buttonClose.connect("clicked", self.callbackClose)
-		buttonClose.show()
 		
 		# Create an output window for avrdude feedback.
-		self.console = consoleText()
-		self.consoleView = consoleView(self.console)
-		box.pack_start(self.consoleView)
+		boxConsole = gtk.HBox()
+		box.pack_start(boxConsole, padding=5)
+		boxConsole.show()
+		self.console = monkeyprintGuiHelper.consoleText()
+		self.consoleView = monkeyprintGuiHelper.consoleView(self.console)
+		boxConsole.pack_start(self.consoleView, padding=5)
 		self.consoleView.show()
+		
+		# Button box.
+		boxClose = gtk.HBox()
+		box.pack_start(boxClose, padding=5)
+		boxClose.show()
+		# Close button.
+		buttonClose = gtk.Button("Close")
+		boxClose.pack_end(buttonClose, expand=False, fill=False, padding=5)
+		buttonClose.connect("clicked", self.callbackClose)
+		buttonClose.show()
+		# Back to defaults button.
+		buttonDefaults = gtk.Button("Restore defaults")
+		boxClose.pack_end(buttonDefaults, expand=False, fill=False)
+		buttonDefaults.connect("clicked", self.callbackDefaults)
+		buttonDefaults.show()
 		
 
 	def entryOptionsUpdate(self):
@@ -1054,25 +1076,29 @@ class firmwareDialog(gtk.Window):
 		# Write to settings and set entry string.
 		self.settings['Options'].value = optionString
 		self.entryOptions.entry.set_text(optionString)
+	
+	def writeMessage(self):
+		self.console.addLine('Running avrdude with options:')
+		self.console.addLine('-p ' + self.settings['MCU'].value + ' -P ' + self.settings['Port'].value + ' -c ' + self.settings['Programmer'].value + ' -b ' + str(self.settings['Baud'].value) + ' -U ' + 'flash:w:' + self.settings['Firmware path'].value + " " + self.settings['Options'].value)
 
 
 	def callbackFlash(self, widget, data=None):
+		# Console output.
+		self.writeMessage()
+		#self.console.addLine('Running avrdude with options:')
+		#self.console.addLine('-p ' + self.settings['MCU'].value + ' -P ' + self.settings['Port'].value + ' -c ' + self.settings['Programmer'].value + ' -b ' + str(self.settings['Baud'].value) + ' -U ' + 'flash:w:' + self.settings['Firmware path'].value + " " + self.settings['Options'].value)
 		# Create avrdude commandline string.
 		avrdudeCommandList = [	'avrdude',
 							'-p', self.settings['MCU'].value,
 							'-P', self.settings['Port'].value,
 							'-c', self.settings['Programmer'].value,
-							'-b', self.settings['Baud'].value,
+							'-b', str(self.settings['Baud'].value),
 							'-U', 'flash:w:' + self.settings['Firmware path'].value
 							]
 		# Append additional options.
 		optionList = self.settings['Options'].value.split(' ')
 		for option in optionList:
 			avrdudeCommandList.append(option)
-		# Console output.
-		self.console.addLine('Running avrdude with options:')
-		self.console.addLine('-p ' + self.settings['MCU'].value + '-P ' + self.settings['Port'].value + '-c ' + self.settings['Programmer'].value + '-b ' + self.settings['Baud'].value + '-U ' + 'flash:w:' + self.settings['Firmware path'].value)
-		time.sleep(1)
 		# Call avrdude and get it's output.
 		# Redirect error messages to stdout and stdout to PIPE
 		avrdudeProcess = subprocess.Popen(avrdudeCommandList, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -1390,53 +1416,5 @@ class dialogStartPrint(gtk.Window):
 
 
 
-# Output console. ##############################################################
-# We define the console view and its text buffer 
-# separately. This way we can have multiple views that share
-# the same text buffer on different tabs...
 
-class consoleText(gtk.TextBuffer):
-	# Override init function.
-	def __init__(self):
-		gtk.TextBuffer.__init__(self)
-	# Add text method.
-	def addLine(self, string):
-		self.insert(self.get_end_iter(),"\n"+string)	
-
-
-# Creates a text viewer window that automatically scrolls down on new entries.
-class consoleView(gtk.Frame):#ScrolledWindow):
-	# Override init function.
-	def __init__(self, textBuffer):
-		gtk.Frame.__init__(self)
-		self.show()
-		# Create box for content.
-		self.box = gtk.VBox()
-		self.add(self.box)
-		self.box.show()
-		
-		# Create the scrolled window.
-		self.scrolledWindow = gtk.ScrolledWindow()
-		self.scrolledWindow.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_ALWAYS)
-		self.box.pack_start(self.scrolledWindow, expand=True, fill=True, padding=5)
-		self.scrolledWindow.show()
-		# Text view.
-		self.textViewConsole = gtk.TextView(buffer=textBuffer)
-		self.textViewConsole.set_editable(False)
-		self.textViewConsole.set_wrap_mode(gtk.WRAP_WORD)
-		self.scrolledWindow.add(self.textViewConsole)
-		self.textViewConsole.show()
-		# Get text buffer to write to.
-#		self.textBuffer = self.textViewConsole.get_buffer()	
-		# Insert start up message.
-#		self.textBuffer.insert(self.textBuffer.get_end_iter(),"Monkeyprint " + "VERSION")
-		# Get adjustment object to rescroll to bottom.
-		self.vAdjustment = self.textViewConsole.get_vadjustment()
-		# Connect changed signal to rescroll function.
-		self.vAdjustment.connect('changed', lambda a, s=self.scrolledWindow: self.rescroll(a,s))
-
-	# Rescroll to bottom if text added.
-	def rescroll(self, adj, scroll):
-		adj.set_value(adj.upper-adj.page_size)
-		scroll.set_vadjustment(adj)
 

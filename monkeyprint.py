@@ -30,7 +30,7 @@ import monkeyprintGuiHelper
 if __name__ == "__main__":
 
 	# Create a debug console text buffer.
-	console = monkeyprintGui.consoleText()
+	console = monkeyprintGuiHelper.consoleText()
 
 	# Create settings dictionary object for machine and program settings.
 	programSettings = monkeyprintSettings.programSettings(console)
