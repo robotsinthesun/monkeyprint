@@ -35,15 +35,16 @@ class setting:
 		self.value = inVal
 		# Type cast to float or int if number.
 		if type(inVal) == str and self.isnumber(inVal):
-			print inVal.isdigit()
+#			print inVal.isdigit()
 			if inVal.isdigit():
 				self.value = int(inVal)
-				print "Int: " + inVal
+#				print "Int: " + inVal
 			else:
 				self.value = float(inVal)
-				print "Float: " + inVal
+#				print "Float: " + inVal
 		else:
-			print "String: " + inVal
+			pass
+#			print "String: " + inVal
 		# Correct for upper bound.
 		if self.upper != None:
 			if self.value > self.upper:
@@ -98,9 +99,11 @@ class modelSettings(dict):
 
 class programSettings(dict):	
 	# Override init function.
-	def __init__(self):
+	def __init__(self, console=None):
 		# Call super class init function.
 		dict.__init__(self)
+		# Internalise console.
+		self.console = console
 		# Create objects for all the settings and put them into dictionary.
 		self['currentFolder'] = setting(value='./models')
 		self['versionMajor'] = setting(value=0)
@@ -167,10 +170,15 @@ class programSettings(dict):
 	
 	# Read program settings from file.
 	def readFile(self):
-		# Open file.
-		with open('programSettings.txt', 'r') as f:
-			# Loop through lines.
-			for line in f:
-				if line != "":
-					self.string2Setting(line)
-				
+		try:
+			# Open file.
+			with open('programSettings.txt', 'r') as f:
+				# Loop through lines.
+				for line in f:
+					if line != "":
+						self.string2Setting(line)
+				if self.console != None:
+					self.console.addLine("Settings loaded from file.")
+		except IOError:
+			if self.console != None:
+				self.console.addLine("No settings file found. Using defaults.")	

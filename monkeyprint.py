@@ -33,11 +33,13 @@ if __name__ == "__main__":
 	console = monkeyprintGui.consoleText()
 
 	# Create settings dictionary object for machine and program settings.
-	programSettings = monkeyprintSettings.programSettings()
-#	
+	programSettings = monkeyprintSettings.programSettings(console)
+
+	# Create version message.
+	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value))
+
+	# Update settings from file.	
 	programSettings.readFile()
-	programSettings.saveFile()
-	
 
 	# Create model collection object.
 	# This object contains model data and settings data for each model.
@@ -46,9 +48,6 @@ if __name__ == "__main__":
 
 	# Create gui.
 	gui = monkeyprintGui.gui(modelCollection, programSettings, console)	
-	
-	# Create version message.
-	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value))
 
 	# Start the gui main loop.
 	gui.main()
