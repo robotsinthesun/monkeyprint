@@ -45,8 +45,8 @@ class renderView(gtk.VBox):
 		# Create camera and set view options..
 		self.camera =vtk.vtkCamera();
 		self.camera.SetViewUp(0,0,1)
-		self.camera.SetPosition(self.settings['buildSizeXYZ'].value[0]/2+200, self.settings['buildSizeXYZ'].value[1]/2-300,300);
-		self.camera.SetFocalPoint(self.settings['buildSizeXYZ'].value[0]/2, self.settings['buildSizeXYZ'].value[1]/2, self.settings['buildSizeXYZ'].value[2]/2);
+		self.camera.SetPosition(self.settings['Build size X'].value/2+200, self.settings['Build size Y'].value/2-300,300);
+		self.camera.SetFocalPoint(self.settings['Build size X'].value/2, self.settings['Build size Y'].value/2, self.settings['Build size Z'].value/2);
 		self.camera.SetClippingRange(0.0001, 10000)
 		self.renderer.SetActiveCamera(self.camera);
 
@@ -160,8 +160,8 @@ class renderView(gtk.VBox):
 		if self.console:
 			self.console.message("View reset.")
 		self.camera.SetViewUp(0,0,1)
-		self.camera.SetPosition(self.settings['buildSizeXYZ'].value[0]/2+200, self.settings['buildSizeXYZ'].value[1]/2-300,300);
-		self.camera.SetFocalPoint(self.settings['buildSizeXYZ'].value[0]/2, self.settings['buildSizeXYZ'].value[1]/2, self.settings['buildSizeXYZ'].value[2]/2);
+		self.camera.SetPosition(self.settings['Build size X'].value/2+200, self.settings['Build size Y'].value/2-300,300);
+		self.camera.SetFocalPoint(self.settings['Build size X'].value/2, self.settings['Build size Y'].value/2, self.settings['Build size Z'].value/2);
 		self.camera.SetClippingRange(0.0001, 10000)
 		self.render()
 

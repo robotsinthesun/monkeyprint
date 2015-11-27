@@ -20,7 +20,7 @@
 
 
 class setting:
-	def __init__(self, value, lower=None, upper=None, unit='', default=None):
+	def __init__(self, value, lower=None, upper=None, unit='', default=None, valType=None):
 		self.value = value
 		self.upper = upper
 		self.lower = lower
@@ -33,9 +33,17 @@ class setting:
 	# Set value and control bounds.
 	def setValue(self, inVal):
 		self.value = inVal
-		# Type cast to float.
-		if type(inVal) == str:
-			self.value = float(inVal)
+		# Type cast to float or int if number.
+		if type(inVal) == str and self.isnumber(inVal):
+			print inVal.isdigit()
+			if inVal.isdigit():
+				self.value = int(inVal)
+				print "Int: " + inVal
+			else:
+				self.value = float(inVal)
+				print "Float: " + inVal
+		else:
+			print "String: " + inVal
 		# Correct for upper bound.
 		if self.upper != None:
 			if self.value > self.upper:
@@ -45,6 +53,13 @@ class setting:
 			if self.value < self.lower:
 				self.value = self.lower
 
+	def isnumber(self,s):
+		try:
+			float(s)      
+		except ValueError:
+			return False
+		else:
+			return True
 
 
 class modelSettings(dict):
@@ -121,6 +136,7 @@ class programSettings(dict):
 		self['Show fill'] = setting(value=True)
 		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')
 		self['Model safety distance'] = setting(value=1.0, unit='mm')
+
 	# Load default settings.
 	def loadDefaults(self):
 		# Loop through all settings.
@@ -129,4 +145,32 @@ class programSettings(dict):
 			if self[setting].default:
 				#... restore it.
 				self[setting].value = self[setting].default
-		
+
+	# Convert one setting to a string reading "setting name:value".
+	def setting2String(self,setting):
+		string = setting + ":" + str(self[setting].value) + "\n"
+		return string
+	
+	def string2Setting(self, string):
+		string = string.strip()
+		strSplit = string.split(':')
+		self[strSplit[0]].setValue(strSplit[1])
+
+	# Save program settings to file.
+	def saveFile(self):
+		# Open file.
+		with open('programSettings.txt', 'w') as f:
+			# Loop through settings.
+			for setting in self:
+				# Convert to string and write to file.
+				f.write(self.setting2String(setting))
+	
+	# Read program settings from file.
+	def readFile(self):
+		# Open file.
+		with open('programSettings.txt', 'r') as f:
+			# Loop through lines.
+			for line in f:
+				if line != "":
+					self.string2Setting(line)
+				

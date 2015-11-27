@@ -34,6 +34,10 @@ if __name__ == "__main__":
 
 	# Create settings dictionary object for machine and program settings.
 	programSettings = monkeyprintSettings.programSettings()
+#	
+	programSettings.readFile()
+	programSettings.saveFile()
+	
 
 	# Create model collection object.
 	# This object contains model data and settings data for each model.

@@ -138,6 +138,9 @@ class gui(gtk.Window):
 						runningThreads[-1].join(timeout=10000)	# Timeout in ms.
 						print "Slicer thread " + str(i) + " finished."
 						del runningThreads[-1]
+				# Save settings to file.
+				self.settings.saveFile()
+				# Terminate the gui.
 				gtk.main_quit()
 				return False # returning False makes "destroy-event" be signalled to the window.
 			else:
