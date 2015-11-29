@@ -25,6 +25,7 @@ import gtk, gobject
 #import gtkGLExtVTKRenderWindowInteractor
 import monkeyprintModelViewer
 import monkeyprintGuiHelper
+import monkeyprintSerial
 import subprocess # Needed to call avrdude.
 import vtk
 import threading
@@ -692,6 +693,7 @@ class menuBar(gtk.MenuBar):
 		# Connect callbacks.
 		menuItemSettings.connect("activate", self.callbackSettings)
 		menuItemFlash.connect("activate", self.callbackFlash)
+		menuItemManualControl.connect("activate", self.callbackManualControl)
 
 		# Add to menu.
 		optionsMenu.append(menuItemSettings)
@@ -726,7 +728,10 @@ class menuBar(gtk.MenuBar):
 		dialogSettings(self.settings)
 		
 	def callbackFlash(self, event):
-		firmwareDialog(self.settings)
+		dialogFirmware(self.settings)
+	
+	def callbackManualControl(self, event):
+		dialogManualControl(self.settings)
 
 
 
@@ -971,7 +976,7 @@ class modelListView(gtk.VBox):
 
 
 # Window for firmware upload. ##################################################
-class firmwareDialog(gtk.Window):
+class dialogFirmware(gtk.Window):
 	# Override init function.
 	def __init__(self, settings):
 		# Call super class init function.
@@ -1164,6 +1169,98 @@ class firmwareDialog(gtk.Window):
 		self.destroy()
 
 
+
+
+
+class dialogManualControl(gtk.Window):
+	# Override init function.
+	def __init__(self, settings):
+		# Call super class init function.
+		gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+		self.show()
+		
+		# Internalise settings.
+		self.settings = settings
+		
+		# Create queue for communication between gui and serial.
+		self.queueSerial = Queue.Queue()
+		
+		# Create serial.
+		self.serialPrinter = monkeyprintSerial.printer(self.settings, self.queueSerial)
+		
+		# Create gui widgets.
+		box = gtk.VBox()
+		self.add(box)
+		box.show()
+		
+		frameCommands = gtk.Frame()
+		box.pack_start(frameCommands, padding=5)
+		frameCommands.show()
+		
+		boxCommands = gtk.HBox()
+		frameCommands.add(boxCommands)
+		boxCommands.show()
+		
+		self.entry = gtk.Entry(10)
+		self.entry.set_text("tilt")
+		boxCommands.pack_start(self.entry)
+		self.entry.show()
+		
+		self.buttonSend = gtk.Button("Send command")
+		boxCommands.pack_start(self.buttonSend)
+		self.buttonSend.show()
+		self.buttonSend.connect("clicked", self.callbackButtonSend)
+		
+		boxConsole = gtk.HBox()
+		box.pack_start(boxConsole, padding=5)
+		boxConsole.show()
+		
+		self.console = monkeyprintGuiHelper.consoleText()
+		consoleView = monkeyprintGuiHelper.consoleView(self.console)
+		boxConsole.pack_start(consoleView, padding=5)
+		consoleView.show()
+		
+		# Set initial message if any.
+		if self.queueSerial.qsize():
+			self.console.addLine(self.queueSerial.get())
+	
+	def callbackButtonSend(self, widget, data=None):
+		self.buttonSend.set_sensitive(False)
+		self.buttonSend.set_label("Sending...")
+		# Add avrdude thread listener to gui main loop.
+		listenerIdSerial = gobject.timeout_add(100, self.listenerSerialThread)
+		self.serialPrinter.sendCommand(self.entry.get_text(), retry=True)
+		
+	
+	def listenerSerialThread(self):
+		# If a message is in the queue...
+		if self.queueSerial.qsize():
+			# ... we know that avrdude is done.
+			# Get the message and display it.
+			message = self.queueSerial.get()
+			self.console.addLine(message)
+			# Restore flash button.
+			self.buttonSend.set_sensitive(True)
+			self.buttonSend.set_label("Send")
+			# Return False to remove listener from timeout.
+			return False
+		else:
+			# Add a dot to the console to let people know the program is not blocked...
+			self.console.addString(".")
+			# Return True to keep listener in timeout.
+			return True
+			
+	
+	# Override destroy function.
+	def destroy(self):
+		self.serialPrinter.stop()
+		self.serialPrinter.close()
+		del self.serialPrinter
+		del self
+		
+		
+		
+		
 
 # Settings window. #############################################################
 # Define a window for all the settings that are related to the printer.

@@ -42,11 +42,11 @@
 import serial
 import threading
 
-class serialThread(threading.Thread):
-	# Override init function.
-	def __init__(self):
-		# Call super class init function.
-		super(serialThread, self).__init__()
+#class serialThread(threading.Thread):
+#	# Override init function.
+#	def __init__(self):
+#		# Call super class init function.
+#		super(serialThread, self).__init__()
 
 
 class printer(threading.Thread):
@@ -73,16 +73,17 @@ class printer(threading.Thread):
 		except serial.SerialException:
 			# ... define a dummy.
 			self.serial = None
+			self.queue.put("Serial port " + self.settings['Port'].value + " not found.\nMake sure your board is plugged in and you have defined the correct serial port in the settings menu.")
 
 		# Call super class init function.
-		super(serialThread, self).__init__()
+		super(printer, self).__init__()
 
 
 	# Override run function.
 	# Send a command string with optional value.
 	# Method allows to retry sending until ack is received as well
 	# as waiting for printer to process the command.
-	def run(self, value=None, retry=False, wait=None):
+	def run(self, string, value=None, retry=False, wait=None):
 		# If serial exists...
 		if self.serial != None:
 			# ... start infinite loop that sends and waits for ack.
@@ -140,14 +141,16 @@ class printer(threading.Thread):
 					self.queue.put("Printer did not finish within timeout.")
 			# Reset the timeout.
 			self.serial.timeout = None
+		else:
+			self.queue.put('Sending failed. Port does not exist.')
 		
 	# Send a command string with optional value.
 	# Method allows to retry sending until ack is received as well
 	# as waiting for printer to process the command.
-	def sendCommand(string, value=None, retry=False, wait=None):
+	def sendCommand(self, string, value=None, retry=False, wait=None):
 		self.run(string, value, retry, wait)
 	
-	def stop()
+	def stop(self):
 		self.queue.put("Stopping serial.")
 		self.stopThread.set()
 		
