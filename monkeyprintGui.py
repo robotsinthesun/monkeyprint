@@ -981,6 +981,12 @@ class firmwareDialog(gtk.Window):
 		# Internalise settings.
 		self.settings = settings
 		
+		# Create avrdude queue.
+		self.queueAvrdude = Queue.Queue()
+		
+		# Create avrdude thread.
+		self.threadAvrdude = monkeyprintGuiHelper.avrdudeThread(self.settings, self.queueAvrdude)
+		
 		# Main container.
 		box = gtk.VBox()
 		self.add(box)
@@ -1028,10 +1034,10 @@ class firmwareDialog(gtk.Window):
 		boxButtons.show()
 		
 		# Flash button.
-		buttonFlash = gtk.Button("Flash firmware")
-		boxButtons.pack_start(buttonFlash, expand=True, fill=True)
-		buttonFlash.connect("clicked", self.callbackFlash)
-		buttonFlash.show()
+		self.buttonFlash = gtk.Button("Flash firmware")
+		boxButtons.pack_start(self.buttonFlash, expand=True, fill=True)
+		self.buttonFlash.connect("clicked", self.callbackFlash)
+		self.buttonFlash.show()
 		
 		# Create an output window for avrdude feedback.
 		boxConsole = gtk.HBox()
@@ -1077,16 +1083,22 @@ class firmwareDialog(gtk.Window):
 		self.settings['Options'].value = optionString
 		self.entryOptions.entry.set_text(optionString)
 	
-	def writeMessage(self):
-		self.console.addLine('Running avrdude with options:')
-		self.console.addLine('-p ' + self.settings['MCU'].value + ' -P ' + self.settings['Port'].value + ' -c ' + self.settings['Programmer'].value + ' -b ' + str(self.settings['Baud'].value) + ' -U ' + 'flash:w:' + self.settings['Firmware path'].value + " " + self.settings['Options'].value)
-
 
 	def callbackFlash(self, widget, data=None):
+		# Change button sensititvity and label.
+		self.buttonFlash.set_sensitive(False)
+		self.buttonFlash.set_label("Flashing. Please wait...")
 		# Console output.
-		self.writeMessage()
-		#self.console.addLine('Running avrdude with options:')
-		#self.console.addLine('-p ' + self.settings['MCU'].value + ' -P ' + self.settings['Port'].value + ' -c ' + self.settings['Programmer'].value + ' -b ' + str(self.settings['Baud'].value) + ' -U ' + 'flash:w:' + self.settings['Firmware path'].value + " " + self.settings['Options'].value)
+		self.console.addLine('Running avrdude with options:')
+		self.console.addLine('-p ' + self.settings['MCU'].value + ' -P ' + self.settings['Port'].value + ' -c ' + self.settings['Programmer'].value + ' -b ' + str(self.settings['Baud'].value) + ' -U ' + 'flash:w:' + self.settings['Firmware path'].value + " " + self.settings['Options'].value)
+		self.console.addLine("")
+		# Add avrdude thread listener to gui main loop.
+		listenerIdAvrdude = gobject.timeout_add(100, self.listenerAvrdudeThread)
+		# Start avrdude thread.
+		self.threadAvrdude.start()
+		
+
+	def flash(self):
 		# Create avrdude commandline string.
 		avrdudeCommandList = [	'avrdude',
 							'-p', self.settings['MCU'].value,
@@ -1114,7 +1126,28 @@ class firmwareDialog(gtk.Window):
 			# Print the output.
 			self.console.addLine(output)
 			self.console.addLine("Firmware flashed successfully!")
+		# Restore button.
+		self.buttonFlash.set_sensitive(True)
+		self.buttonFlash.set_label("Flash firmware")
 
+	def listenerAvrdudeThread(self):
+		# Add a dot to the console to let people know the program is not blocked...
+		self.console.addString(".")
+		# If a message is in the queue...
+		if self.queueAvrdude.qsize():
+			# ... we know that avrdude is done.
+			# Get the message and display it.
+			message = self.queueAvrdude.get()
+			self.console.addLine(message)
+			# Restore flash button.
+			self.buttonFlash.set_sensitive(True)
+			self.buttonFlash.set_label("Flash firmware")
+			# Return False to remove listener from timeout.
+			return False
+		else:
+			# Return True to keep listener in timeout.
+			return True
+		
 
 	def callbackDefaults(self, widget, data=None):
 		# Set default settings.
