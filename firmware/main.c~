@@ -64,6 +64,7 @@ uint8_t pingFlag = 0;
 // *****************************************************************************
 int main(void)
 {	
+
 	// Initialise port configurations, timers, etc. ***************************
 	setupHardware();
 
@@ -77,7 +78,7 @@ int main(void)
 	{
 		ledYellowToggle();
 		ledGreenToggle();
-		_delay_ms(50);
+		_delay_ms(100);
 	}
 	ledYellowOff();
 	ledGreenOff();
@@ -443,7 +444,7 @@ ISR (INT0_vect)
 	// Reset flags and position.
 	buildPlatformHomingFlag = 0;
 	buildPlatformPosition = 0;
-	sendByteAsStringUSB(buildPlatformPosition);
+//	sendByteAsStringUSB(buildPlatformPosition);
 //	menuChanged();
 	// GO UP A BIT AND THEN DOWN AT LOWEST SPEED TO INCREASE HOMING PRECISION!
 }

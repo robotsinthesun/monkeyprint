@@ -64,12 +64,13 @@ uint8_t pingFlag = 0;
 // *****************************************************************************
 int main(void)
 {	
+
 	// Initialise port configurations, timers, etc. ***************************
 	setupHardware();
 
 
 	// Show splash screen. ****************************************************
-	lcd_clrscr();
+//	lcd_clrscr();
 	ledYellowOn();
 	ledGreenOff();
 	int startup;
@@ -77,7 +78,7 @@ int main(void)
 	{
 		ledYellowToggle();
 		ledGreenToggle();
-		_delay_ms(50);
+		_delay_ms(100);
 	}
 	ledYellowOff();
 	ledGreenOff();

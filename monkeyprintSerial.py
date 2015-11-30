@@ -41,6 +41,7 @@
 
 import serial
 import threading
+import time
 
 #class serialThread(threading.Thread):
 #	# Override init function.
@@ -50,11 +51,12 @@ import threading
 
 
 class printer(threading.Thread):
-	def __init__(self, settings, queue):
+	def __init__(self, settings, queue, queueCommands):
 
 		# Internalise parameters.
 		self.settings = settings
 		self.queue = queue
+		self.queueCommands = queueCommands
 		
 		# Stop event.
 		self.stopThread = threading.Event()
@@ -69,6 +71,7 @@ class printer(threading.Thread):
 				stopbits = serial.STOPBITS_ONE,
 				timeout = 0	# Wait for incoming bytes forever.
 				)
+			self.queue.put("Serial port " + self.settings['Port'].value + " connected.")
 		# If serial port does not exist...
 		except serial.SerialException:
 			# ... define a dummy.
@@ -83,67 +86,91 @@ class printer(threading.Thread):
 	# Send a command string with optional value.
 	# Method allows to retry sending until ack is received as well
 	# as waiting for printer to process the command.
-	def run(self, string, value=None, retry=False, wait=None):
-		# If serial exists...
+	def run(self):
 		if self.serial != None:
-			# ... start infinite loop that sends and waits for ack.
-			count = 0
-			while count < 5 and not self.stopThread.isSet():
-				# Set timeout to 5 seconds.
-				self.serial.timeout = 5
-				# Create command string from string and value.
-				# Separate string and value by space.
-				if value != None:
-					string = string + " " + str(value)
-				# Place send message in queue.
-				self.queue.put("Sending command \"" + string + "\".")
-				# Send command.
-				self.serial.write(string)
-				# If retry flag is set...
-				if retry:
-					# ... listen for ack until timeout.
-					printerResponse = self.serial.readline().strip()
-					# Compare ack with sent string. If match...
-					if retry and printerResponse == string:
-						# Place success message in queue.
-						self.queue.put("Command \"" + string + "\" sent successfully.")
-						if wait != None:
-							self.queue.put("Wait for printer to finish...")
-						# ... exit the send loop.
-						break
-				# If retry flag is not set...
-				else:
-					# ... exit the loop.
-					break
-				# Increment counter.
-				count += 1
-				# Place giving up message in queue if necessary.
-				if counter == 5:
-					self.queue.put("Printer not responding. Giving up...")
-		
-			# Wait for response from printer that signals end of action.		
-			# If wait value is provided...
-			if wait != None:
-				while count < wait and not self.stopThread.isSet():
-					# ... set timeout to one second...
-					self.serial.timeout = 1
-					# ... and listen for "done" string until timeout.
-					printerResponse = self.serial.readline().strip()
-					# Listen for "done" string.Check if return string is "done".
-					if printerResponse == "done":
-						self.queue.put("Printer done.")
-						break
-					else:
-						count += 1
-				# In case of timeout...
-				if count == wait:
-					# ... place fail message.
-					self.queue.put("Printer did not finish within timeout.")
-			# Reset the timeout.
-			self.serial.timeout = None
+			self.queue.put("Serial waiting for commands to send.")
 		else:
-			self.queue.put('Sending failed. Port does not exist.')
-		
+			self.queue.put('Serial not operational.')
+		# Start loop.
+		while 1 and not self.stopThread.isSet():
+			# Get command from queue.
+			if self.queueCommands.qsize():
+				command = self.queueCommands.get()
+				string = command[0]
+				value = command[1]
+				retry = command[2]
+				wait = command[3]
+				if self.serial != None:
+					# Cast inputs.
+					if value != None: value = float(value)
+					if wait != None: wait = int(wait)
+					# ... start infinite loop that sends and waits for ack.
+					count = 0
+					# Set timeout to 5 seconds.
+					self.serial.timeout = 5
+					while count < 5 and not self.stopThread.isSet():
+						# Create command string from string and value.
+						# Separate string and value by space.
+						if value != None:
+							string = string + " " + str(value)
+						# Place send message in queue.
+						self.queue.put("Sending command \"" + string + "\".")
+						# Send command.
+						self.serial.write(string)
+						# If retry flag is set...
+						if retry:
+							# ... listen for ack until timeout.
+							printerResponse = self.serial.readline()
+							printerResponse = printerResponse.strip()
+							# Compare ack with sent string. If match...
+							if printerResponse == string:
+								# Place success message in queue.
+								self.queue.put("Command \"" + string + "\" sent successfully.")
+								if wait != None:
+									self.queue.put("Wait for printer to finish...")
+								# ... exit the send loop.
+								break
+						# If retry flag is not set...
+						else:
+							# ... exit the loop.
+							break
+						# Increment counter.
+						count += 1
+						# Place giving up message in queue if necessary.
+						if count == 5:
+							self.queue.put("Printer not responding. Giving up...")
+				
+					# Wait for response from printer that signals end of action.		
+					# If wait value is provided...
+					if wait != 0:
+						# ... set timeout to one second...
+						self.serial.timeout = 1
+						count = 0
+						while count < wait and not self.stopThread.isSet():
+							# ... and listen for "done" string until timeout.
+							printerResponse = self.serial.readline()
+							printerResponse = printerResponse.strip()
+							# Listen for "done" string.Check if return string is "done".
+							if printerResponse == "done":
+								self.queue.put("Printer done.")
+								break
+							else:
+								count += 1
+						# In case of timeout...
+						if count == wait:
+							# ... place fail message.
+							self.queue.put("Printer did not finish within timeout.")
+					# Reset the timeout.
+					self.serial.timeout = None
+					# Put done flag into queue to signal end of command process.
+					self.queue.put('done')
+				else:
+					self.queue.put('Sending failed. Port does not exist.')
+					self.queue.put('done')
+			else:
+				time.sleep(.1)
+	
+						
 	# Send a command string with optional value.
 	# Method allows to retry sending until ack is received as well
 	# as waiting for printer to process the command.
@@ -151,12 +178,19 @@ class printer(threading.Thread):
 		self.run(string, value, retry, wait)
 	
 	def stop(self):
+		self.close()
 		self.queue.put("Stopping serial.")
 		self.stopThread.set()
+	
+	def join(self, timeout=None):
+		self.close()	
+		self.stopThread.set()
+		threading.Thread.join(self, timeout)
 		
 	def close(self):
-		self.serial.close
-	
+		if self.serial != None:
+			self.serial.close()
+	'''
 	# Commands.
 	def buildHome(self):
 		self.serial.write("buildHome")
@@ -272,12 +306,13 @@ class printer(threading.Thread):
 			return 1
 			
 	def close(self):
-		self.serial.close()
+		if self.serial != None:
+			self.serial.close()
 #		print "printer serial closed"
 
 
 #dontNeedThis = serialPrinter.flushInput()		
-
+	'''
 class projector:
 
 	def __init__(self):
@@ -296,5 +331,6 @@ class projector:
 		self.serial.write("* 0 IR 002"+'\r')
 
 	def close(self):
-		self.serial.close()
+		if self.serial != None:
+			self.serial.close()
 #		print "projector serial closed"

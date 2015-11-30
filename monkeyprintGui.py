@@ -1184,9 +1184,10 @@ class dialogManualControl(gtk.Window):
 		
 		# Create queue for communication between gui and serial.
 		self.queueSerial = Queue.Queue()
+		self.queueCommands = Queue.Queue()
 		
 		# Create serial.
-		self.serialPrinter = monkeyprintSerial.printer(self.settings, self.queueSerial)
+		self.serialPrinter = monkeyprintSerial.printer(self.settings, self.queueSerial, self.queueCommands)
 		
 		# Create gui widgets.
 		box = gtk.VBox()
@@ -1201,12 +1202,30 @@ class dialogManualControl(gtk.Window):
 		frameCommands.add(boxCommands)
 		boxCommands.show()
 		
+		labelCommand = gtk.Label("Command")
+		boxCommands.pack_start(labelCommand)
+		labelCommand.show()
+		
 		self.entry = gtk.Entry(10)
 		self.entry.set_text("tilt")
 		boxCommands.pack_start(self.entry)
 		self.entry.show()
 		
-		self.buttonSend = gtk.Button("Send command")
+		labelWait = gtk.Label("Wait")
+		boxCommands.pack_start(labelWait)
+		labelWait.show()
+		
+		self.entryWait = gtk.Entry(5)
+		self.entryWait.set_text("5")
+		boxCommands.pack_start(self.entryWait)
+		self.entryWait.show()
+		
+		self.checkbuttonRetry = gtk.CheckButton("Retry?")
+		self.checkbuttonRetry.set_active(True)
+		boxCommands.pack_start(self.checkbuttonRetry)
+		self.checkbuttonRetry.show()
+		
+		self.buttonSend = gtk.Button("   Send   ")
 		boxCommands.pack_start(self.buttonSend)
 		self.buttonSend.show()
 		self.buttonSend.connect("clicked", self.callbackButtonSend)
@@ -1220,16 +1239,24 @@ class dialogManualControl(gtk.Window):
 		boxConsole.pack_start(consoleView, padding=5)
 		consoleView.show()
 		
+		# Start serial send loop.
+		self.serialPrinter.start()
+		
 		# Set initial message if any.
-		if self.queueSerial.qsize():
-			self.console.addLine(self.queueSerial.get())
+		for i in range(self.queueSerial.qsize()):
+			self.console.addLine(self.queueSerial.get())	
+		
 	
 	def callbackButtonSend(self, widget, data=None):
 		self.buttonSend.set_sensitive(False)
 		self.buttonSend.set_label("Sending...")
 		# Add avrdude thread listener to gui main loop.
 		listenerIdSerial = gobject.timeout_add(100, self.listenerSerialThread)
-		self.serialPrinter.sendCommand(self.entry.get_text(), retry=True)
+		wait = self.entryWait.get_text()
+		if wait == "None": wait = None
+		#self.serialPrinter.sendCommand(self.entry.get_text(), retry=self.checkbuttonRetry.get_active(), wait=self.entryWait.get_text())
+		self.queueCommands.put([self.entry.get_text(), None, self.checkbuttonRetry.get_active(), wait])
+	#	self.serialPrinter.start()
 		
 	
 	def listenerSerialThread(self):
@@ -1238,12 +1265,15 @@ class dialogManualControl(gtk.Window):
 			# ... we know that avrdude is done.
 			# Get the message and display it.
 			message = self.queueSerial.get()
-			self.console.addLine(message)
-			# Restore flash button.
-			self.buttonSend.set_sensitive(True)
-			self.buttonSend.set_label("Send")
-			# Return False to remove listener from timeout.
-			return False
+			if message != 'done':
+				self.console.addLine(message)
+				return True
+			else:
+				# Restore flash button.
+				self.buttonSend.set_sensitive(True)
+				self.buttonSend.set_label("   Send   ")
+				# Return False to remove listener from timeout.
+				return False
 		else:
 			# Add a dot to the console to let people know the program is not blocked...
 			self.console.addString(".")
