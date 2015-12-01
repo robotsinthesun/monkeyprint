@@ -578,8 +578,16 @@ class projectorDisplay(gtk.Window):
 		self.resize(self.settings['Projector size X'].value,self.settings['Projector size Y'].value)
 		self.move(self.settings['Projector position X'].value,self.settings['Projector position Y'].value)
 		self.show()
+		
+		# Queue for getting slice images from print process thread.
+		self.queueSliceImage = Queue.Queue()
+		
+		
 	
 	def stop(self):
 		self.destroy()
+	
+	def updateSlice(self):
+		pass
 	
 		

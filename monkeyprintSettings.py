@@ -133,12 +133,14 @@ class programSettings(dict):
 		self['Tilt steps / °'] = setting(value='100', default='100')
 		self['Tilt angle'] = setting(value='14', default='14')
 		self['Tilt speed'] = setting(value='10', default='10')
+		self['Tilt speed slow'] = setting(value='4', default='4')
 		self['Build steps / mm'] = setting(value='100', default='100')
 		self['Ramp slope'] = setting(value='15', default='15')
 		self['Build platform speed'] = setting(value='10', default='10')
 		self['Show fill'] = setting(value=True)
 		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')
 		self['Model safety distance'] = setting(value=1.0, unit='mm')
+		self['Debug'] = setting(value=False)
 
 	# Load default settings.
 	def loadDefaults(self):
@@ -181,4 +183,4 @@ class programSettings(dict):
 					self.console.addLine("Settings loaded from file.")
 		except IOError:
 			if self.console != None:
-				self.console.addLine("No settings file found. Using defaults.")	
+				self.console.addLine("No settings file found. Using defaults.")

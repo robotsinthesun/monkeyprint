@@ -18,26 +18,6 @@
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
-# -*- coding: latin-1 -*-
-
-#	Copyright (c) 2015 Paul Bomke
-#	Distributed under the GNU GPL v2.
-#
-#	This file is part of monkeyprint.
-#
-#	monkeyprint is free software: you can redistribute it and/or modify
-#	it under the terms of the GNU General Public License as published by
-#	the Free Software Foundation, either version 3 of the License, or
-#	(at your option) any later version.
-#
-#	monkeyprint is distributed in the hope that it will be useful,
-#	but WITHOUT ANY WARRANTY; without even the implied warranty of
-#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#	GNU General Public License for more details.
-#
-#	You have received a copy of the GNU General Public License
-#    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
-
 
 import serial
 import threading
@@ -81,6 +61,11 @@ class printer(threading.Thread):
 		# Call super class init function.
 		super(printer, self).__init__()
 
+	# Send function. This simply puts the command inside the input queue.
+	# This way the send command can be initiated without having to pass a queue
+	# to the serial object from outside.
+	def send(self, command):
+		self.queueCommands.put(command)
 
 	# Override run function.
 	# Send a command string with optional value.
@@ -174,8 +159,8 @@ class printer(threading.Thread):
 	# Send a command string with optional value.
 	# Method allows to retry sending until ack is received as well
 	# as waiting for printer to process the command.
-	def sendCommand(self, string, value=None, retry=False, wait=None):
-		self.run(string, value, retry, wait)
+#	def sendCommand(self, string, value=None, retry=False, wait=None):
+#		self.run(string, value, retry, wait)
 	
 	def stop(self):
 		self.close()
@@ -190,6 +175,131 @@ class printer(threading.Thread):
 	def close(self):
 		if self.serial != None:
 			self.serial.close()
+
+
+
+
+
+class printerStandalone():
+	def __init__(self, settings):
+
+		# Internalise parameters.
+		self.settings = settings
+		
+		# Configure and open serial.
+		try:
+			self.serial = serial.Serial(
+				port=self.settings['Port'].value,
+				baudrate=self.settings['Baud rate'].value,
+				bytesize = serial.EIGHTBITS, #number of bits per bytes
+				parity = serial.PARITY_NONE, #set parity check: no parity
+				stopbits = serial.STOPBITS_ONE,
+				timeout = 0	# Wait for incoming bytes forever.
+				)
+		# If serial port does not exist...
+		except serial.SerialException:
+			# ... define a dummy.
+			self.serial = None
+
+	def send(self, command):
+		pass
+
+	# Override run function.
+	# Send a command string with optional value.
+	# Method allows to retry sending until ack is received as well
+	# as waiting for printer to process the command.
+	def run(self):
+		if self.serial != None:
+			self.queue.put("Serial waiting for commands to send.")
+		else:
+			self.queue.put('Serial not operational.')
+		# Start loop.
+		while 1 and not self.stopThread.isSet():
+			# Get command from queue.
+			if self.queueCommands.qsize():
+				command = self.queueCommands.get()
+				string = command[0]
+				value = command[1]
+				retry = command[2]
+				wait = command[3]
+				if self.serial != None:
+					# Cast inputs.
+					if value != None: value = float(value)
+					if wait != None: wait = int(wait)
+					# ... start infinite loop that sends and waits for ack.
+					count = 0
+					# Set timeout to 5 seconds.
+					self.serial.timeout = 5
+					while count < 5 and not self.stopThread.isSet():
+						# Create command string from string and value.
+						# Separate string and value by space.
+						if value != None:
+							string = string + " " + str(value)
+						# Place send message in queue.
+						self.queue.put("Sending command \"" + string + "\".")
+						# Send command.
+						self.serial.write(string)
+						# If retry flag is set...
+						if retry:
+							# ... listen for ack until timeout.
+							printerResponse = self.serial.readline()
+							printerResponse = printerResponse.strip()
+							# Compare ack with sent string. If match...
+							if printerResponse == string:
+								# Place success message in queue.
+								self.queue.put("Command \"" + string + "\" sent successfully.")
+								if wait != None:
+									self.queue.put("Wait for printer to finish...")
+								# ... exit the send loop.
+								break
+						# If retry flag is not set...
+						else:
+							# ... exit the loop.
+							break
+						# Increment counter.
+						count += 1
+						# Place giving up message in queue if necessary.
+						if count == 5:
+							self.queue.put("Printer not responding. Giving up...")
+				
+					# Wait for response from printer that signals end of action.		
+					# If wait value is provided...
+					if wait != 0:
+						# ... set timeout to one second...
+						self.serial.timeout = 1
+						count = 0
+						while count < wait and not self.stopThread.isSet():
+							# ... and listen for "done" string until timeout.
+							printerResponse = self.serial.readline()
+							printerResponse = printerResponse.strip()
+							# Listen for "done" string.Check if return string is "done".
+							if printerResponse == "done":
+								self.queue.put("Printer done.")
+								break
+							else:
+								count += 1
+						# In case of timeout...
+						if count == wait:
+							# ... place fail message.
+							self.queue.put("Printer did not finish within timeout.")
+					# Reset the timeout.
+					self.serial.timeout = None
+					# Put done flag into queue to signal end of command process.
+					self.queue.put('done')
+				else:
+					self.queue.put('Sending failed. Port does not exist.')
+					self.queue.put('done')
+			else:
+				time.sleep(.1)
+	
+		
+	def close(self):
+		if self.serial != None:
+			self.serial.close()			
+
+
+
+
 	'''
 	# Commands.
 	def buildHome(self):
@@ -316,13 +426,21 @@ class printer(threading.Thread):
 class projector:
 
 	def __init__(self):
-		self.serial = serial.Serial(
-			port='/dev/ttyUSB0',
-			baudrate=9600,
-			bytesize = serial.EIGHTBITS, #number of bits per bytes
-			parity = serial.PARITY_NONE, #set parity check: no parity
-			stopbits = serial.STOPBITS_ONE
-	)
+	
+		# Configure and open serial.
+		try:
+			self.serial = serial.Serial(
+				port='/dev/ttyUSB0',
+				baudrate=9600,
+				bytesize = serial.EIGHTBITS, #number of bits per bytes
+				parity = serial.PARITY_NONE, #set parity check: no parity
+				stopbits = serial.STOPBITS_ONE
+				)
+		# If serial port does not exist...
+		except serial.SerialException:
+			# ... define a dummy.
+			self.serial = None
+		
 	
 	def activate(self):
 		self.serial.write("* 0 IR 001"+'\r')

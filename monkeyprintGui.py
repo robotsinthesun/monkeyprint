@@ -1254,9 +1254,8 @@ class dialogManualControl(gtk.Window):
 		listenerIdSerial = gobject.timeout_add(100, self.listenerSerialThread)
 		wait = self.entryWait.get_text()
 		if wait == "None": wait = None
-		#self.serialPrinter.sendCommand(self.entry.get_text(), retry=self.checkbuttonRetry.get_active(), wait=self.entryWait.get_text())
-		self.queueCommands.put([self.entry.get_text(), None, self.checkbuttonRetry.get_active(), wait])
-	#	self.serialPrinter.start()
+#		self.queueCommands.put([self.entry.get_text(), None, self.checkbuttonRetry.get_active(), wait])
+		self.serialPrinter.send([self.entry.get_text(), None, self.checkbuttonRetry.get_active(), wait])
 		
 	
 	def listenerSerialThread(self):
@@ -1354,6 +1353,21 @@ class dialogSettings(gtk.Window):
 		self.boxSerialTest.pack_start(self.textOutputSerialTest, expand=False, fill=False)
 		self.textOutputSerialTest.show()
 		
+		# Frame for build volume settings.
+		self.frameDebug = gtk.Frame('Debug')
+		self.boxCol1.pack_start(self.frameDebug)
+		self.frameDebug.show()
+		self.boxDebug = gtk.HBox()
+		self.frameDebug.add(self.boxDebug)
+		self.boxDebug.show()
+		# Add entry.
+		self.labelDebug = gtk.Label('Debug')
+		self.boxDebug.pack_start(self.labelDebug, expand=True, fill=True)
+		self.labelDebug.show()
+		self.checkboxDebug = gtk.CheckButton()
+		self.boxDebug.pack_start(self.checkboxDebug)
+		self.checkboxDebug.show()
+		self.checkboxDebug.connect('toggled', self.callbackDebug)
 		
 		# Frame for build volume settings.
 		self.frameBuildVolume = gtk.Frame('Build volume')
@@ -1468,6 +1482,10 @@ class dialogSettings(gtk.Window):
 	def callbackSerialTest(self, widget, data=None):
 		# TODO
 		pass
+	
+	def callbackDebug(self, widget, data=None):
+		self.settings['Debug'].value = self.checkboxDebug.get_active()
+		print self.settings['Debug'].value
 	
 	# Defaults function.
 	def callbackDefaults(self, widget, data=None):
