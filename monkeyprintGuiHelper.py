@@ -9,6 +9,7 @@ import random
 import Image
 import inspect	# Provides methdos to check arguments of a function.
 import monkeyprintImageHandling as imageHandling
+import monkeyprintPrintProcess
 import Queue, threading, subprocess
 
 # Extended gtk notebook that handles sensitivity of its tabs.
@@ -439,6 +440,7 @@ class printProgressBar(gtk.ProgressBar):
 		gtk.ProgressBar.__init__(self)
 		self.limit = 1.
 		self.sliceQueue = sliceQueue
+		self.queueStatus = Queue.Queue()
 		
 	def setLimit(self, limit):
 		self.limit = float(limit)
@@ -454,6 +456,12 @@ class printProgressBar(gtk.ProgressBar):
 		if value != None:
 			frac = float(value/self.limit)
 			self.set_fraction(frac)
+
+#	def listener(self):
+#		if self.sliceQueue.qsize():
+#			self.updateValue(self.sliceQueue.get())
+#		if self.queueStatus.qsize():
+#			self.setText(self.queueStatus.get())
 
 
 
@@ -563,6 +571,55 @@ class avrdudeThread(threading.Thread):
 
 
 
+class imageView(gtk.Image):
+	def __init__(self, settings, modelCollection, width=None):
+		gtk.Image.__init__(self)
+		
+		# Internalise parameters.
+		self.settings = settings
+		self.modelCollection = modelCollection
+		
+		self.resizeFlag = False
+		# If no width is given...
+		if width == None:
+			# ... take the projector size from the settings.
+			self.width = self.settings['Projector size X'].value
+			self.height = self.settings['Projector size Y'].value
+		# If a width is given...
+		else:
+			# ... set corresponding height using projector aspect ratio.
+			self.width = width
+			# Get parent width and set height according to projector aspect ratio.
+			aspect = float(self.settings['Projector size Y'].value) / float(self.settings['Projector size X'].value)
+			self.height = int(self.width * aspect)
+			self.resizeFlag = True
+
+		# Create black dummy image.
+		self.imageBlack = numpy.zeros((self.height, self.width, 3), numpy.uint8)
+		# Create pixbuf from numpy.
+		self.pixbuf = gtk.gdk.pixbuf_new_from_array(self.imageBlack, gtk.gdk.COLORSPACE_RGB, 8)
+		# Set image to viewer.
+		self.set_from_pixbuf(self.pixbuf)
+	
+	# Check if a new slice number is in the queue.
+	def updateImage(self, sliceNumber):
+		if sliceNumber != -1:
+			image = self.modelCollection.updateSliceImage(sliceNumber)
+			# Get the image from the slice buffer and convert it to 3 channels.
+			image = imageHandling.convertSingle2RGB(image)
+			# Write image to pixbuf.
+			self.pixbuf = gtk.gdk.pixbuf_new_from_array(image, gtk.gdk.COLORSPACE_RGB, 8)
+			# Resize the image if in debug mode.
+			#if self.settings['Debug'].value:
+			if self.resizeFlag:
+				self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
+		else:
+			# Create pixbuf from numpy.
+			self.pixbuf = gtk.gdk.pixbuf_new_from_array(self.imageBlack, gtk.gdk.COLORSPACE_RGB, 8)
+		# Set pixbuf.
+		self.set_from_pixbuf(self.pixbuf)
+		
+
 
 class projectorDisplay(gtk.Window):
 	def __init__(self, settings, modelCollection):
@@ -572,50 +629,54 @@ class projectorDisplay(gtk.Window):
 		self.settings = settings
 		self.modelCollection = modelCollection
 		
+		debugWidth = 200
+		
 		# Customise window.
 		# No decorations.
 		self.set_decorated(False)#gtk.FALSE)
-		# Size and position according to settings.
+		# Call resize before showing the window.
 		if self.settings['Debug'].value:
-			self.resize(200, 150)
-			self.move(200,100)
+			aspect = float(self.settings['Projector size Y'].value) / float(self.settings['Projector size X'].value)
+			self.resize(debugWidth, int(debugWidth*aspect))
 		else:
-			self.resize(self.settings['Projector size X'].value,self.settings['Projector size Y'].value)
-			self.move(self.settings['Projector position X'].value,self.settings['Projector position Y'].value)
+			self.resize(self.settings['Projector size X'].value, self.settings['Projector size Y'].value)
 		# Show the window.
 		self.show()
-		# Black background.
-		# Get window style and set all bg colours black.
-		style = self.get_style()
-		style.bg[0] = gtk.gdk.Color(0)
-		style.bg[1] = gtk.gdk.Color(0)
-		style.bg[2] = gtk.gdk.Color(0)
-		style.bg[3] = gtk.gdk.Color(0)
-		style.bg[4] = gtk.gdk.Color(0)
-		self.set_style(style)
-		
-		
-		# Queue for getting slice images from print process thread.
-		self.queueSlice = Queue.Queue()
-		
-		# Black frame to display between exposures.
-		# TODO
-	
-	def listenerPrintProcess(self):
-		if self.queueSlice.qsize():
-			sliceNumber = self.queueSlice.get()
-			if sliceNumber != -1:
-				self.modelCollection.updateSliceImage(sliceNumber)
-			else:
-				pass
-			
-		
+		# Set position after showing the window.
+		if self.settings['Debug'].value:
+			self.move(200,100)
+		else:
+			self.move(self.settings['Projector position X'].value, self.settings['Projector position Y'].value)
+
+
+		# Create image view.
+		if self.settings['Debug'].value:
+			self.imageView = imageView(self.settings, self.modelCollection, width = debugWidth)
+		else:
+			self.imageView = imageView(self.settings, self.modelCollection)
+		# Create black dummy image.
+		self.imageBlack = numpy.zeros((self.get_size()[1], self.get_size()[0], 3), numpy.uint8)
+		# Create pixbuf from numpy.
+		self.pixbuf = gtk.gdk.pixbuf_new_from_array(self.imageBlack, gtk.gdk.COLORSPACE_RGB, 8)
+		# Set image to viewer.
+		self.imageView.set_from_pixbuf(self.pixbuf)
+		self.add(self.imageView)
+		self.imageView.show()
 		
 	
-	def stop(self):
-		self.destroy()
-	
-	def updateSlice(self):
-		pass
-	
-		
+	# Check if a new slice number is in the queue.
+	def updateImage(self, sliceNumber):
+		if sliceNumber != -1:
+			image = self.modelCollection.updateSliceImage(sliceNumber)
+			# Get the image from the slice buffer and convert it to 3 channels.
+			image = imageHandling.convertSingle2RGB(image)
+			# Write image to pixbuf.
+			self.pixbuf = gtk.gdk.pixbuf_new_from_array(image, gtk.gdk.COLORSPACE_RGB, 8)
+			# Resize the image if in debug mode.
+			if self.settings['Debug'].value:
+				self.pixbuf = self.pixbuf.scale_simple(self.get_size()[0], self.get_size()[1], gtk.gdk.INTERP_BILINEAR)
+		else:
+			# Create pixbuf from numpy.
+			self.pixbuf = gtk.gdk.pixbuf_new_from_array(self.imageBlack, gtk.gdk.COLORSPACE_RGB, 8)
+		# Set pixbuf.
+		self.imageView.set_from_pixbuf(self.pixbuf)		

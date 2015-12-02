@@ -325,6 +325,7 @@ class modelCollection(dict):
 	def checkSlicerThreads(self):
 		for model in self:
 			self[model].sliceThreadListener()
+		 # Return true, otherwise the function will not run again.
 		return True
 
 

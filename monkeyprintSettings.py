@@ -92,9 +92,6 @@ class modelSettings(dict):
 		self['Shell wall thickness'] = setting(value=2.0, lower=0.5, upper=10.0, unit='mm')
 		self['Fill spacing'] = setting(value=3.0, lower=1.0, upper=10.0, unit='mm')
 		self['Fill wall thickness'] = setting(value=0.3, lower=0.1, upper=0.4)
-		self['Exposure time base'] = setting(value=14.0, lower=1.0, upper=15.0)
-		self['Exposure time'] = setting(value=9.0, lower=1.0, upper=15.0)
-		self['Resin settle time'] = setting(value=1.0, lower=0.1, upper=3.0)
 
 
 class programSettings(dict):	
@@ -141,6 +138,9 @@ class programSettings(dict):
 		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')
 		self['Model safety distance'] = setting(value=1.0, unit='mm')
 		self['Debug'] = setting(value=False)
+		self['Exposure time base'] = setting(value=14.0, lower=1.0, upper=15.0)
+		self['Exposure time'] = setting(value=9.0, lower=1.0, upper=15.0)
+		self['Resin settle time'] = setting(value=1.0, lower=0.1, upper=3.0)
 
 	# Load default settings.
 	def loadDefaults(self):

@@ -26,6 +26,7 @@ import gtk, gobject
 import monkeyprintModelViewer
 import monkeyprintGuiHelper
 import monkeyprintSerial
+import monkeyprintPrintProcess
 import subprocess # Needed to call avrdude.
 import vtk
 import threading
@@ -70,26 +71,26 @@ class gui(gtk.Window):
 		
 		# Create queues for inter-thread communication.********
 		# Queue for setting print progess bar.
-		self.sliceQueue = Queue.Queue(maxsize=1)
+		self.queueSlice = Queue.Queue(maxsize=1)
 		# Queue for status infos displayed above the status bar.
-		self.infoQueue = Queue.Queue(maxsize=1)
+		self.queueStatus = Queue.Queue()
+		# Queue for console messages.
+		self.queueConsole = Queue.Queue()
 		# Queue list.
-		self.queues = [	self.sliceQueue,
-						self.infoQueue		]
-		
-		
+		self.queues = [	self.queueSlice,
+						self.queueStatus		]
 		
 		# Allow background threads.****************************
 		# Very important, otherwise threads will be
 		# blocked by gui main thread.
 		gtk.gdk.threads_init()
 		
-		# Add thread listener functions to run every 10 ms.****
-		slicerListenerId = gobject.timeout_add(10, modelCollection.checkSlicerThreads)
-		progressBarUpdateId = gobject.timeout_add(100, self.updateProgressbar)
-		
-		self.infoQueue.put("bar")
-		self.sliceQueue.put(7)
+		# Add thread listener functions to run every n ms.****
+		# Check if the slicer threads have finished.
+		slicerListenerId = gobject.timeout_add(100, self.modelCollection.checkSlicerThreads)
+		# Update the progress bar, projector image and 3d view. during prints.
+		printProcessUpdateId = gobject.timeout_add(10, self.updateSlicePrint)
+
 		
 		
 		
@@ -125,9 +126,13 @@ class gui(gtk.Window):
 		self.boxSettings.show()
 		self.boxWork.pack_start(self.boxSettings, expand=False, fill=False, padding = 5)
 		
+		
+		# Print window.
+		self.windowPrint = None
 
-
-
+		# Set print progress values.
+		self.queueSlice.put(0)
+		self.queueStatus.put("Idle...")
 		
 	# Override the close function. ############################################
 	def on_closing(self, widget, event, data):
@@ -395,11 +400,11 @@ class gui(gtk.Window):
 		self.boxPrintParameters.show()
 		
 		# Create entries.
-		self.entryShellThickness = monkeyprintGuiHelper.entry('Exposure time base', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryShellThickness = monkeyprintGuiHelper.entry('Exposure time base', settings=self.programSettings)
 		self.boxPrintParameters.pack_start(self.entryShellThickness, expand=True, fill=True)
-		self.entryFillSpacing = monkeyprintGuiHelper.entry('Exposure time', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryFillSpacing = monkeyprintGuiHelper.entry('Exposure time', settings=self.programSettings)
 		self.boxPrintParameters.pack_start(self.entryFillSpacing, expand=True, fill=True)
-		self.entryFillThickness = monkeyprintGuiHelper.entry('Resin settle time', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryFillThickness = monkeyprintGuiHelper.entry('Resin settle time', settings=self.programSettings)
 		self.boxPrintParameters.pack_start(self.entryFillThickness, expand=True, fill=True)
 		
 		# Create model volume frame.
@@ -439,11 +444,20 @@ class gui(gtk.Window):
 		# Create progress bar.
 		self.progressBar = monkeyprintGuiHelper.printProgressBar()
 		self.boxPrintControl.pack_start(self.progressBar, expand=True, fill=True)
-		self.progressBar.show()
-		self.progressBar.setLimit(100)
-		self.progressBar.setText('foo')
-		self.progressBar.updateValue(50)		
-	
+		self.progressBar.show()	
+		
+		# Create preview frame.
+		self.framePreviewPrint = gtk.Frame(label="Slice preview")
+		self.printTab.pack_start(self.framePreviewPrint, padding = 5)
+		self.framePreviewPrint.show()
+		self.boxPreviewPrint = gtk.HBox()
+		self.framePreviewPrint.add(self.boxPreviewPrint)
+		self.boxPreviewPrint.show()
+		
+		# Create slice image.
+		self.sliceView = monkeyprintGuiHelper.imageView(self.programSettings, self.modelCollection, width = 250)
+		self.boxPreviewPrint.pack_start(self.sliceView, expand=True, fill=True)
+		self.sliceView.show()
 	
 	# Notebook tab switch callback functions. #################################
 	# Model page.
@@ -513,12 +527,19 @@ class gui(gtk.Window):
 		# Run the dialog and get the result.
 		response = self.dialogStart.run()
 		self.dialogStart.destroy()
+		
+		# If positive, create the projector window and start the print process
 		if response==True:
 			self.console.addLine("Starting print")
 			# Disable window close event.
 			self.printFlag = True
+			# Set progressbar limit according to number of slices.
+			self.progressBar.setLimit(self.modelCollection.getNumberOfSlices())
+			# Create the projector window.
+			self.windowPrint = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
 			# Start the print.
-			self.printWindow = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
+			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
+			self.printProcess.start()
 
 	def callbackStopPrintProcess(self, data=None):
 		# Create a dialog window with yes/no buttons.
@@ -529,35 +550,55 @@ class gui(gtk.Window):
 								"Do you really want to cancel the print?")
           # Set the title.
 		dialog.set_title("Cancel print?")
-		
 		# Check the result and respond accordingly.
 		response = dialog.run()
 		dialog.destroy()
 		if response == gtk.RESPONSE_YES:
-			self.console.addLine("Cancelling print")
 			self.printFlag = False
 			# Stop the print process.
-			self.printWindow.stop()	
+			self.printProcess.stop()	
 	
 
 
 
 
 	# Gui update functions. ###################################################
-	def updateProgressbar(self):
+	# Update all relevant gui elements during a print.
+	# These are: 3d view, projector view and progress bar.
+	def updateSlicePrint(self):
 		# If slice number queue has slice number...
-		if self.queues[0].qsize():
-			# ... get slice number and set progress bar.
-			self.progressBar.updateValue(self.queues[0].get()) 
-			# Set 3d view to given slice.
-			# TODO
-			# Set slice view to given slice.
-			# TODO
+		if self.queueSlice.qsize():
+			sliceNumber = self.queueSlice.get()
+			if sliceNumber >=0:
+				# ... get slice number and set progress bar.
+				self.progressBar.updateValue(sliceNumber) 
+				# Set 3d view to given slice.
+				self.modelCollection.updateAllSlices3d(sliceNumber)
+				self.renderView.render()
+			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
+			if self.windowPrint != None:
+				self.windowPrint.updateImage(sliceNumber)
+			# Update slice preview.
+			self.sliceView.updateImage(sliceNumber)
 		# If print info queue has info...
-		if self.queues[1].qsize():
-			self.progressBar.setText(self.queues[1].get()) 
-	
-	
+		if self.queueStatus.qsize():
+			#self.progressBar.setText(self.queueStatus.get()) 
+			message = self.queueStatus.get()
+			if message == "destroy":
+				print "foo"
+				del self.printProcess
+				self.windowPrint.destroy()
+				del self.windowPrint
+			else:
+				self.progressBar.setText(message) 
+		# If console queue has info...
+		if self.queueConsole.qsize():
+			if self.console != None:
+				self.console.addLine(self.queueConsole.get())
+		# Return true, otherwise function won't run again.
+		return True
+
+
 	
 	def updateVolume(self):
 		self.resinVolumeLabel.set_text("Volume: " + str(self.modelCollection.getTotalVolume()) + " ml.")
@@ -621,7 +662,6 @@ class gui(gtk.Window):
 		self.entrySupportTipDiameter.update()
 		self.entrySupportTipHeight.update()
 		self.entrySupportBottomPlateThickness.update()
-#		self.sliceSlider.updateSlider()
 		if state != None:
 			self.setGuiState(state)
 			if state == 0:
@@ -847,6 +887,8 @@ class modelListView(gtk.VBox):
 		# Now that we have the new selection, we can delete the previously selected model.
 		self.renderView.removeActors(self.modelCollection.getModel(self.modelList[(deletePath,0,0)][1]).getActor())
 		self.renderView.removeActors(self.modelCollection.getModel(self.modelList[(deletePath,0,0)][1]).getBoxActor())
+		self.renderView.removeActors(self.modelCollection.getModel(self.modelList[(deletePath,0,0)][1]).getBoxTextActor())
+		self.renderView.removeActors(self.modelCollection.getModel(self.modelList[(deletePath,0,0)][1]).getAllActors())
 		# Some debug output...
 		if self.console:
 			self.console.addLine("Removed model " + self.modelList.get_value(currentIter,0) + ".")
@@ -877,8 +919,6 @@ class modelListView(gtk.VBox):
 		dialog.add_filter(fileFilter)
 		# Run the dialog and return the file path.
 		response = dialog.run()
-		# Close the dialog.
-		print response
 		# Check the response.
 		# If OK was pressed...
 		if response == gtk.RESPONSE_OK:
@@ -1352,6 +1392,8 @@ class dialogSettings(gtk.Window):
 		self.boxSerialTest.pack_start(self.textOutputSerialTest, expand=False, fill=False)
 		self.textOutputSerialTest.show()
 		
+		# TODO: Make serial settings for projector.
+		
 		# Frame for build volume settings.
 		self.frameDebug = gtk.Frame('Debug')
 		self.boxCol1.pack_start(self.frameDebug)
@@ -1365,7 +1407,7 @@ class dialogSettings(gtk.Window):
 		self.labelDebug.show()
 		self.checkboxDebug = gtk.CheckButton()
 		self.boxDebug.pack_start(self.checkboxDebug)
-		self.checkboxDebug.set_active(self.settings['Debug'].value)
+		self.checkboxDebug.set_active(eval(self.settings['Debug'].value))
 		self.checkboxDebug.show()
 		self.checkboxDebug.connect('toggled', self.callbackDebug)
 		
@@ -1485,7 +1527,6 @@ class dialogSettings(gtk.Window):
 	
 	def callbackDebug(self, widget, data=None):
 		self.settings['Debug'].value = self.checkboxDebug.get_active()
-		print self.settings['Debug'].value
 	
 	# Defaults function.
 	def callbackDefaults(self, widget, data=None):

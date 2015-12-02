@@ -425,7 +425,10 @@ class printerStandalone():
 	'''
 class projector:
 
-	def __init__(self):
+	def __init__(self, settings):
+		
+		# Internalise settings.
+		self.settings = settings
 	
 		# Configure and open serial.
 		try:
