@@ -47,7 +47,7 @@ if __name__ == "__main__":
 	modelCollection = monkeyprintModelHandling.modelCollection(programSettings, console)
 
 	# Create gui.
-	gui = monkeyprintGui.gui(modelCollection, programSettings, console)	
+	gui = monkeyprintGui.gui(modelCollection, programSettings, console)
 
 	# Start the gui main loop.
 	gui.main()

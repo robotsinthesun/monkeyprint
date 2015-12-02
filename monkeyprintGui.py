@@ -54,7 +54,6 @@ class gui(gtk.Window):
 		self.show()
 		
 		
-		
 		# Internalise parameters.******************************
 		self.modelCollection = modelCollection
 		self.programSettings = programSettings
@@ -519,7 +518,7 @@ class gui(gtk.Window):
 			# Disable window close event.
 			self.printFlag = True
 			# Start the print.
-			self.printWindow = monkeyprintGuiHelper.projectorDisplay(self.programSettings)
+			self.printWindow = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
 
 	def callbackStopPrintProcess(self, data=None):
 		# Create a dialog window with yes/no buttons.
@@ -1366,6 +1365,7 @@ class dialogSettings(gtk.Window):
 		self.labelDebug.show()
 		self.checkboxDebug = gtk.CheckButton()
 		self.boxDebug.pack_start(self.checkboxDebug)
+		self.checkboxDebug.set_active(self.settings['Debug'].value)
 		self.checkboxDebug.show()
 		self.checkboxDebug.connect('toggled', self.callbackDebug)
 		

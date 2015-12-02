@@ -565,22 +565,50 @@ class avrdudeThread(threading.Thread):
 
 
 class projectorDisplay(gtk.Window):
-	def __init__(self, settings):
+	def __init__(self, settings, modelCollection):
 		gtk.Window.__init__(self)
 		
 		# Internalise parameters.
 		self.settings = settings
+		self.modelCollection = modelCollection
 		
 		# Customise window.
 		# No decorations.
 		self.set_decorated(False)#gtk.FALSE)
 		# Size and position according to settings.
-		self.resize(self.settings['Projector size X'].value,self.settings['Projector size Y'].value)
-		self.move(self.settings['Projector position X'].value,self.settings['Projector position Y'].value)
+		if self.settings['Debug'].value:
+			self.resize(200, 150)
+			self.move(200,100)
+		else:
+			self.resize(self.settings['Projector size X'].value,self.settings['Projector size Y'].value)
+			self.move(self.settings['Projector position X'].value,self.settings['Projector position Y'].value)
+		# Show the window.
 		self.show()
+		# Black background.
+		# Get window style and set all bg colours black.
+		style = self.get_style()
+		style.bg[0] = gtk.gdk.Color(0)
+		style.bg[1] = gtk.gdk.Color(0)
+		style.bg[2] = gtk.gdk.Color(0)
+		style.bg[3] = gtk.gdk.Color(0)
+		style.bg[4] = gtk.gdk.Color(0)
+		self.set_style(style)
+		
 		
 		# Queue for getting slice images from print process thread.
-		self.queueSliceImage = Queue.Queue()
+		self.queueSlice = Queue.Queue()
+		
+		# Black frame to display between exposures.
+		# TODO
+	
+	def listenerPrintProcess(self):
+		if self.queueSlice.qsize():
+			sliceNumber = self.queueSlice.get()
+			if sliceNumber != -1:
+				self.modelCollection.updateSliceImage(sliceNumber)
+			else:
+				pass
+			
 		
 		
 	
