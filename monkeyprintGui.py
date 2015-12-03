@@ -1428,8 +1428,6 @@ class dialogSettings(gtk.Window):
 		self.boxSerialTest.pack_start(self.textOutputSerialTest, expand=False, fill=False)
 		self.textOutputSerialTest.show()
 		
-		# TODO: Make serial settings for projector.
-		
 		# Frame for build volume settings.
 		self.frameDebug = gtk.Frame('Debug')
 		self.boxCol1.pack_start(self.frameDebug)
@@ -1577,10 +1575,33 @@ class dialogSettings(gtk.Window):
 	
 	# Serial test function.
 	def callbackSerialTest(self, widget, data=None):
-		queueResponse = Queue.Queue()
+		# Create communication queues.
+		self.queueSerial = Queue.Queue()
 		queueCommands = Queue.Queue()
-		serial = monkeyprintSerial.printer(self.programSettings, queueResponse, queueCommands)
-		serial.send("ping", None, True, None)
+		# Make button insensitive.
+		self.buttonSerialTest.set_sensitive(False)
+		self.buttonSerialTest.set_label("    Wait...    ")
+		# Start queue listener.
+		listenerIdSerial = gobject.timeout_add(100, self.listenerSerialThread)
+		serial = monkeyprintSerial.printer(self.settings, self.queueSerial, queueCommands)
+		serial.send(["ping", None, True, None])
+	
+	def listenerSerialThread(self):
+		# If a message is in the queue...
+		if self.queueSerial.qsize():
+			# Get the message and display it.
+			message = self.queueSerial.get()
+			self.textOutputSerialTest.set_text(message)
+			# Restore send button.
+			self.buttonSerialTest.set_sensitive(True)
+			self.buttonSerialTest.set_label("Test connection")
+			# Return False to remove listener from timeout.
+			return False
+		else:
+			# Add a dot to the console to let people know the program is not blocked...
+			self.textOutputSerialTest.set_text(self.textOutputSerialTest.get_text() + ".")
+			# Return True to keep listener in timeout.
+			return True
 	
 	def callbackDebug(self, widget, data=None):
 		self.settings['Debug'].value = self.checkboxDebug.get_active()
