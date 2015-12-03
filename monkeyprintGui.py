@@ -107,7 +107,7 @@ class gui(gtk.Window):
 		self.boxMain.show()
 		
 		# Create menu bar and pack inside main box at top.
-		self.menuBar = menuBar(self.programSettings)
+		self.menuBar = menuBar(self.programSettings, self.on_closing)
 		self.boxMain.pack_start(self.menuBar, expand=False, fill=False)
 		self.menuBar.show()
 		
@@ -685,12 +685,13 @@ class gui(gtk.Window):
 
 class menuBar(gtk.MenuBar):
 	# Override init function.
-	def __init__(self, settings):
+	def __init__(self, settings, closeFunction):
 		# Call super class init function.
 		gtk.MenuBar.__init__(self)
 		self.show()
 		
 		self.settings = settings
+		self.closeFunction = closeFunction
 		
 		# Create file menu (does not have to be shown).
 		fileMenu = gtk.Menu()
@@ -711,7 +712,7 @@ class menuBar(gtk.MenuBar):
 #		menuItemOpen.connect_object("activate", menuitem_response, "file.open")
 #		menuItemSave.connect_object("activate", menuitem_response, "file.save")
 #		menuItemClose.connect_object("activate", menuitem_response, "file.close")
-#		menuItemQuit.connect_object ("activate", destroy, "file.quit")
+		menuItemQuit.connect("activate", self.callbackQuit)
 		
 		# Show the items.
 		menuItemOpen.show()
@@ -762,6 +763,9 @@ class menuBar(gtk.MenuBar):
 		menuItemOptions.set_submenu(optionsMenu)
 		self.append(menuItemOptions)
 		menuItemOptions.show()
+	
+	def callbackQuit(self, event):
+		self.closeFunction(None, None, None)
 	
 	def callbackSettings(self, event):
 		dialogSettings(self.settings)
@@ -1407,7 +1411,7 @@ class dialogSettings(gtk.Window):
 		self.labelDebug.show()
 		self.checkboxDebug = gtk.CheckButton()
 		self.boxDebug.pack_start(self.checkboxDebug)
-		self.checkboxDebug.set_active(eval(self.settings['Debug'].value))
+		self.checkboxDebug.set_active(eval(str(self.settings['Debug'].value)))
 		self.checkboxDebug.show()
 		self.checkboxDebug.connect('toggled', self.callbackDebug)
 		
@@ -1436,6 +1440,25 @@ class dialogSettings(gtk.Window):
 		self.boxProjector = gtk.VBox()
 		self.frameProjector.add(self.boxProjector)
 		self.boxProjector.show()
+		# Check box for using projector control via serial.
+		self.boxProjectorControl = gtk.HBox()
+		self.boxProjector.pack_start(self.boxProjectorControl, expand=True, fill=True)
+		self.boxProjectorControl.show()
+		self.labelProjectorControl = gtk.Label('Projector control')
+		self.boxProjectorControl.pack_start(self.labelProjectorControl, expand=True, fill=True)
+		self.labelProjectorControl.show()
+		self.checkboxProjectorControl = gtk.CheckButton()
+		self.boxProjectorControl.pack_start(self.checkboxProjectorControl)
+		self.checkboxProjectorControl.set_active(eval(str(self.settings['Projector control'].value)))
+		self.checkboxProjectorControl.show()
+		self.checkboxProjectorControl.connect('toggled', self.callbackProjectorControl)
+		# Entries.
+		self.entryProjectorPort= monkeyprintGuiHelper.entry('Projector port', self.settings)
+		self.boxProjector.pack_start(self.entryProjectorPort, expand=False, fill=False)
+		self.entryProjectorPort.show()
+		self.entryProjectorBaud= monkeyprintGuiHelper.entry('Projector baud rate', self.settings)
+		self.boxProjector.pack_start(self.entryProjectorBaud, expand=False, fill=False)
+		self.entryProjectorBaud.show()
 		self.entryProjectorSizeX= monkeyprintGuiHelper.entry('Projector size X', self.settings)
 		self.boxProjector.pack_start(self.entryProjectorSizeX, expand=False, fill=False)
 		self.entryProjectorSizeX.show()
@@ -1527,6 +1550,9 @@ class dialogSettings(gtk.Window):
 	
 	def callbackDebug(self, widget, data=None):
 		self.settings['Debug'].value = self.checkboxDebug.get_active()
+	
+	def callbackProjectorControl(self, widget, data=None):
+		self.settings['Projector control'].value = self.checkboxProjectorControl.get_active()
 	
 	# Defaults function.
 	def callbackDefaults(self, widget, data=None):

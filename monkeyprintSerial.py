@@ -433,8 +433,8 @@ class projector:
 		# Configure and open serial.
 		try:
 			self.serial = serial.Serial(
-				port='/dev/ttyUSB0',
-				baudrate=9600,
+				port=self.settings['Projector port'].value,
+				baudrate=self.settings['Projector port'].value,
 				bytesize = serial.EIGHTBITS, #number of bits per bytes
 				parity = serial.PARITY_NONE, #set parity check: no parity
 				stopbits = serial.STOPBITS_ONE
