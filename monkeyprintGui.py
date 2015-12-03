@@ -697,9 +697,9 @@ class menuBar(gtk.MenuBar):
 		fileMenu = gtk.Menu()
 		
 		# Create file menu items.
-		menuItemOpen = gtk.MenuItem(label="Open project")
-		menuItemSave = gtk.MenuItem(label="Save project")
-		menuItemClose = gtk.MenuItem(label="Close project")
+		menuItemOpen = gtk.MenuItem(label="Open project (coming soon)")
+		menuItemSave = gtk.MenuItem(label="Save project (coming soon)")
+		menuItemClose = gtk.MenuItem(label="Close project (coming soon)")
 		menuItemQuit = gtk.MenuItem(label="Quit")
 		
 		# Add to menu.
@@ -720,6 +720,9 @@ class menuBar(gtk.MenuBar):
 		menuItemClose.show()
 		menuItemQuit.show()
 		
+		menuItemOpen.set_sensitive(False)
+		menuItemSave.set_sensitive(False)
+		menuItemClose.set_sensitive(False)
 		
 		
 		# Create file menu (does not have to be shown).
@@ -752,6 +755,26 @@ class menuBar(gtk.MenuBar):
 		menuItemFlash.show()
 		menuItemManualControl.show()
 		
+		
+		# Help menu.
+		helpMenu = gtk.Menu()
+		
+		menuItemDocu = gtk.MenuItem(label="Documentation")
+		menuItemAbout = gtk.MenuItem(label="About")
+		
+		menuItemDocu.set_sensitive(False)
+		menuItemAbout.set_sensitive(False)
+
+		menuItemDocu.connect("activate", self.callbackSettings)
+		menuItemAbout.connect("activate", self.callbackSettings)
+		
+		helpMenu.append(menuItemDocu)
+		helpMenu.append(menuItemAbout)
+		
+		menuItemDocu.show()
+		menuItemAbout.show()
+		
+		
 
 		# Create menu bar items.
 		menuItemFile = gtk.MenuItem(label="File")
@@ -763,6 +786,11 @@ class menuBar(gtk.MenuBar):
 		menuItemOptions.set_submenu(optionsMenu)
 		self.append(menuItemOptions)
 		menuItemOptions.show()
+		
+		menuItemHelp = gtk.MenuItem(label="Help")
+		menuItemHelp.set_submenu(helpMenu)
+		self.append(menuItemHelp)
+		menuItemHelp.show()
 	
 	def callbackQuit(self, event):
 		self.closeFunction(None, None, None)
@@ -776,7 +804,11 @@ class menuBar(gtk.MenuBar):
 	def callbackManualControl(self, event):
 		dialogManualControl(self.settings)
 
-
+	def callbackDocu(self, event):
+		pass
+	
+	def callbackAbout(self, event):
+		pass
 
 
 
@@ -1545,8 +1577,10 @@ class dialogSettings(gtk.Window):
 	
 	# Serial test function.
 	def callbackSerialTest(self, widget, data=None):
-		# TODO
-		pass
+		queueResponse = Queue.Queue()
+		queueCommands = Queue.Queue()
+		serial = monkeyprintSerial.printer(self.programSettings, queueResponse, queueCommands)
+		serial.send("ping", None, True, None)
 	
 	def callbackDebug(self, widget, data=None):
 		self.settings['Debug'].value = self.checkboxDebug.get_active()
