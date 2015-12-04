@@ -78,6 +78,7 @@ void sendByteAsStringUSB(uint16_t dataByte)
 {
 	char dataString[10];
 	itoa( dataByte, dataString, 10 );
+	strcat(dataString,"\n");
 	// Send string and return error variable.
 	// See http://www.fourwalledcubicle.com/files/LUFA/Doc/120730/html/group___group___endpoint_stream_r_w.html#ga7f0d584afdd478f8fdf20b9daf58394b
 	uint8_t errorCode = CDC_Device_SendString(&VirtualSerial_CDC_Interface, dataString);

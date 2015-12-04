@@ -159,6 +159,7 @@ int main(void)
 		else if (!(strcmp(testBuffer, "buildBaseUp")))
 		{
 			buildPlatformBaseLayerUp();
+			sendStringUSB("buildBaseUp\n");
 		}
 		else if (!(strcmp(testBuffer, "buildUp")))
 		{
@@ -189,6 +190,7 @@ int main(void)
 				stringValue = atoi(secondString);
 				// Adjust value according to input.
 				buildPlatformSetLayerHeight(stringValue);
+				sendStringUSB("buildLayer\n");
 			}
 			else if (!(strcmp(firstString, "buildBaseLayer")))
 			{
@@ -196,6 +198,7 @@ int main(void)
 				stringValue = atoi(secondString);
 				// Adjust value according to input.
 				buildPlatformSetBaseLayerHeight(stringValue);
+				sendStringUSB("buildBaseLayer\n");
 			}
 			else if (!(strcmp(firstString, "tiltSpeed")))
 			{
@@ -203,6 +206,7 @@ int main(void)
 				stringValue = atoi(secondString);
 				// Adjust value according to input.
 				tiltSetSpeed(stringValue);
+				sendStringUSB("tiltSpeed\n");
 			}
 			else if (!(strcmp(firstString, "tiltAngle")))
 			{
@@ -210,6 +214,7 @@ int main(void)
 				stringValue = atoi(secondString);
 				// Adjust value according to input.
 				tiltSetAngle(stringValue);
+				sendStringUSB("tiltAngle\n");
 			}
 			else if (!(strcmp(firstString, "buildSpeed")))
 			{
@@ -217,6 +222,7 @@ int main(void)
 				stringValue = atoi(secondString);
 				// Adjust value according to input.
 				buildPlatformSetSpeed(stringValue);
+				sendStringUSB("buildSpeed\n");
 			}
 			else if (!(strcmp(firstString, "printingFlag")))
 			{
@@ -229,6 +235,7 @@ int main(void)
 					printerSetState(stringValue);
 //					menuGoInfoScreen();
 				}
+				sendStringUSB("printingFlag\n");
 			}
 			else if (!(strcmp(firstString, "slice")))
 			{
@@ -236,7 +243,8 @@ int main(void)
 				stringValue = atoi(secondString);
 				// Adjust value according to input.
 				printerSetSlice(stringValue);
-//				menuChanged();
+//				menuChanged()
+				sendStringUSB("slice\n");;
 
 			}
 			else if (!(strcmp(firstString, "nSlices")))
@@ -247,6 +255,7 @@ int main(void)
 				printerSetNumberOfSlices(stringValue);
 //				lcd_gotoxy(0,3);
 //				lcd_puti(stringValue);
+				sendStringUSB("nSlices\n");
 			}
 		}
 
@@ -381,7 +390,7 @@ ISR (TIMER0_COMPA_vect)
 
 
 
-// Beamer stepper CTC timer. ***************************************************
+// Build platform stepper CTC timer. ***************************************************
 ISR (TIMER1_COMPA_vect)
 {
 	// Count on rising edge only.
@@ -398,7 +407,7 @@ ISR (TIMER1_COMPA_vect)
 
 
 
-// Build platform stepper CTC timer. *******************************************
+// Tilt stepper CTC timer. *******************************************
 ISR (TIMER3_COMPA_vect)
 {
 	// Count on rising edge only.

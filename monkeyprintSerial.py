@@ -202,7 +202,88 @@ class printerStandalone():
 			self.serial = None
 
 	def send(self, command):
-		pass
+		# Create return value.
+		returnValue = True
+		# Process command.
+		if len(command) < 4:
+			raise ValueError('Command has to contain four values.')
+		string = command[0]
+		value = command[1]
+		retry = command[2]
+		wait = command[3]
+		# Send command.
+		if self.serial != None:
+			# Cast inputs.
+			if value != None: value = float(value)
+			if wait != None: wait = int(wait)
+			# Start loop that sends and waits for ack until timeout five times.
+			# Set timeout to 5 seconds.
+			count = 0
+			self.serial.timeout = 5
+			while count < 5:
+				# Create command string from string and value.
+				# Separate string and value by space.
+				if value != None:
+					string = string + " " + str(value)
+				# Send command.
+				self.serial.write(string)
+				# If retry flag is set...
+				if retry:
+					# ... listen for ack until timeout.
+					printerResponse = self.serial.readline()
+					printerResponse = printerResponse.strip()
+					# Compare ack with sent string. If match...
+					if printerResponse == string:
+						# ... set the return value to success and...
+						returnValue = True
+						# ... exit the send loop.
+						break
+					# If ack does not match string...
+					else:
+						# ... set the return value to fail.
+						returnValue = False
+				# If retry flag is not set...
+				else:
+					# ... exit the loop.
+					break
+				# Increment counter.
+				count += 1
+				# Place giving up message in queue if necessary.
+			#	if count == 5:
+			#		self.queue.put("Printer not responding. Giving up...")
+								# Wait for response from printer that signals end of action.		
+			# If wait value is provided...
+			if wait != None:
+				# If wait value is 0...
+				if wait == 0:
+					#... set the timeout value to infinity.
+					self.serial.timeout=0
+				# Else...
+				else:
+					# ... set timeout to one second.
+					self.serial.timeout = 1
+				count = 0
+				while count < wait:
+					# ... and listen for "done" string until timeout.
+					printerResponse = self.serial.readline()
+					printerResponse = printerResponse.strip()
+					# Listen for "done" string.Check if return string is "done".
+					if printerResponse == "done":
+						#self.queue.put("Printer done.")
+						break
+					else:
+						count += 1
+				# In case of timeout...
+			#	if count == wait:
+					# ... place fail message.
+					#self.queue.put("Printer did not finish within timeout.")
+			# Reset the timeout.
+			self.serial.timeout = None
+			# Return success info.
+			return returnValue
+		else:
+			return False
+
 
 	# Override run function.
 	# Send a command string with optional value.
@@ -434,7 +515,7 @@ class projector:
 		try:
 			self.serial = serial.Serial(
 				port=self.settings['Projector port'].value,
-				baudrate=self.settings['Projector port'].value,
+				baudrate=self.settings['Projector baud rate'].value,
 				bytesize = serial.EIGHTBITS, #number of bits per bytes
 				parity = serial.PARITY_NONE, #set parity check: no parity
 				stopbits = serial.STOPBITS_ONE

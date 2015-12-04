@@ -547,7 +547,7 @@ class avrdudeThread(threading.Thread):
 							'-p', self.settings['MCU'].value,
 							'-P', self.settings['Port'].value,
 							'-c', self.settings['Programmer'].value,
-							'-b', str(self.settings['Baud'].value),
+							'-b', str(self.settings['Baud rate'].value),
 							'-U', 'flash:w:' + self.settings['Firmware path'].value
 							]
 		# Append additional options.
@@ -631,11 +631,13 @@ class projectorDisplay(gtk.Window):
 		
 		debugWidth = 200
 		
+		self.debug = eval(self.settings['Debug'].value)
+		
 		# Customise window.
 		# No decorations.
 		self.set_decorated(False)#gtk.FALSE)
 		# Call resize before showing the window.
-		if self.settings['Debug'].value:
+		if self.debug:
 			aspect = float(self.settings['Projector size Y'].value) / float(self.settings['Projector size X'].value)
 			self.resize(debugWidth, int(debugWidth*aspect))
 		else:
@@ -643,17 +645,18 @@ class projectorDisplay(gtk.Window):
 		# Show the window.
 		self.show()
 		# Set position after showing the window.
-		if self.settings['Debug'].value:
+		if self.debug:
 			self.move(200,100)
 		else:
 			self.move(self.settings['Projector position X'].value, self.settings['Projector position Y'].value)
 
 
 		# Create image view.
-		if self.settings['Debug'].value:
+		if self.debug:
 			self.imageView = imageView(self.settings, self.modelCollection, width = debugWidth)
 		else:
 			self.imageView = imageView(self.settings, self.modelCollection)
+			
 		# Create black dummy image.
 		self.imageBlack = numpy.zeros((self.get_size()[1], self.get_size()[0], 3), numpy.uint8)
 		# Create pixbuf from numpy.
@@ -673,7 +676,7 @@ class projectorDisplay(gtk.Window):
 			# Write image to pixbuf.
 			self.pixbuf = gtk.gdk.pixbuf_new_from_array(image, gtk.gdk.COLORSPACE_RGB, 8)
 			# Resize the image if in debug mode.
-			if self.settings['Debug'].value:
+			if self.debug:
 				self.pixbuf = self.pixbuf.scale_simple(self.get_size()[0], self.get_size()[1], gtk.gdk.INTERP_BILINEAR)
 		else:
 			# Create pixbuf from numpy.

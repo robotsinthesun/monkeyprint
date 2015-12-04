@@ -11,6 +11,7 @@
 #include "../hardware.h"
 #include "printerFunctions.h"
 #include "menu.h"
+#include "lib/virtualSerial.h"
 
 
 // *****************************************************************************
@@ -33,9 +34,9 @@ uint8_t tiltSpeed;
 #define TILT_SPEED_MAX 10
 uint8_t tiltSpeedEep EEMEM;
 
-uint8_t tiltAngle = 14;
-#define TILT_ANGLE_MIN 9
-#define TILT_ANGLE_MAX 18
+uint8_t tiltAngle = 2;
+#define TILT_ANGLE_MIN 1
+#define TILT_ANGLE_MAX 4
 uint8_t tiltAngleEep EEMEM;
 
 uint16_t tiltCompareValue;
@@ -48,22 +49,24 @@ uint16_t tiltAngleSteps;
 // Return stepper status (idle: 0, running: 1). ********************************
 uint8_t tiltStepperRunning( void )
 {
-	return (TCCR3B & (1 << CS30));
+	return (TCCR3B & (1 << CS30)) && (TCCR3B & (1 << CS31));
 }
 // Enable stepper. *************************************************************
 void enableTiltStepper( void )
 {
 	TILTENABLEPORT |= (1 << TILTENABLEPIN);
-	//TCCR3B |= (1 << CS31);
-	TCCR3B |= (1 << CS30);
+	_delay_ms(50); 		// Wait a bit until stepper driver is up and running.
+	TCCR3B |= (1 << CS31 | 1 << CS30);
+	//TCCR3B |= (1 << CS30);
 }
 // Disable stepper. ************************************************************
 void disableTiltStepper ( void )
 {
 	// Stop.
 	TILTENABLEPORT &= ~(1 << TILTENABLEPIN);
-	//TCCR3B &= ~(1 << CS31);
+	TCCR3B &= ~(1 << CS31);
 	TCCR3B &= ~(1 << CS30);
+	//TCCR3B &= ~(1 << CS30);
 }
 // Set forward direction. ******************************************************
 void tiltStepperSetForward ( void )
@@ -201,7 +204,7 @@ void tiltSetSpeed (uint8_t input)
 	}
 	
 	menuValueSet(tiltSpeed,14);
-	eeprom_update_byte (&tiltSpeedEep, tiltSpeed);
+//	eeprom_update_byte (&tiltSpeedEep, tiltSpeed);
 }
 
 
@@ -558,6 +561,7 @@ void buildPlatformControl(void)
 	if (buildTimerCompareValue > buildTimerTargetCompareValue)
 	{
 		buildTimerCompareValue -= 20;
+		// Testing
 		timer1SetCompareValue(buildTimerCompareValue);
 	}
 
@@ -972,12 +976,12 @@ void beamerControl(void)
 void printerInit (void)
 {
 
-	lcd_gotoxy(0,0);
-	lcd_puts("Initialising printer.");
-	
+//	lcd_gotoxy(0,0);
+//	lcd_puts("Initialising printer.");	
 	
 	// Initialise values.
 	tiltSpeed = 1;
+	tiltAngle = 3;
 	buildPlatformHomingFlag = 0;
 	buildPlatformPosition = 0;
 	buildPlatformTargetPosition = buildPlatformPosition;
@@ -987,8 +991,8 @@ void printerInit (void)
 // TODO: Eeprom values get corrupted upon programming. Maybe read eeprom before programming and write file back into eeprom after programming.
 	
 	// Get values from eeprom.
-	tiltSpeed = eeprom_read_byte (&tiltSpeedEep);
-	tiltAngle = eeprom_read_byte (&tiltAngleEep);
+//	tiltSpeed = eeprom_read_byte (&tiltSpeedEep);
+//	tiltAngle = eeprom_read_byte (&tiltAngleEep);
 	buildPlatformSpeed = eeprom_read_byte (&buildPlatformSpeedEep);
 //	beamerSpeed = eeprom_read_byte (&beamerSpeedEep);
 //	buildPlatformLayer = eeprom_read_byte (&buildPlatformLayerEep);

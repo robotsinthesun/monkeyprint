@@ -585,7 +585,6 @@ class gui(gtk.Window):
 			#self.progressBar.setText(self.queueStatus.get()) 
 			message = self.queueStatus.get()
 			if message == "destroy":
-				print "foo"
 				del self.printProcess
 				self.windowPrint.destroy()
 				del self.windowPrint
@@ -1102,7 +1101,7 @@ class dialogFirmware(gtk.Window):
 		boxEntries.pack_start(self.entryProgrammer)
 		self.entryPort = monkeyprintGuiHelper.entry('Port', settings=self.settings, width=20)
 		boxEntries.pack_start(self.entryPort)
-		self.entryBaud = monkeyprintGuiHelper.entry('Baud', settings=self.settings, width=20)
+		self.entryBaud = monkeyprintGuiHelper.entry('Baud rate', settings=self.settings, width=20)
 		boxEntries.pack_start(self.entryBaud)
 		self.entryOptions = monkeyprintGuiHelper.entry('Options', settings=self.settings, customFunctions=[self.entryOptionsUpdate], width=20)
 		boxEntries.pack_start(self.entryOptions)
@@ -1170,7 +1169,7 @@ class dialogFirmware(gtk.Window):
 		self.buttonFlash.set_label("Flashing. Please wait...")
 		# Console output.
 		self.console.addLine('Running avrdude with options:')
-		self.console.addLine('-p ' + self.settings['MCU'].value + ' -P ' + self.settings['Port'].value + ' -c ' + self.settings['Programmer'].value + ' -b ' + str(self.settings['Baud'].value) + ' -U ' + 'flash:w:' + self.settings['Firmware path'].value + " " + self.settings['Options'].value)
+		self.console.addLine('-p ' + self.settings['MCU'].value + ' -P ' + self.settings['Port'].value + ' -c ' + self.settings['Programmer'].value + ' -b ' + str(self.settings['Baud rate'].value) + ' -U ' + 'flash:w:' + self.settings['Firmware path'].value + " " + self.settings['Options'].value)
 		self.console.addLine("")
 		# Add avrdude thread listener to gui main loop.
 		listenerIdAvrdude = gobject.timeout_add(100, self.listenerAvrdudeThread)
@@ -1184,7 +1183,7 @@ class dialogFirmware(gtk.Window):
 							'-p', self.settings['MCU'].value,
 							'-P', self.settings['Port'].value,
 							'-c', self.settings['Programmer'].value,
-							'-b', str(self.settings['Baud'].value),
+							'-b', str(self.settings['Baud rate'].value),
 							'-U', 'flash:w:' + self.settings['Firmware path'].value
 							]
 		# Append additional options.
@@ -1382,6 +1381,9 @@ class dialogSettings(gtk.Window):
 		# Save settings in case of cancelling.
 		self.settingsBackup = settings
 		
+		# Console for serial test.
+		self.consoleSerial = monkeyprintGuiHelper.consoleText()
+		
 		# Vertical box for settings and bottom buttons.
 		self.boxMain = gtk.VBox()
 		self.add(self.boxMain)
@@ -1394,43 +1396,52 @@ class dialogSettings(gtk.Window):
 
 		# Vertical box for column 1.
 		self.boxCol1 = gtk.VBox()
-		self.boxSettings.pack_start(self.boxCol1)
+		self.boxSettings.pack_start(self.boxCol1, padding=5)
 		self.boxCol1.show()
 		
 		# Frame for serial settings.
 		self.frameSerial = gtk.Frame('Serial communication')
-		self.boxCol1.pack_start(self.frameSerial)
+		self.boxCol1.pack_start(self.frameSerial, padding=5)
 		self.frameSerial.show()
 		self.boxSerial = gtk.VBox()
 		self.frameSerial.add(self.boxSerial)
 		self.boxSerial.show()
 		# Add entries.
 		# Port.
-		self.entryPort = monkeyprintGuiHelper.entry('Port', self.settings)
+		self.entryPort = monkeyprintGuiHelper.entry('Port', self.settings, width=15)
 		self.boxSerial.pack_start(self.entryPort)
 		self.entryPort.show()
 		# Baud rate.
-		self.entryBaud = monkeyprintGuiHelper.entry('Baud rate', self.settings)
+		self.entryBaud = monkeyprintGuiHelper.entry('Baud rate', self.settings, width=15)
 		self.boxSerial.pack_start(self.entryBaud)
 		self.entryBaud.show()
 		# Test button and output for serial communication.
+		# Console.
+		self.consoleViewSerial = monkeyprintGuiHelper.consoleView(self.consoleSerial)
+		self.boxSerial.pack_start(self.consoleViewSerial, expand=True, fill=True)
+		self.consoleViewSerial.show()
 		# Box for button and text output.
 		self.boxSerialTest = gtk.HBox()
 		self.boxSerial.pack_start(self.boxSerialTest)
 		self.boxSerialTest.show()
-		# Button.
-		self.buttonSerialTest = gtk.Button("Test connection")
-		self.boxSerialTest.pack_start(self.buttonSerialTest, expand=False, fill=False)
+		# Button connect.
+		self.buttonSerialTest = gtk.Button("Test serial")
+		self.boxSerialTest.pack_end(self.buttonSerialTest, expand=False, fill=False)
 		self.buttonSerialTest.connect("clicked", self.callbackSerialTest)
 		self.buttonSerialTest.show()
+		# Button ping.
+#		self.buttonSerialPing = gtk.Button("Connect")
+#		self.boxSerialTest.pack_start(self.buttonSerialPing, expand=False, fill=False)
+#		self.buttonSerialPing.connect("clicked", self.callbackSerialPing)
+#		self.buttonSerialPing.show()
 		# Text entry to show connection test result.
-		self.textOutputSerialTest = gtk.Entry()
-		self.boxSerialTest.pack_start(self.textOutputSerialTest, expand=False, fill=False)
-		self.textOutputSerialTest.show()
+	#	self.textOutputSerialTest = gtk.Entry()
+	#	self.boxSerialTest.pack_start(self.textOutputSerialTest, expand=False, fill=False)
+	#	self.textOutputSerialTest.show()
 		
 		# Frame for build volume settings.
 		self.frameDebug = gtk.Frame('Debug')
-		self.boxCol1.pack_start(self.frameDebug)
+		self.boxCol1.pack_start(self.frameDebug, padding=5)
 		self.frameDebug.show()
 		self.boxDebug = gtk.HBox()
 		self.frameDebug.add(self.boxDebug)
@@ -1447,25 +1458,25 @@ class dialogSettings(gtk.Window):
 		
 		# Frame for build volume settings.
 		self.frameBuildVolume = gtk.Frame('Build volume')
-		self.boxCol1.pack_start(self.frameBuildVolume)
+		self.boxCol1.pack_start(self.frameBuildVolume, padding=5)
 		self.frameBuildVolume.show()
 		self.boxBuildVolume = gtk.VBox()
 		self.frameBuildVolume.add(self.boxBuildVolume)
 		self.boxBuildVolume.show()
 		# Add entries.
-		self.entryBuildSizeX= monkeyprintGuiHelper.entry('Build size X', self.settings)
+		self.entryBuildSizeX= monkeyprintGuiHelper.entry('Build size X', self.settings, width=15)
 		self.boxBuildVolume.pack_start(self.entryBuildSizeX)
 		self.entryBuildSizeX.show()
-		self.entryBuildSizeY= monkeyprintGuiHelper.entry('Build size Y', self.settings)
+		self.entryBuildSizeY= monkeyprintGuiHelper.entry('Build size Y', self.settings, width=15)
 		self.boxBuildVolume.pack_start(self.entryBuildSizeY)
 		self.entryBuildSizeY.show()
-		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('Build size Z', self.settings)
+		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('Build size Z', self.settings, width=15)
 		self.boxBuildVolume.pack_start(self.entryBuildSizeZ)
 		self.entryBuildSizeZ.show()
 		
 		# Frame for projector settings.
 		self.frameProjector = gtk.Frame('Projector')
-		self.boxCol1.pack_start(self.frameProjector, expand=False, fill=False)
+		self.boxCol1.pack_start(self.frameProjector, expand=False, fill=False, padding=5)
 		self.frameProjector.show()
 		self.boxProjector = gtk.VBox()
 		self.frameProjector.add(self.boxProjector)
@@ -1483,69 +1494,69 @@ class dialogSettings(gtk.Window):
 		self.checkboxProjectorControl.show()
 		self.checkboxProjectorControl.connect('toggled', self.callbackProjectorControl)
 		# Entries.
-		self.entryProjectorPort= monkeyprintGuiHelper.entry('Projector port', self.settings)
+		self.entryProjectorPort= monkeyprintGuiHelper.entry('Projector port', self.settings, width=15)
 		self.boxProjector.pack_start(self.entryProjectorPort, expand=False, fill=False)
 		self.entryProjectorPort.show()
-		self.entryProjectorBaud= monkeyprintGuiHelper.entry('Projector baud rate', self.settings)
+		self.entryProjectorBaud= monkeyprintGuiHelper.entry('Projector baud rate', self.settings, width=15)
 		self.boxProjector.pack_start(self.entryProjectorBaud, expand=False, fill=False)
 		self.entryProjectorBaud.show()
-		self.entryProjectorSizeX= monkeyprintGuiHelper.entry('Projector size X', self.settings)
+		self.entryProjectorSizeX= monkeyprintGuiHelper.entry('Projector size X', self.settings, width=15)
 		self.boxProjector.pack_start(self.entryProjectorSizeX, expand=False, fill=False)
 		self.entryProjectorSizeX.show()
-		self.entryProjectorSizeY= monkeyprintGuiHelper.entry('Projector size Y', self.settings)
+		self.entryProjectorSizeY= monkeyprintGuiHelper.entry('Projector size Y', self.settings, width=15)
 		self.boxProjector.pack_start(self.entryProjectorSizeY, expand=False, fill=False)
 		self.entryProjectorSizeY.show()
-		self.entryProjectorPositionX= monkeyprintGuiHelper.entry('Projector position X', self.settings)
+		self.entryProjectorPositionX= monkeyprintGuiHelper.entry('Projector position X', self.settings, width=15)
 		self.boxProjector.pack_start(self.entryProjectorPositionX, expand=False, fill=False)
 		self.entryProjectorPositionX.show()
-		self.entryProjectorPositionY= monkeyprintGuiHelper.entry('Projector position Y', self.settings)
+		self.entryProjectorPositionY= monkeyprintGuiHelper.entry('Projector position Y', self.settings, width=15)
 		self.boxProjector.pack_start(self.entryProjectorPositionY, expand=False, fill=False)
 		self.entryProjectorPositionY.show()
 		
 		# Vertical box for column 2.
 		self.boxCol2 = gtk.VBox()
-		self.boxSettings.pack_start(self.boxCol2)
+		self.boxSettings.pack_start(self.boxCol2, padding=5)
 		self.boxCol2.show()
 		
 		# Frame for Tilt stepper.
 		self.frameTiltStepper = gtk.Frame('Tilt stepper')
-		self.boxCol2.pack_start(self.frameTiltStepper, expand=False, fill=False)
+		self.boxCol2.pack_start(self.frameTiltStepper, expand=False, fill=False, padding=5)
 		self.frameTiltStepper.show()
 		self.boxTilt = gtk.VBox()
 		self.frameTiltStepper.add(self.boxTilt)
 		self.boxTilt.show()
 		# Entries.
 		# Resolution.
-		self.entryTiltStepsPerDeg = monkeyprintGuiHelper.entry('Tilt steps / °', self.settings)
+		self.entryTiltStepsPerDeg = monkeyprintGuiHelper.entry('Tilt steps / °', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltStepsPerDeg, expand=False, fill=False)
 		self.entryTiltStepsPerDeg.show()
 		# Tilt angle.
-		self.entryTiltAngle = monkeyprintGuiHelper.entry('Tilt angle', self.settings)
+		self.entryTiltAngle = monkeyprintGuiHelper.entry('Tilt angle', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltAngle, expand=False, fill=False)
 		self.entryTiltAngle.show()
 		# Tilt speed.
-		self.entryTiltSpeed = monkeyprintGuiHelper.entry('Tilt speed', self.settings)
+		self.entryTiltSpeed = monkeyprintGuiHelper.entry('Tilt speed', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltSpeed, expand=False, fill=False)
 		self.entryTiltSpeed.show()
 		
 		# Frame for Tilt stepper.
 		self.frameBuildStepper = gtk.Frame('Build platform stepper')
-		self.boxCol2.pack_start(self.frameBuildStepper, expand=False, fill=False)
+		self.boxCol2.pack_start(self.frameBuildStepper, expand=False, fill=False, padding=5)
 		self.frameBuildStepper.show()
 		self.boxBuildStepper = gtk.VBox()
 		self.frameBuildStepper.add(self.boxBuildStepper)
 		self.boxBuildStepper.show()
 		# Entries.
 		# Resolution.
-		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build steps / mm', self.settings)
+		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build steps / mm', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
 		self.entryBuildStepsPerMm.show()
 		# Ramp slope.
-		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Ramp slope', self.settings)
+		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Ramp slope', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildRampSlope, expand=False, fill=False)
 		self.entryBuildRampSlope.show()
 		# Tilt speed.
-		self.entryBuildSpeed = monkeyprintGuiHelper.entry('Build platform speed', self.settings)
+		self.entryBuildSpeed = monkeyprintGuiHelper.entry('Build platform speed', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildSpeed, expand=False, fill=False)
 		self.entryBuildSpeed.show()
 		
@@ -1573,33 +1584,47 @@ class dialogSettings(gtk.Window):
 		self.buttonDefaults.show()
 
 	
-	# Serial test function.
+	# Serial connect function.
 	def callbackSerialTest(self, widget, data=None):
 		# Create communication queues.
 		self.queueSerial = Queue.Queue()
 		queueCommands = Queue.Queue()
+		self.command = ["ping", None, True, None]	# No value, retry, don't wait.
 		# Make button insensitive.
 		self.buttonSerialTest.set_sensitive(False)
 		self.buttonSerialTest.set_label("    Wait...    ")
+		self.consoleSerial.addLine("Connecting...")
 		# Start queue listener.
-		listenerIdSerial = gobject.timeout_add(100, self.listenerSerialThread)
-		serial = monkeyprintSerial.printer(self.settings, self.queueSerial, queueCommands)
-		serial.send(["ping", None, True, None])
+		listenerIdSerial = gobject.timeout_add(500, self.listenerSerialThread)
+		self.serial = monkeyprintSerial.printer(self.settings, self.queueSerial, queueCommands)
+		# Send ping.
+		if self.serial.serial != None:
+			self.serial.send(self.command)
+	
 	
 	def listenerSerialThread(self):
 		# If a message is in the queue...
 		if self.queueSerial.qsize():
 			# Get the message and display it.
 			message = self.queueSerial.get()
-			self.textOutputSerialTest.set_text(message)
-			# Restore send button.
-			self.buttonSerialTest.set_sensitive(True)
-			self.buttonSerialTest.set_label("Test connection")
-			# Return False to remove listener from timeout.
-			return False
+			self.consoleSerial.addLine(message)
+			self.consoleSerial.addLine("")
+			# Check if the message was the end message.
+			if message == "Command \"" + self.command[0] + "\" sent successfully." or message == "Printer not responding. Giving up...":
+				# Restore send button.
+				self.buttonSerialTest.set_sensitive(True)
+				self.buttonSerialTest.set_label("Test serial")
+				# Close and delete serial.
+				self.serial.stop()
+				self.serial.close()
+				del self.serial
+				# Return False to remove listener from timeout.
+				return False
+			else:
+				return True
 		else:
 			# Add a dot to the console to let people know the program is not blocked...
-			self.textOutputSerialTest.set_text(self.textOutputSerialTest.get_text() + ".")
+			self.consoleSerial.addString(".")
 			# Return True to keep listener in timeout.
 			return True
 	
@@ -1618,16 +1643,30 @@ class dialogSettings(gtk.Window):
 	def callbackCancel(self, widget, data=None):
 		# Restore values.
 		self.settings = self.settingsBackup
-		# Close without saving.
+		# Close with old values restored.
 		self.destroy()
 
 	# Destroy function.
 	def callbackClose(self, widget, data=None):
-		# Close and reopen serial if it is open.
-		# TODO
 		# Close.
 		self.destroy()
-
+	'''
+	# Override destroy function.
+	def destroy(self):
+		try:
+			self.serial.stop()
+		except AttributeError:
+			print "foo"
+		try:
+			self.serial.close()
+		except AttributeError:
+			print "foo"
+		try:
+			del self.serial
+		except AttributeError:
+			print "foo"
+	#	del self
+	'''
 
 
 
