@@ -650,7 +650,6 @@ class projectorDisplay(gtk.Window):
 		else:
 			self.move(self.settings['Projector position X'].value, self.settings['Projector position Y'].value)
 
-
 		# Create image view.
 		if self.debug:
 			self.imageView = imageView(self.settings, self.modelCollection, width = debugWidth)

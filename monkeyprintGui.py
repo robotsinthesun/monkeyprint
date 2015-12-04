@@ -142,6 +142,7 @@ class gui(gtk.Window):
 			self.console.addLine('during a print. Wait for')
 			self.console.addLine('the print to finish or cancel')
 			self.console.addLine('the print if you want to close.')
+			return True # returning True avoids it to signal "destroy-event"
 		else:
 			# Create a dialog window with yes/no buttons.
 			dialog = gtk.MessageDialog(self,
@@ -438,6 +439,7 @@ class gui(gtk.Window):
 		self.buttonPrintStart.show()
 		self.buttonPrintStop = gtk.Button('Stop')
 		self.boxPrintButtons.pack_start(self.buttonPrintStop, expand=False, fill=False)
+		self.buttonPrintStop.set_sensitive(False)
 		self.buttonPrintStop.show()
 		self.buttonPrintStop.connect('clicked', self.callbackStopPrintProcess)
 		
@@ -527,6 +529,8 @@ class gui(gtk.Window):
 		# Run the dialog and get the result.
 		response = self.dialogStart.run()
 		self.dialogStart.destroy()
+		# Set stop button sensititve.
+		self.buttonPrintStop.set_sensitive(True)
 		
 		# If positive, create the projector window and start the print process
 		if response==True:
@@ -554,9 +558,10 @@ class gui(gtk.Window):
 		response = dialog.run()
 		dialog.destroy()
 		if response == gtk.RESPONSE_YES:
-			self.printFlag = False
 			# Stop the print process.
 			self.printProcess.stop()	
+			# Reset stop button to insensitive.
+			self.buttonPrintStop.set_sensitive(False)
 	
 
 
@@ -585,6 +590,12 @@ class gui(gtk.Window):
 			#self.progressBar.setText(self.queueStatus.get()) 
 			message = self.queueStatus.get()
 			if message == "destroy":
+				# Reset gui.
+				self.buttonPrintStop.set_sensitive(False)
+				self.modelCollection.updateAllSlices3d(0)
+				self.renderView.render()
+				self.progressBar.updateValue(0) 
+				self.printFlag = False
 				del self.printProcess
 				self.windowPrint.destroy()
 				del self.windowPrint
