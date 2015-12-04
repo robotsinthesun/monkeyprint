@@ -534,10 +534,10 @@ class modelData:
 		
 			# Bounding box. Create cube and set outline filter.
 			self.modelBoundingBox = vtk.vtkCubeSource()
-			self.modelBoundingBox.SetCenter(self.getCenter())
+			self.modelBoundingBox.SetCenter(self.getBounds()[5]/2)
 			self.modelBoundingBox.SetXLength(self.getSize()[0])
 			self.modelBoundingBox.SetYLength(self.getSize()[1])
-			self.modelBoundingBox.SetZLength(self.getSize()[2])
+			self.modelBoundingBox.SetZLength(self.getBounds()[5])
 			# Model bounding box outline filter.
 			self.modelBoundingBoxOutline = vtk.vtkOutlineFilter()
 			if vtk.VTK_MAJOR_VERSION <= 5:
@@ -810,10 +810,10 @@ class modelData:
 			self.getNormalZComponent(self.stlPositionFilter.GetOutput())
 		
 			# Reposition bounding box.
-			self.modelBoundingBox.SetCenter(self.getCenter())
+			self.modelBoundingBox.SetCenter(self.getBounds()[5]/2)
 			self.modelBoundingBox.SetXLength(self.getSize()[0])
 			self.modelBoundingBox.SetYLength(self.getSize()[1])
-			self.modelBoundingBox.SetZLength(self.getSize()[2])
+			self.modelBoundingBox.SetZLength(self.getBounds()[5])
 			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )
 			self.modelBoundingBoxTextActor.SetAttachmentPoint(self.getBounds()[1], self.getBounds()[3], self.getBounds()[5])
 
