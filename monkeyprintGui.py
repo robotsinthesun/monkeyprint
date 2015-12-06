@@ -99,7 +99,7 @@ class gui(gtk.Window):
 		self.boxMain.show()
 		
 		# Create menu bar and pack inside main box at top.
-		self.menuBar = menuBar(self.programSettings, self.on_closing)
+		self.menuBar = self.menuBar()#menuBar(self.programSettings, self.on_closing)
 		self.boxMain.pack_start(self.menuBar, expand=False, fill=False)
 		self.menuBar.show()
 		
@@ -178,6 +178,137 @@ class gui(gtk.Window):
 
 
 
+	# Create menu. ############################################################
+	def createMenuBar(self):
+	
+		# Create the menu bar.
+		menuBar = gtk.MenuBar()
+		
+		# Create file menu.
+		# That's the container for the file menu items that
+		# will pop up upon ckicking the file menu. Therefore, it 
+		# does not have to be shown here.
+		fileMenu = gtk.Menu()
+		# Create file menu items.
+		menuItemOpen = gtk.MenuItem(label="Open project")
+		menuItemSave = gtk.MenuItem(label="Save project")
+		menuItemClose = gtk.MenuItem(label="Close project")
+		menuItemQuit = gtk.MenuItem(label="Quit")
+		# Set initial sensitivities.
+		menuItemSave.set_sensitive(False)
+		menuItemClose.set_sensitive(False)
+		# Add to menu.
+		fileMenu.append(menuItemOpen)
+		fileMenu.append(menuItemSave)
+		fileMenu.append(menuItemClose)
+		fileMenu.append(menuItemQuit)
+		# Connect menu items to callback signals.
+		menuItemOpen.connect("activate", self.callbackOpen)
+		menuItemSave.connect("activate", self.callbackSave)
+		menuItemClose.connect("activate", self.callbackClose)
+		menuItemQuit.connect("activate", self.callbackQuit)
+		# Show the items.
+		menuItemOpen.show()
+		menuItemSave.show()
+		menuItemClose.show()
+		menuItemQuit.show()
+		
+		
+		# Create file menu (does not have to be shown).
+		optionsMenu = gtk.Menu()
+		# Create file menu items.
+		menuItemSettings = gtk.MenuItem(label="Settings")
+		menuItemFlash = gtk.MenuItem(label="Flash firmware")
+		menuItemManualControl = gtk.MenuItem(label="Manual control")
+		# Connect callbacks.
+		menuItemSettings.connect("activate", self.callbackSettings)
+		menuItemFlash.connect("activate", self.callbackFlash)
+		menuItemManualControl.connect("activate", self.callbackManualControl)
+		# Add to menu.
+		optionsMenu.append(menuItemSettings)
+		optionsMenu.append(menuItemFlash)
+		optionsMenu.append(menuItemManualControl)
+		# Show the items.
+		menuItemSettings.show()
+		menuItemFlash.show()
+		menuItemManualControl.show()
+		
+		
+		# Help menu.
+		helpMenu = gtk.Menu()
+		# Create file menu items.
+		menuItemDocu = gtk.MenuItem(label="Documentation")
+		menuItemAbout = gtk.MenuItem(label="About")
+		menuItemDocu.set_sensitive(False)
+		menuItemAbout.set_sensitive(False)
+		# Connect callbacks.
+		menuItemDocu.connect("activate", self.callbackSettings)
+		menuItemAbout.connect("activate", self.callbackSettings)
+		# Add to menu.
+		helpMenu.append(menuItemDocu)
+		helpMenu.append(menuItemAbout)
+		# Show the items.
+		menuItemDocu.show()
+		menuItemAbout.show()
+		
+
+		# Create menu bar items.
+		# File menu.
+		menuItemFile = gtk.MenuItem(label="File")
+		menuItemFile.set_submenu(fileMenu)
+		self.append(menuItemFile)
+		menuItemFile.show()
+		# Options menu.
+		menuItemOptions = gtk.MenuItem(label="Options")
+		menuItemOptions.set_submenu(optionsMenu)
+		self.append(menuItemOptions)
+		menuItemOptions.show()
+		# Help menu.
+		menuItemHelp = gtk.MenuItem(label="Help")
+		menuItemHelp.set_submenu(helpMenu)
+		self.append(menuItemHelp)
+		menuItemHelp.show()
+
+
+		# Return the menu.
+		return menuBar
+		
+		
+	
+	
+	def callbackOpen(self, event):
+		# Set menu item sensitivities.
+		menuItemSave.set_sensitive(True)
+		menuItemClose.set_sensitive(True)
+		self.console.addLine("Opening print job...")
+	
+	def callbackSave(self, event):
+		self.console.addLine("Saving print job...")
+	
+	def callbackClose(self, event):
+		# Set menu item sensitivities.
+		menuItemSave.set_sensitive(True)
+		menuItemClose.set_sensitive(True)
+		self.console.addLine("Closing print job...")
+	
+	def callbackQuit(self, event):
+		self.on_closing(None, None, None)
+	
+	def callbackSettings(self, event):
+		dialogSettings(self.settings)
+		
+	def callbackFlash(self, event):
+		dialogFirmware(self.settings)
+	
+	def callbackManualControl(self, event):
+		dialogManualControl(self.settings)
+
+	def callbackDocu(self, event):
+		pass
+	
+	def callbackAbout(self, event):
+		pass
+
 	
 	# Create the notebook.#####################################################
 	def createSettingsBox(self):
@@ -241,14 +372,9 @@ class gui(gtk.Window):
 	
 		# Return the box. ****************************************************
 		return boxSettings
-	
-	
-	
-	
-	
-	# Create menu. ############################################################
-	
-	
+
+
+
 	
 	
 	# Create notebook pages. ##################################################
