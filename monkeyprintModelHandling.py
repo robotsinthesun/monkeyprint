@@ -210,6 +210,9 @@ class modelCollection(dict):
 		# List will contain strings for dispayed name,
 		# internal name and file name and a bool for active state.
 		self.modelList = gtk.ListStore(str, str, str, bool)
+		
+		# Create job settings object. *************************
+		self.jobSettings = monkeyprintSettings.jobSettings()
 	
 
 	# Save model collection to compressed disk file. Works well with huge objects.
@@ -230,6 +233,13 @@ class modelCollection(dict):
 		# Close the file handler.
 		file.close()
 		# Get the relevant parts from the object.
+		# The models. TODO: load models from their respective files, don't save to zip.
+		self[:] = object[:]
+		# The print job settings.
+		self.jobSettings = object.jobSettings
+		# The model list for display in gui.
+		self.modelList = object.modelList
+		
 		
 	
 	# Function to retrieve id of the current model.
