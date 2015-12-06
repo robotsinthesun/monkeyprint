@@ -245,6 +245,12 @@ class gui(gtk.Window):
 	
 	
 	
+	
+	# Create menu. ############################################################
+	
+	
+	
+	
 	# Create notebook pages. ##################################################
 	# Model page.
 	def createModelTab(self):
