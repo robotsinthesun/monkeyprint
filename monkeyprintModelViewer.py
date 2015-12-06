@@ -174,8 +174,9 @@ class renderView(gtk.VBox):
 	
 	# Remove an actor from the render view.
 	def removeActors(self, actors):
-		if type(actors) == tuple:
+		if type(actors) == tuple or type(actors) == list:
 			for actor in actors:
+				print actor
 				self.renderer.RemoveActor(actor)
 		else:
 			self.renderer.RemoveActor(actors)

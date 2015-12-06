@@ -35,14 +35,26 @@ import gzip
 import monkeyprintSettings
 
 class modelContainer:
-	def __init__(self, filename, programSettings, console=None):
+	def __init__(self, filenameOrSettings, programSettings, console=None):
 	
-		# Internalise data.
-		self.filename = filename
+		# Check if a filename has been given or an existing model settings object.
+		# If filename was given...
+		if type(filenameOrSettings) == str:
+			# ... create the model data with default settings.
+			# Create settings object.
+			self.settings = monkeyprintSettings.modelSettings()
+			filename = filenameOrSettings
+			# Save filename to settings.
+			self.settings['filename'].value = filename
+		# If settings object was given...
+		else:
+			# ... create the model data with the given settings.
+			self.settings = filenameOrSettings
+			# Get filename from settings object.
+			filename = self.settings['filename'].value
+			
+		# Internalise remaining data.
 		self.console=console
-		
-		# Create settings object.
-		self.settings = monkeyprintSettings.modelSettings()
 		
 		# Create model object.
 		self.model = modelData(filename, self.settings, programSettings, self.console)
@@ -60,7 +72,6 @@ class modelContainer:
 		self.hideBottomPlate()
 		self.hideSlices()
 
-		
 
 	def getHeight(self):
 		return self.model.getHeight()
@@ -212,33 +223,63 @@ class modelCollection(dict):
 		self.modelList = gtk.ListStore(str, str, str, bool)
 		
 		# Create job settings object. *************************
-		self.jobSettings = monkeyprintSettings.jobSettings()
+		self.jobSettings = monkeyprintSettings.jobSettings(self.programSettings)
 	
 
 	# Save model collection to compressed disk file. Works well with huge objects.
-	def save(self, filename, protocol = -1):
+	def saveProject(self, filename, protocol = -1):
+		# Gather the relevant data.
+		# Model settings.
+		modelSettings = {}
+		for model in self:
+			if model != "default":
+				modelSettings[model] = (self[model].settings)
+		# Model list for GUI.
+		# gtk.ListStores cannot be pickled, so we convert to list of lists.
+		listStoreList = []
+		for row in range(len(self.modelList)):
+			i = self.modelList.get_iter(row)
+			rowData = []			
+			for j in range(4):
+				dat = self.modelList.get_value(i,j)
+				rowData.append(dat)
+			listStoreList.append(rowData)
+		# Combine model settings with job settings.
+		data = [self.jobSettings, modelSettings, listStoreList]
 		# Create gzip file handler.
 		file = gzip.GzipFile(filename, 'wb')
 		# Dump the data.
-		cPickle.dump(self, file, protocol)
+		cPickle.dump(data, file, protocol)
 		# Close the file handler.
 		file.close()
 	
 	# Load a compressed model collection from disk.
-	def load(filename):
+	def loadProject(self, filename):
 		# Create the file handler.
 		file = gzip.GzipFile(filename, 'rb')
 		# Load the data.
-		object = cPickle.load(file)
+		data = cPickle.load(file)
 		# Close the file handler.
 		file.close()
+		# Clear all models from current model collection.
+		self.removeAll()
 		# Get the relevant parts from the object.
-		# The models. TODO: load models from their respective files, don't save to zip.
-		self[:] = object[:]
-		# The print job settings.
-		self.jobSettings = object.jobSettings
-		# The model list for display in gui.
-		self.modelList = object.modelList
+		# First is job settings, second is list of model settings.
+		self.jobSettings = data[0]
+		settingsList = data[1]
+		# Import the model settings from the file into the model collection.
+		for model in settingsList:
+			if model != "default":
+				# Create a new model from the modelId and settings.
+				self.add(model, settingsList[model])
+		# Get the model list and convert to list store.
+		# Empty existing model list.
+		for row in range(len(self.modelList)):
+			i = self.modelList.get_iter(row)
+			self.modelList.remove(i)
+		modelListData = data[2]
+		for row in modelListData:
+			self.modelList.append(row)
 		
 		
 	
@@ -259,8 +300,8 @@ class modelCollection(dict):
 		return self[modelId]
 	
 	# Add a model to the collection.
-	def add(self, modelId, filename):
-		self[modelId] = modelContainer(filename, self.programSettings, self.console)
+	def add(self, modelId, filenameOrSettings):
+		self[modelId] = modelContainer(filenameOrSettings, self.programSettings, self.console)
 		# Set new model as current model.
 		self.currentModelId = modelId
 	
@@ -271,6 +312,15 @@ class modelCollection(dict):
 			# Explicitly delete model data to free memory from slice images.
 			del self[modelId].model
 			del self[modelId]
+	
+	def removeAll(self):
+		# Get list of model ids.
+		modelIDs = []
+		for model in self:
+			if model != "default":
+				modelIDs.append(model)
+		for i in range(len(modelIDs)):
+			self.remove(modelIDs[i])
 	
 	# Function to retrieve the highest model. This dictates the slice stack height.
 	def getNumberOfSlices(self):
@@ -378,7 +428,13 @@ class modelCollection(dict):
 			volume += self[model].model.getVolume()
 		return volume
 	
-
+	def getAllActors(self):
+		allActors = []
+		for model in self:
+			modelActors = self[model].getAllActors()
+			for actor in modelActors:
+				allActors.append(actor)
+		return allActors
 
 
 ################################################################################
@@ -458,6 +514,7 @@ class modelData:
 		self.queueSlicerOut = Queue.Queue()
 		if self.filename != "":
 			# Initialise the thread.
+			print "Starting slicer thread."
 			self.slicerThread = backgroundSlicer(self.settings, self.programSettings, self.queueSlicerIn, self.queueSlicerOut)
 			self.slicerThread.start()
 				
@@ -702,9 +759,6 @@ class modelData:
 					self.console.addLine('Model loaded successfully.')
 					self.console.addLine('   ' + str(self.stlPolyData.GetNumberOfPoints()) + " points loaded.")
 					self.console.addLine('   ' + str(self.stlPolyData.GetNumberOfPolys()) + " polygons loaded.")
-
-			# Set up the initial model scaling, rotation and position. ###########
-		#	self.updateModel()
 
 
 

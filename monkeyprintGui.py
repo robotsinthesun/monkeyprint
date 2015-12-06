@@ -195,8 +195,8 @@ class gui(gtk.Window):
 		self.menuItemClose = gtk.MenuItem(label="Close project")
 		self.menuItemQuit = gtk.MenuItem(label="Quit")
 		# Set initial sensitivities.
-		self.menuItemSave.set_sensitive(False)
-		self.menuItemClose.set_sensitive(False)
+#TODO	self.menuItemSave.set_sensitive(False)
+#TODO	self.menuItemClose.set_sensitive(False)
 		# Add to menu.
 		fileMenu.append(self.menuItemOpen)
 		fileMenu.append(self.menuItemSave)
@@ -204,7 +204,7 @@ class gui(gtk.Window):
 		fileMenu.append(self.menuItemQuit)
 		# Connect menu items to callback signals.
 		self.menuItemOpen.connect("activate", self.callbackOpen)
-		self.menuItemSave.connect("activate", self.callbackSave)
+		self.menuItemSave.connect("activate", self.callbackSaveProject)
 		self.menuItemClose.connect("activate", self.callbackClose)
 		self.menuItemQuit.connect("activate", self.callbackQuit)
 		# Show the items.
@@ -277,13 +277,103 @@ class gui(gtk.Window):
 	
 	
 	def callbackOpen(self, event):
-		# Set menu item sensitivities.
-		self.menuItemSave.set_sensitive(True)
-		self.menuItemClose.set_sensitive(True)
+		
 		self.console.addLine("Opening print job...")
+		
+		# Open file chooser dialog."
+		filepath = ""
+		# File open dialog to retrive file name and file path.
+		dialog = gtk.FileChooserDialog("Load project", None, gtk.FILE_CHOOSER_ACTION_OPEN, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+		dialog.set_default_response(gtk.RESPONSE_OK)
+		dialog.set_current_folder(self.programSettings['currentFolder'].value)
+		# File filter for the dialog.
+		fileFilter = gtk.FileFilter()
+		fileFilter.set_name("Monkeyprint project files")
+		fileFilter.add_pattern("*.mkp")
+		dialog.add_filter(fileFilter)
+		# Run the dialog and return the file path.
+		response = dialog.run()
+		# Check the response.
+		# If OK was pressed...
+		if response == gtk.RESPONSE_OK:
+			filename = dialog.get_filename()		
+			# Check if file is an mkp. If not...
+			if filename.lower()[-3:] != "mkp":
+				# ... display message and nothing more.
+				self.console.addLine("File \"" + filename + "\" is not a monkeyprint project file.")
+			else:
+				# Console message.
+				self.console.addLine("Loading project \"" + filename.split('/')[-1] + "\".")
+				# Save path for next use.
+				self.programSettings['currentFolder'].value = filename[:-len(filename.split('/')[-1])]
+				# Now that we have the new selection, we can delete the previously selected model.
+				# First, remove the actors from the render view.
+				self.renderView.removeActors(self.modelCollection.getAllActors())
+				# Then, load the project into the model collection:
+				self.modelCollection.loadProject(filename)
+				# Update the list view.
+				self.modelListView.update()
+				# Set menu item sensitivities.
+				self.menuItemSave.set_sensitive(True)
+				self.menuItemClose.set_sensitive(True)
+
+				# Hide the previous models bounding box.
+		#		self.modelCollection.getCurrentModel().hideBox()
+				# Load the model into the model collection.
+		#		self.modelCollection.add(filename, filepath)
+				# Add the filename to the list and set selected.
+		#		self.add(filename, filename, filepath)	
+				# Activate the remove button which was deactivated when there was no model.
+		#		self.buttonRemove.set_sensitive(True)
+		
+				# Add actor to render view.
+				self.renderView.addActors(self.modelCollection.getCurrentModel().getAllActors())
+
+				# Update 3d view.
+				self.renderView.render()
+			# Close dialog.
+			dialog.destroy()
+		# If cancel was pressed...
+		elif response == gtk.RESPONSE_CANCEL:
+			#... do nothing.
+			dialog.destroy()
 	
-	def callbackSave(self, event):
-		self.console.addLine("Saving print job...")
+	def callbackSaveProject(self, event):
+		# Open file saver dialog.
+		# Open file chooser dialog."
+		filepath = ""
+		# File open dialog to retrive file name and file path.
+		dialog = gtk.FileChooserDialog("Save project", None, gtk.FILE_CHOOSER_ACTION_SAVE, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+		dialog.set_default_response(gtk.RESPONSE_OK)
+		dialog.set_current_folder(self.programSettings['currentFolder'].value)
+		# File filter for the dialog.
+		fileFilter = gtk.FileFilter()
+		fileFilter.set_name("Monkeyprint project files")
+		fileFilter.add_pattern("*.mkp")
+		dialog.add_filter(fileFilter)
+		# Run the dialog and return the file path.
+		response = dialog.run()
+		# Process response. If OK...
+		if response == gtk.RESPONSE_OK:
+			# ... get file name.
+			path = dialog.get_filename()
+			#... add *.mkp file extension if necessary.
+			if len(path) < 4 or path[-4:] != ".mkp":
+				path += ".mkp"
+			# Console message.
+			self.console.addLine("Saving project to \"" + path.split('/')[-1] + "\".")
+			# Save path without project name for next use.
+			self.programSettings['currentFolder'].value = path[:-len(path.split('/')[-1])]
+			# Save the model collection to the given location.
+			self.modelCollection.saveProject(path)
+			# Save the path for later.
+			
+			dialog.destroy()
+		# If cancel was pressed...
+		elif response == gtk.RESPONSE_CANCEL:
+			#... do nothing.
+			dialog.destroy()
+			
 	
 	def callbackClose(self, event):
 		# Set menu item sensitivities.
@@ -816,7 +906,7 @@ class gui(gtk.Window):
 
 
 # Main menu. ###################################################################	
-
+	'''
 class menuBar(gtk.MenuBar):
 	# Override init function.
 	def __init__(self, settings, closeFunction):
@@ -944,7 +1034,7 @@ class menuBar(gtk.MenuBar):
 	def callbackAbout(self, event):
 		pass
 
-
+'''
 
 # Model list. ##################################################################
 class modelListView(gtk.VBox):
@@ -1181,6 +1271,10 @@ class modelListView(gtk.VBox):
 	def setSensitive(self, sensitive):
 		self.buttonLoad.set_sensitive(sensitive)
 		self.buttonRemove.set_sensitive(sensitive)
+	
+	def update(self):
+		self.modelList = self.modelCollection.modelList
+		print len(self.modelList)
 
 
 

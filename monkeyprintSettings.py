@@ -70,6 +70,7 @@ class modelSettings(dict):
 		dict.__init__(self)
 		# Create objects for all the settings and put them into dictionary.
 		self['filename'] = setting(value="")
+		self['Active'] = setting(value=True)
 		self['Scaling'] = setting(value=1)
 		self['Rotation X'] = setting(value=0,	lower=0,	upper=359,	unit='°')
 		self['Rotation Y'] = setting(value=0,	lower=0,	upper=359,	unit='°')
@@ -95,16 +96,19 @@ class modelSettings(dict):
 
 class jobSettings(dict):
 	# Override init function.
-	def __init__(self, console=None):
+	def __init__(self, programSettings, console=None):
 		# Call super class init function.
 		dict.__init__(self)
 		# Internalise console.
 		self.console = console
 		# Create objects for all the settings and put them into dictionary.
-		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')		
-		self['Exposure time base'] = setting(value=14.0, lower=1.0, upper=15.0)
-		self['Exposure time'] = setting(value=9.0, lower=1.0, upper=15.0)
-		self['Resin settle time'] = setting(value=1.0, lower=0.1, upper=3.0)
+		# Load defaults from program settings to get settings saved from last session.
+		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')
+		self['projectPath'] = programSettings['currentFolder']#setting(value="")		
+		self['Exposure time base'] = programSettings['Exposure time base']#setting(value=14.0, lower=1.0, upper=15.0)
+		self['Exposure time'] = programSettings['Exposure time']#setting(value=9.0, lower=1.0, upper=15.0)
+		self['Resin settle time'] = programSettings['Resin settle time']#setting(value=1.0, lower=0.1, upper=3.0)
+		
 		
 class programSettings(dict):	
 	# Override init function.
