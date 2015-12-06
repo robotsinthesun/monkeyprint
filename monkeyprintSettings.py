@@ -94,6 +94,8 @@ class modelSettings(dict):
 		self['Fill wall thickness'] = setting(value=0.3, lower=0.1, upper=0.4)
 
 
+		
+		
 class programSettings(dict):	
 	# Override init function.
 	def __init__(self, console=None):

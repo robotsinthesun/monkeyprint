@@ -25,10 +25,12 @@ import cv2
 import numpy
 import time
 import random
-import Image, ImageTk
+import Image#, ImageTk
 import Queue, threading
-#from matplotlib import pyplot as plot
 import monkeyprintImageHandling as imageHandling
+import gtk
+import cPickle	# Save modelCollection to file.
+import gzip
 
 import monkeyprintSettings
 
@@ -187,18 +189,48 @@ class modelContainer:
 
 class modelCollection(dict):
 	def __init__(self, programSettings, console=None):
-		# Call super class init function.
+		# Call super class init function. *********************
 		dict.__init__(self)
-		# Internalise settings.
+		
+		# Internalise settings. *******************************
 		self.programSettings = programSettings
 		self.console = console
-		# Create slice image.
+		
+		# Create slice image. *********************************
 		self.sliceImage = imageHandling.createImageGray(self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value, 0)
 		self.sliceImageBlack = numpy.empty_like(self.sliceImage)
+		
+		# Set defaults. ***************************************
 		# Create current model id.
 		self.currentModelId = ""
 		# Load default model to fill settings for gui.
 		self.add("default", "")	# Don't provide file name.
+		
+		# Create model list.***********************************
+		# List will contain strings for dispayed name,
+		# internal name and file name and a bool for active state.
+		self.modelList = gtk.ListStore(str, str, str, bool)
+	
+
+	# Save model collection to compressed disk file. Works well with huge objects.
+	def save(self, filename, protocol = -1):
+		# Create gzip file handler.
+		file = gzip.GzipFile(filename, 'wb')
+		# Dump the data.
+		cPickle.dump(self, file, protocol)
+		# Close the file handler.
+		file.close()
+	
+	# Load a compressed model collection from disk.
+	def load(filename):
+		# Create the file handler.
+		file = gzip.GzipFile(filename, 'rb')
+		# Load the data.
+		object = cPickle.load(file)
+		# Close the file handler.
+		file.close()
+		# Get the relevant parts from the object.
+		
 	
 	# Function to retrieve id of the current model.
 	def getCurrentModelId(self):
@@ -534,7 +566,7 @@ class modelData:
 		
 			# Bounding box. Create cube and set outline filter.
 			self.modelBoundingBox = vtk.vtkCubeSource()
-			self.modelBoundingBox.SetCenter(self.getBounds()[5]/2)
+			self.modelBoundingBox.SetCenter(self.getCenter()[0], self.getCenter()[1], self.getBounds()[5]/2)
 			self.modelBoundingBox.SetXLength(self.getSize()[0])
 			self.modelBoundingBox.SetYLength(self.getSize()[1])
 			self.modelBoundingBox.SetZLength(self.getBounds()[5])
@@ -810,7 +842,7 @@ class modelData:
 			self.getNormalZComponent(self.stlPositionFilter.GetOutput())
 		
 			# Reposition bounding box.
-			self.modelBoundingBox.SetCenter(self.getBounds()[5]/2)
+			self.modelBoundingBox.SetCenter(self.getCenter()[0], self.getCenter()[1],self.getBounds()[5]/2)
 			self.modelBoundingBox.SetXLength(self.getSize()[0])
 			self.modelBoundingBox.SetYLength(self.getSize()[1])
 			self.modelBoundingBox.SetZLength(self.getBounds()[5])

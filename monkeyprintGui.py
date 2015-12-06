@@ -58,15 +58,7 @@ class gui(gtk.Window):
 		# Internalise parameters.******************************
 		self.modelCollection = modelCollection
 		self.programSettings = programSettings
-		self.console = console
-		
-		
-		
-		# Create model list.***********************************
-		# List will contain strings for dispayed name,
-		# internal name and file name and a bool for active state.
-		self.modelList = gtk.ListStore(str, str, str, bool)
-		
+		self.console = console		
 		
 		
 		# Create queues for inter-thread communication.********
@@ -198,7 +190,7 @@ class gui(gtk.Window):
 		boxSettings.pack_start(self.frameModels, padding = 5)
 		self.frameModels.show()
 		# Create model list view using the model list.
-		self.modelListView = modelListView(self.programSettings, self.modelList, self.modelCollection, self.renderView, self.updateAllEntries, self.console)
+		self.modelListView = modelListView(self.programSettings, self.modelCollection, self.renderView, self.updateAllEntries, self.console)
 		self.frameModels.add(self.modelListView)
 		self.modelListView.show()
 		
@@ -824,15 +816,15 @@ class menuBar(gtk.MenuBar):
 
 # Model list. ##################################################################
 class modelListView(gtk.VBox):
-	def __init__(self, settings, modelList, modelCollection, renderView, guiUpdateFunction, console=None):
+	def __init__(self, settings, modelCollection, renderView, guiUpdateFunction, console=None):
 		gtk.VBox.__init__(self)
 		self.show()
 
 		# Internalise settings.
 		self.settings = settings
 		# Internalise model collection and optional console.
-		self.modelList = modelList
 		self.modelCollection = modelCollection
+		self.modelList = self.modelCollection.modelList
 		# Import the render view so we are able to add and remove actors.
 		self.renderView = renderView
 		self.guiUpdateFunction = guiUpdateFunction
