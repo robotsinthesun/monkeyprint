@@ -93,7 +93,18 @@ class modelSettings(dict):
 		self['Fill spacing'] = setting(value=3.0, lower=1.0, upper=10.0, unit='mm')
 		self['Fill wall thickness'] = setting(value=0.3, lower=0.1, upper=0.4)
 
-
+class jobSettings(dict):
+	# Override init function.
+	def __init__(self, console=None):
+		# Call super class init function.
+		dict.__init__(self)
+		# Internalise console.
+		self.console = console
+		# Create objects for all the settings and put them into dictionary.
+		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')		
+		self['Exposure time base'] = setting(value=14.0, lower=1.0, upper=15.0)
+		self['Exposure time'] = setting(value=9.0, lower=1.0, upper=15.0)
+		self['Resin settle time'] = setting(value=1.0, lower=0.1, upper=3.0)
 		
 class programSettings(dict):	
 	# Override init function.
