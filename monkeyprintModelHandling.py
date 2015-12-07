@@ -272,14 +272,12 @@ class modelCollection(dict):
 			if model != "default":
 				# Create a new model from the modelId and settings.
 				self.add(model, settingsList[model])
+				self.getCurrentModel().hideBox()
 		# Get the model list and convert to list store.
-		# Empty existing model list.
-		for row in range(len(self.modelList)):
-			i = self.modelList.get_iter(row)
-			self.modelList.remove(i)
 		modelListData = data[2]
 		for row in modelListData:
-			self.modelList.append(row)
+			if row[0] != "default":
+				self.modelList.append(row)
 		
 		
 	
@@ -312,8 +310,11 @@ class modelCollection(dict):
 			# Explicitly delete model data to free memory from slice images.
 			del self[modelId].model
 			del self[modelId]
-	
+
+
 	def removeAll(self):
+		# Set current model to default.
+		self.setCurrentModelId("default")
 		# Get list of model ids.
 		modelIDs = []
 		for model in self:
@@ -321,6 +322,16 @@ class modelCollection(dict):
 				modelIDs.append(model)
 		for i in range(len(modelIDs)):
 			self.remove(modelIDs[i])
+
+		# Empty existing model list.
+		listIters = []
+		for row in range(len(self.modelList)):
+			listIters.append(self.modelList.get_iter(row))
+		for i in listIters:
+			if self.modelList.get_value(i,0) != "default":
+				self.modelList.remove(i)
+			
+
 	
 	# Function to retrieve the highest model. This dictates the slice stack height.
 	def getNumberOfSlices(self):
@@ -435,6 +446,13 @@ class modelCollection(dict):
 			for actor in modelActors:
 				allActors.append(actor)
 		return allActors
+	
+	def modelsLoaded(self):
+		if len(self) > 1:
+			return True
+		else:
+			return False
+
 
 
 ################################################################################

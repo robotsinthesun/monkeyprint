@@ -195,8 +195,8 @@ class gui(gtk.Window):
 		self.menuItemClose = gtk.MenuItem(label="Close project")
 		self.menuItemQuit = gtk.MenuItem(label="Quit")
 		# Set initial sensitivities.
-#TODO	self.menuItemSave.set_sensitive(False)
-#TODO	self.menuItemClose.set_sensitive(False)
+		self.menuItemSave.set_sensitive(False)
+		self.menuItemClose.set_sensitive(False)
 		# Add to menu.
 		fileMenu.append(self.menuItemOpen)
 		fileMenu.append(self.menuItemSave)
@@ -327,10 +327,18 @@ class gui(gtk.Window):
 		#		self.buttonRemove.set_sensitive(True)
 		
 				# Add actor to render view.
-				self.renderView.addActors(self.modelCollection.getCurrentModel().getAllActors())
+				self.renderView.addActors(self.modelCollection.getAllActors())
 
 				# Update 3d view.
 				self.renderView.render()
+				
+				# Update menu to set sensitivities.
+				self.updateMenu()
+				# Update model list view to set sensitivities.
+				self.modelListView.setSensitive(remove=self.modelCollection.modelsLoaded())
+				# Update notebook to set sensitivities.
+				self.updateAllEntries(state=1)
+				
 			# Close dialog.
 			dialog.destroy()
 		# If cancel was pressed...
@@ -376,10 +384,21 @@ class gui(gtk.Window):
 			
 	
 	def callbackClose(self, event):
-		# Set menu item sensitivities.
-		self.menuItemSave.set_sensitive(False)
-		self.menuItemClose.set_sensitive(False)
 		self.console.addLine("Closing print job...")
+		# Remove all actors from view.
+		self.renderView.removeActors(self.modelCollection.getAllActors())
+		# Remove all models.
+		self.modelCollection.removeAll()
+		# Set menu item sensitivities.
+		# Update menu to set sensitivities.
+		self.updateMenu()
+		# Update model list view to set sensitivities.
+		self.modelListView.setSensitive(remove=self.modelCollection.modelsLoaded())
+		# Update notebook to set sensitivities.
+		self.updateAllEntries(state=0)
+		# Render.
+		self.renderView.render()
+
 	
 	def callbackQuit(self, event):
 		self.on_closing(None, None, None)
@@ -682,7 +701,7 @@ class gui(gtk.Window):
 		self.modelCollection.viewDefault()
 		self.renderView.render()
 		# Enable model management load and remove buttons.
-		self.modelListView.setSensitive(True)
+		self.modelListView.setSensitive(remove=self.modelCollection.modelsLoaded())
 
 	# Supports page.
 	def tabSwitchSupportsUpdate(self):
@@ -695,7 +714,7 @@ class gui(gtk.Window):
 		if self.getGuiState() == 1:
 			self.setGuiState(2)
 		# Disable model management load and remove buttons.
-		self.modelListView.setSensitive(False)
+		self.modelListView.setSensitive(False,False)
 
 	# Slicing page.
 	def tabSwitchSlicesUpdate(self):
@@ -710,7 +729,7 @@ class gui(gtk.Window):
 		if self.getGuiState() == 2:
 			self.setGuiState(3)
 		# Disable model management load and remove buttons.
-		self.modelListView.setSensitive(False)
+		self.modelListView.setSensitive(False,False)
 	
 	# Print page.
 	def tabSwitchPrintUpdate(self):
@@ -720,7 +739,7 @@ class gui(gtk.Window):
 		# Update the model volume.
 		self.updateVolume()
 		# Disable model management load and remove buttons.
-		self.modelListView.setSensitive(False)
+		self.modelListView.setSensitive(False, False)
 	
 
 	
@@ -886,6 +905,7 @@ class gui(gtk.Window):
 		self.entrySupportTipDiameter.update()
 		self.entrySupportTipHeight.update()
 		self.entrySupportBottomPlateThickness.update()
+		self.updateMenu()
 		if state != None:
 			self.setGuiState(state)
 			if state == 0:
@@ -895,6 +915,12 @@ class gui(gtk.Window):
 				
 	def updateSlider(self):
 		self.sliceSlider.updateSlider()
+
+
+
+	def updateMenu(self):
+		self.menuItemSave.set_sensitive(self.modelCollection.modelsLoaded())
+		self.menuItemClose.set_sensitive(self.modelCollection.modelsLoaded())
 	
 	
 	
@@ -1268,13 +1294,15 @@ class modelListView(gtk.VBox):
 			self.guiUpdateFunction()
 	
 	# Disable buttons so models can only be loaded in first tab.
-	def setSensitive(self, sensitive):
-		self.buttonLoad.set_sensitive(sensitive)
-		self.buttonRemove.set_sensitive(sensitive)
+	def setSensitive(self, load=True, remove=True):
+		self.buttonLoad.set_sensitive(load)
+		self.buttonRemove.set_sensitive(remove)
 	
 	def update(self):
-		self.modelList = self.modelCollection.modelList
-		print len(self.modelList)
+		# Update list.
+	#	self.modelList = self.modelCollection.modelList
+		# Select first model.
+		self.modelSelection.select_iter(self.modelList.get_iter(0))
 
 
 
