@@ -532,8 +532,8 @@ class modelData:
 		self.queueSlicerOut = Queue.Queue()
 		if self.filename != "":
 			# Initialise the thread.
-			print "Starting slicer thread."
-			self.slicerThread = backgroundSlicer(self.settings, self.programSettings, self.queueSlicerIn, self.queueSlicerOut)
+			self.console.addLine("Starting slicer thread")
+			self.slicerThread = backgroundSlicer(self.settings, self.programSettings, self.queueSlicerIn, self.queueSlicerOut, self.console)
 			self.slicerThread.start()
 				
 		
@@ -1500,13 +1500,14 @@ class sliceStack(list):
 # A thread to slice the model in background.	###################################
 ################################################################################		
 class backgroundSlicer(threading.Thread):
-	def __init__(self, settings, programSettings, queueSlicerIn, queueSlicerOut):
+	def __init__(self, settings, programSettings, queueSlicerIn, queueSlicerOut, console=None):
 		# Internalise inputs.
 #		self.slicingFunction = slicingFunction
 		self.settings = settings
 		self.programSettings = programSettings
 		self.queueSlicerIn = queueSlicerIn
 		self.queueSlicerOut = queueSlicerOut
+		self.console = console
 		# Thread stop event.
 		self.stopThread = threading.Event()
 		# Call super class init function.
@@ -1639,11 +1640,13 @@ class backgroundSlicer(threading.Thread):
 		self.idle()
 	
 	def stop(self):
-		print "Stopping slicer thread"
+		if self.console != None:
+			self.console.addLine("Stopping slicer thread")
 		self.stopThread.set()
 	
 	def join(self, timeout=None):
-		print "Stopping slicer thread"
+		if self.console != None:
+			self.console.addLine("Stopping slicer thread")
 		self.stopThread.set()
 		threading.Thread.join(self, timeout)
 	
