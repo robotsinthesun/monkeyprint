@@ -790,7 +790,7 @@ class gui(gtk.Window):
 			# Create the projector window.
 			self.windowPrint = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
 			# Start the print.
-			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
+			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection.getNumberOfSlices(), self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
 			self.printProcess.start()
 
 	def callbackStopPrintProcess(self, data=None):
