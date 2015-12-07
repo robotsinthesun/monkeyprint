@@ -1365,7 +1365,6 @@ class sliceStack(list):
 		# Set width and height.
 		# If program settings are supplied...
 		if programSettings != None:
-			print 'foo'
 			# use projector width and height.
 			self.width = self.programSettings['Projector size X'].value
 			self.height = self.programSettings['Projector size Y'].value
@@ -1600,7 +1599,7 @@ class backgroundSlicer(threading.Thread):
 	# Overload the run method.
 	# This will automatically run once the init function is done.	
 	def run(self):
-		print "Slicer thread initialised"
+		self.console.addLine("Slicer thread initialised")
 		# Go straight into idle mode.
 		self.idle()
 		

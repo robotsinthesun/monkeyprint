@@ -937,145 +937,9 @@ class gui(gtk.Window):
 		self.menuItemSave.set_sensitive(self.modelCollection.modelsLoaded())
 		self.menuItemClose.set_sensitive(self.modelCollection.modelsLoaded())
 	
-	
-	
 
 
 
-
-
-
-
-# Main menu. ###################################################################	
-	'''
-class menuBar(gtk.MenuBar):
-	# Override init function.
-	def __init__(self, settings, closeFunction):
-		# Call super class init function.
-		gtk.MenuBar.__init__(self)
-		self.show()
-		
-		self.settings = settings
-		self.closeFunction = closeFunction
-		
-		# Create file menu (does not have to be shown).
-		fileMenu = gtk.Menu()
-		
-		# Create file menu items.
-		menuItemOpen = gtk.MenuItem(label="Open project (coming soon)")
-		menuItemSave = gtk.MenuItem(label="Save project (coming soon)")
-		menuItemClose = gtk.MenuItem(label="Close project (coming soon)")
-		menuItemQuit = gtk.MenuItem(label="Quit")
-		
-		# Add to menu.
-		fileMenu.append(menuItemOpen)
-		fileMenu.append(menuItemSave)
-		fileMenu.append(menuItemClose)
-		fileMenu.append(menuItemQuit)
-		
-		# Connect menu items to callback signals.
-#		menuItemOpen.connect_object("activate", menuitem_response, "file.open")
-#		menuItemSave.connect_object("activate", menuitem_response, "file.save")
-#		menuItemClose.connect_object("activate", menuitem_response, "file.close")
-		menuItemQuit.connect("activate", self.callbackQuit)
-		
-		# Show the items.
-		menuItemOpen.show()
-		menuItemSave.show()
-		menuItemClose.show()
-		menuItemQuit.show()
-		
-		menuItemOpen.set_sensitive(False)
-		menuItemSave.set_sensitive(False)
-		menuItemClose.set_sensitive(False)
-		
-		
-		# Create file menu (does not have to be shown).
-		optionsMenu = gtk.Menu()
-		
-		# Create file menu items.
-		menuItemSettings = gtk.MenuItem(label="Settings")
-		menuItemFlash = gtk.MenuItem(label="Flash firmware")
-		menuItemManualControl = gtk.MenuItem(label="Manual control")
-		
-		# Connect callbacks.
-		menuItemSettings.connect("activate", self.callbackSettings)
-		menuItemFlash.connect("activate", self.callbackFlash)
-		menuItemManualControl.connect("activate", self.callbackManualControl)
-
-		# Add to menu.
-		optionsMenu.append(menuItemSettings)
-		optionsMenu.append(menuItemFlash)
-		optionsMenu.append(menuItemManualControl)
-
-		
-		# Connect menu items to callback signals.
-#		menuItemOpen.connect_object("activate", menuitem_response, "file.open")
-#		menuItemSave.connect_object("activate", menuitem_response, "file.save")
-#		menuItemClose.connect_object("activate", menuitem_response, "file.close")
-#		menuItemQuit.connect_object ("activate", destroy, "file.quit")
-		
-		# Show the items.
-		menuItemSettings.show()
-		menuItemFlash.show()
-		menuItemManualControl.show()
-		
-		
-		# Help menu.
-		helpMenu = gtk.Menu()
-		
-		menuItemDocu = gtk.MenuItem(label="Documentation")
-		menuItemAbout = gtk.MenuItem(label="About")
-		
-		menuItemDocu.set_sensitive(False)
-		menuItemAbout.set_sensitive(False)
-
-		menuItemDocu.connect("activate", self.callbackSettings)
-		menuItemAbout.connect("activate", self.callbackSettings)
-		
-		helpMenu.append(menuItemDocu)
-		helpMenu.append(menuItemAbout)
-		
-		menuItemDocu.show()
-		menuItemAbout.show()
-		
-		
-
-		# Create menu bar items.
-		menuItemFile = gtk.MenuItem(label="File")
-		menuItemFile.set_submenu(fileMenu)
-		self.append(menuItemFile)
-		menuItemFile.show()
-		
-		menuItemOptions = gtk.MenuItem(label="Options")
-		menuItemOptions.set_submenu(optionsMenu)
-		self.append(menuItemOptions)
-		menuItemOptions.show()
-		
-		menuItemHelp = gtk.MenuItem(label="Help")
-		menuItemHelp.set_submenu(helpMenu)
-		self.append(menuItemHelp)
-		menuItemHelp.show()
-	
-	def callbackQuit(self, event):
-		self.closeFunction(None, None, None)
-	
-	def callbackSettings(self, event):
-		dialogSettings(self.settings)
-		
-	def callbackFlash(self, event):
-		dialogFirmware(self.settings)
-	
-	def callbackManualControl(self, event):
-		dialogManualControl(self.settings)
-
-	def callbackDocu(self, event):
-		pass
-	
-	def callbackAbout(self, event):
-		pass
-
-'''
 
 # Model list. ##################################################################
 class modelListView(gtk.VBox):
@@ -1183,7 +1047,6 @@ class modelListView(gtk.VBox):
 			self.buttonRemove.set_sensitive(False)
 			# Update the gui.
 			self.guiUpdateFunction(state=0)
-			# TODO: Disable all the input entries and the supports/slicing/print tabs.
 		
 		# Now that we have the new selection, we can delete the previously selected model.
 		self.renderView.removeActors(self.modelCollection.getModel(self.modelList[(deletePath,0,0)][1]).getActor())
@@ -1811,7 +1674,7 @@ class dialogSettings(gtk.Window):
 		self.boxTilt.pack_start(self.entryTiltSpeed, expand=False, fill=False)
 		self.entryTiltSpeed.show()
 		
-		# Frame for Tilt stepper.
+		# Frame for build stepper.
 		self.frameBuildStepper = gtk.Frame('Build platform stepper')
 		self.boxCol2.pack_start(self.frameBuildStepper, expand=False, fill=False, padding=5)
 		self.frameBuildStepper.show()
@@ -1820,11 +1683,19 @@ class dialogSettings(gtk.Window):
 		self.boxBuildStepper.show()
 		# Entries.
 		# Resolution.
-		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build steps / mm', self.settings, width=15)
+		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build step angle', self.settings, width=15)
+		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
+		self.entryBuildStepsPerMm.show()
+		# Resolution.
+		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build microstepping', self.settings, width=15)
+		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
+		self.entryBuildStepsPerMm.show()
+		# Resolution.
+		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build mm / turn', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
 		self.entryBuildStepsPerMm.show()
 		# Ramp slope.
-		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Ramp slope', self.settings, width=15)
+		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Buil ramp slope', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildRampSlope, expand=False, fill=False)
 		self.entryBuildRampSlope.show()
 		# Tilt speed.
