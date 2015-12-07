@@ -384,20 +384,35 @@ class gui(gtk.Window):
 			
 	
 	def callbackClose(self, event):
-		self.console.addLine("Closing print job...")
-		# Remove all actors from view.
-		self.renderView.removeActors(self.modelCollection.getAllActors())
-		# Remove all models.
-		self.modelCollection.removeAll()
-		# Set menu item sensitivities.
-		# Update menu to set sensitivities.
-		self.updateMenu()
-		# Update model list view to set sensitivities.
-		self.modelListView.setSensitive(remove=self.modelCollection.modelsLoaded())
-		# Update notebook to set sensitivities.
-		self.updateAllEntries(state=0)
-		# Render.
-		self.renderView.render()
+		# Create a dialog window with yes/no buttons.
+		dialog = gtk.MessageDialog(self,
+			gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+			gtk.MESSAGE_QUESTION,
+			gtk.BUTTONS_YES_NO,
+			"Do you really want to close the current project?")
+     	     # Set the title.
+			dialog.set_title("Close project?")
+			# Check the result and respond accordingly.
+			response = dialog.run()
+			dialog.destroy()
+			if response == gtk.RESPONSE_YES:
+				self.console.addLine("Closing print job...")
+				# Remove all actors from view.
+				self.renderView.removeActors(self.modelCollection.getAllActors())
+				# Remove all models.
+				self.modelCollection.removeAll()
+				# Set menu item sensitivities.
+				# Update menu to set sensitivities.
+				self.updateMenu()
+				# Update model list view to set sensitivities.
+				self.modelListView.setSensitive(remove=self.modelCollection.modelsLoaded())
+				# Update notebook to set sensitivities.
+				self.updateAllEntries(state=0)
+				# Render.
+				self.renderView.render()
+	#		else:
+	#			return True # returning True avoids it to signal "destroy-event"
+		
 
 	
 	def callbackQuit(self, event):
