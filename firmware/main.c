@@ -180,7 +180,7 @@ int main(void)
 		else if (strlen(testBuffer)>0)
 		{
 			// Retrieve first string and second string separated by space.
-			// Does not work for strings longer than 16 chars.
+			// Does not work if first + second string is longer than 16 chars.
 			firstString = strtok(testBuffer, " ");
 			secondString = strtok(NULL, " ");	// WHY DOES THIS WORK?
 
@@ -223,6 +223,30 @@ int main(void)
 				// Adjust value according to input.
 				buildPlatformSetSpeed(stringValue);
 				sendStringUSB("buildSpeed\n");
+			}
+			else if (!(strcmp(firstString, "buildRes")))
+			{
+				// Retrieve value and convert to int.
+				stringValue = atoi(secondString);
+				// Adjust value according to input.
+				buildPlatformSetResolution(stringValue);
+				sendStringUSB("buildRes\n");
+			}
+			else if (!(strcmp(firstString, "buildMinMove")))
+			{
+				// Retrieve value and convert to int.
+				stringValue = atoi(secondString);
+				// Adjust value according to input.
+				buildPlatformSetMinMove(stringValue);
+				sendStringUSB("buildMinMove\n");
+			}
+			else if (!(strcmp(firstString, "buildMove")))
+			{
+				// Retrieve value and convert to int.
+				stringValue = atoi(secondString);
+				// Adjust value according to input.
+				buildPlatformMove(stringValue);
+				sendStringUSB("buildMove\n");
 			}
 			else if (!(strcmp(firstString, "printingFlag")))
 			{

@@ -215,6 +215,9 @@ void tiltSetSpeed (uint8_t input)
 // Layer stuff.
 uint8_t buildPlatformLayer = 36;		// See stuff file for calculations.
 uint8_t buildPlatformBaseLayer = 10;
+uint16_t buildPlatformResolution = 3200;
+uint8_t buildPlatformMinimumMove = 20;
+uint16_t buildPlatformTargetPositionMax = 32000;
 uint8_t buildPlatformLayerEep EEMEM;
 uint8_t buildPlatformBaseLayerEep EEMEM;
 
@@ -311,7 +314,29 @@ void buildPlatformSetSpeed (uint8_t input)
 	eeprom_update_byte (&buildPlatformSpeedEep, buildPlatformSpeed);
 }
 
+void buildPlatformSetResolution (uint16_t input)
+{
+	buildPlatformResolution = input;
+	sendByteAsStringUSB(buildPlatformResolution);
+}
 
+void buildPlatformSetMinMove (uint16_t input)
+{
+	buildPlatformMinimumMove = input;
+	sendByteAsStringUSB(buildPlatformMinimumMove);
+}
+
+void buildPlatformSetTargetPositionMax (uint16_t input)
+{
+	if (input > 65535)
+	{
+		buildPlatformTargetPositionMax = 65535;
+	}
+	else
+	{
+		buildPlatformTargetPositionMax = input;
+	}
+}
 
 // Adjust build platform position. *********************************************
 void buildPlatformAdjustPosition (uint8_t input)
@@ -434,7 +459,7 @@ void buildPlatformHome (void)
 
 
 
-// Move build platform to top. Input is speed from 1 (slow) to 4 (fast). *******
+// Move build platform to top. *************************************************
 void buildPlatformTop (void)
 {
 	if (!(TCCR1B & (1 << CS10)))	// If not running.
@@ -483,6 +508,13 @@ void buildPlatformBaseLayerUp(void)
 	else buildPlatformTargetPosition += buildPlatformBaseLayer;
 }
 
+
+void buildPlatformMove (uint16_t input)
+{
+	if ((buildPlatformTargetPosition + input) > BUILDPLATFORM_TARGET_POSITION_MAX) buildPlatformTargetPosition = BUILDPLATFORM_TARGET_POSITION_MAX;
+	else if ((buildPlatformTargetPosition + input) < 0) buildPlatformTargetPosition = 0;
+	else buildPlatformTargetPosition += input;
+}
 
 
 // Compare build platform current and target position. *************************
@@ -554,7 +586,7 @@ void buildPlatformComparePosition (uint8_t buildPlatformSpeed)
 
 
 
-// Control build platform movement. ********************************************		TO DO: ramping
+// Control build platform movement. ********************************************TODO: ramping
 void buildPlatformControl(void)
 {
 	// Adjust speed for ramping.
@@ -562,7 +594,6 @@ void buildPlatformControl(void)
 	{
 		buildTimerCompareValue -= 20;
 		// Testing
-		sendByteAsStringUSB(buildTimerCompareValue);
 		timer1SetCompareValue(buildTimerCompareValue);
 	}
 
@@ -572,7 +603,7 @@ void buildPlatformControl(void)
 	{
 		// Increment step counter every step.
 		// Test if steps per standard layer are reached.
-		if (++buildPlatformCount == BUILDPLATFORM_STEPS_PER_STANDARD_LAYER)
+		if (++buildPlatformCount == buildPlatformMinimumMove)
 		{
 			// Reset step counter
 			buildPlatformCount = 0;
@@ -599,7 +630,7 @@ void buildPlatformControl(void)
 	else
 	{
 		// Increment step counter every step.
-		if (++buildPlatformCount == BUILDPLATFORM_STEPS_PER_STANDARD_LAYER)
+		if (++buildPlatformCount == buildPlatformMinimumMove)
 		{
 			// Dont check if homing. Go until limit switch is hit.
 			if (buildPlatformHomingFlag)

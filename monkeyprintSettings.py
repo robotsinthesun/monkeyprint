@@ -103,7 +103,7 @@ class jobSettings(dict):
 		self.console = console
 		# Create objects for all the settings and put them into dictionary.
 		# Load defaults from program settings to get settings saved from last session.
-		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')
+		self['Layer height'] = setting(value=0.1, lower=.01, upper=0.3, unit='mm')
 		self['projectPath'] = programSettings['currentFolder']#setting(value="")		
 		self['Exposure time base'] = programSettings['Exposure time base']#setting(value=14.0, lower=1.0, upper=15.0)
 		self['Exposure time'] = programSettings['Exposure time']#setting(value=9.0, lower=1.0, upper=15.0)
@@ -148,11 +148,12 @@ class programSettings(dict):
 		self['Tilt angle'] = setting(value='14', default='14')
 		self['Tilt speed'] = setting(value='10', default='10')
 		self['Tilt speed slow'] = setting(value='4', default='4')
-		self['Build step angle'] = setting(value='1.8', default='1.8', unit=["°"])
+		self['Build step angle'] = setting(value='1.8', default='1.8', unit="°")
 		self['Build microsteps per step'] = setting(value=16, default=16, lower=1, upper=32)
-		self['Build mm / turn'] = setting(value=1.0, default=1.0, unit=["mm"])
-		self['Ramp slope'] = setting(value=15, default=15)
-		self['Build platform speed'] = setting(value='10', default='10', unit=['mm/s'])
+		self['Build mm per turn'] = setting(value=1.0, default=1.0, unit="mm")
+		self['Build minimum move'] = setting(value=0.01, default=0.01, unit="mm")
+		self['Build ramp slope'] = setting(value=15, default=15)
+		self['Build platform speed'] = setting(value='10', default='10', unit='mm/s')
 		self['Show fill'] = setting(value=True)
 		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')
 		self['Model safety distance'] = setting(value=1.0, unit='mm')

@@ -214,19 +214,20 @@ class printerStandalone():
 		# Send command.
 		if self.serial != None:
 			# Cast inputs.
-			if value != None: value = float(value)
+		#	if value != None: value = int(value)
 			if wait != None: wait = int(wait)
 			# Start loop that sends and waits for ack until timeout five times.
 			# Set timeout to 5 seconds.
 			count = 0
 			self.serial.timeout = 5
 			while count < 5:
+				sendString = string
 				# Create command string from string and value.
 				# Separate string and value by space.
 				if value != None:
-					string = string + " " + str(value)
+					sendString = sendString + " " + str(value)
 				# Send command.
-				self.serial.write(string)
+				self.serial.write(sendString)
 				# If retry flag is set...
 				if retry:
 					# ... listen for ack until timeout.

@@ -790,7 +790,7 @@ class gui(gtk.Window):
 			# Create the projector window.
 			self.windowPrint = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
 			# Start the print.
-			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection.getNumberOfSlices(), self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
+			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
 			self.printProcess.start()
 
 	def callbackStopPrintProcess(self, data=None):
@@ -1687,15 +1687,15 @@ class dialogSettings(gtk.Window):
 		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
 		self.entryBuildStepsPerMm.show()
 		# Resolution.
-		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build microstepping', self.settings, width=15)
+		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build microsteps per step', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
 		self.entryBuildStepsPerMm.show()
 		# Resolution.
-		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build mm / turn', self.settings, width=15)
+		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build mm per turn', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
 		self.entryBuildStepsPerMm.show()
 		# Ramp slope.
-		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Buil ramp slope', self.settings, width=15)
+		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Build ramp slope', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildRampSlope, expand=False, fill=False)
 		self.entryBuildRampSlope.show()
 		# Tilt speed.
