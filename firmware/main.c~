@@ -356,7 +356,7 @@ int main(void)
 			// Disable steppers if idle for more than 100 seconds or print has ended.
 			if ( !( (TCCR1B & (1 << CS10)) || (TCCR3B & (1 << CS30)) || (TCCR4B & (1 << CS43 | 1 << CS40)) ) )
 			{
-				if (++stepperIdleCount == 1000) || !(printerGetState())
+				if (++stepperIdleCount == 1000) && !(printerGetState())
 				{
 					stepperIdleCount = 0;
 					disableSteppers();	// Dont do this to avoid loosing steps. Do this on purpose only and not during prints.

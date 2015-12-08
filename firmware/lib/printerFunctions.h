@@ -84,7 +84,7 @@ void buildPlatformAdjustBaseLayerHeight (uint8_t input);		// Increase or decreas
 void buildPlatformSetBaseLayerHeight (uint8_t input);
 void buildPlatformHome (void);						// Move build platform to lowest position using end switch.
 void buildPlatformTop (void);						// Move build platform to top position using end switch.
-void buildPlatformMove (uint16_t);					// Move by specific number of steps.
+void buildPlatformMove (int16_t);					// Move by specific number of steps.
 //void buildPlatformSetTarget(int16_t input);				// Set build platform target position.
 void buildPlatformComparePosition(uint8_t buildPlatformSpeed);		// Compare current and target position, start stepper if mismatch.
 void buildDisableStepper(void);						// Disable stepper.

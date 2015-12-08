@@ -186,8 +186,8 @@ void tiltControl (void)
 			ledGreenOn();
 			ledYellowOff();
 			// Run stepper backwards.
-			sendStringUSB("End count");
-			sendByteAsStringUSB(tiltCounter);
+		//	sendStringUSB("End count");
+		//	sendByteAsStringUSB(tiltCounter);
 			// Reset tilt counter and flip direction.
 			tiltCounter = 0;
 			tiltStepperSetBackward();
@@ -222,8 +222,8 @@ void tiltControl (void)
 			
 			ledGreenOff();
 			// Run stepper backwards.
-			sendStringUSB("End count");
-			sendByteAsStringUSB(tiltCounter);
+		//	sendStringUSB("End count");
+		//	sendByteAsStringUSB(tiltCounter);
 			// Just keep on running until the end switch is hit.
 		}
 	}
@@ -373,6 +373,14 @@ void buildPlatformDisableStepper(void)
 {
 	// Disable stepper driver.
 	BUILDENABLEPORT &= ~(1 << BUILDENABLEPIN);
+	// Deactivate stepper timer clock source.
+	TCCR1B &= ~(1 << CS10);
+}
+
+void buildPlatformStopStepper(void)
+{
+	// Disable stepper driver.
+//	BUILDENABLEPORT &= ~(1 << BUILDENABLEPIN);
 	// Deactivate stepper timer clock source.
 	TCCR1B &= ~(1 << CS10);
 }
@@ -627,13 +635,19 @@ void buildPlatformBaseLayerUp(void)
 }
 
 
-void buildPlatformMove (uint16_t input)
+void buildPlatformMove (int16_t input)
 {
 	if ((buildPlatformTargetPosition + input) > BUILDPLATFORM_TARGET_POSITION_MAX) buildPlatformTargetPosition = BUILDPLATFORM_TARGET_POSITION_MAX;
 	else if ((buildPlatformTargetPosition + input) < 0) buildPlatformTargetPosition = 0;
 	else buildPlatformTargetPosition += input;
 }
 
+uint16_t buildRampSlope = 600;
+uint16_t buildRampLength;
+uint16_t buildNumberOfSteps;
+volatile uint16_t buildRampUpEnd;
+volatile uint16_t buildRampDownStart;
+volatile uint16_t buildRampCounter;
 
 // Compare build platform current and target position. *************************
 void buildPlatformComparePosition (uint8_t buildPlatformSpeed)
@@ -650,12 +664,35 @@ void buildPlatformComparePosition (uint8_t buildPlatformSpeed)
 		timer1SetCompareValue(buildTimerCompareValue);
 	}	
 
-
 	// Move upwards.
 	if (buildPlatformPosition < buildPlatformTargetPosition && !(TCCR1B & (1 << CS10)))
 	{
 		if (!(LIMITBUILDTOPPOLL & (1 << LIMITBUILDTOPPIN)))	// Check end switch (active high).
 		{
+			// Get number of steps to move.
+			buildNumberOfSteps = buildPlatformTargetPosition - buildPlatformPosition;
+	//		sendStringUSB("N steps: ");
+	//		sendByteAsStringUSB(buildNumberOfSteps);
+			// Calculate ramping points.
+			// Consider end speed and calculate ramp length by slope.
+			buildRampLength = (buildTimerCompareValue - buildTimerTargetCompareValue) / buildRampSlope;
+			// If ramp will be longer than half of the number of steps...
+			if (buildNumberOfSteps < buildRampLength * 2)
+			{
+				// Calc ramp length 
+				buildRampLength = buildNumberOfSteps / 2;
+			}
+			
+			buildRampUpEnd = buildRampLength;
+	//		sendStringUSB("Up end: ");
+	//		sendByteAsStringUSB(buildRampUpEnd);
+			buildRampDownStart = buildNumberOfSteps - buildRampLength;
+	//		sendStringUSB("Down start length: ");
+	//		sendByteAsStringUSB(buildRampDownStart);
+			
+			// Reset counter for ramping.
+			buildRampCounter = 0;
+	
 			ledYellowOn();
 			// Set upward direction.
 			buildPlatformUpwards();
@@ -671,6 +708,23 @@ void buildPlatformComparePosition (uint8_t buildPlatformSpeed)
 	{
 		if (!(LIMITBUILDBOTTOMPOLL & (1 << LIMITBUILDBOTTOMPIN)))
 		{
+			// Get number of steps to move.
+			buildNumberOfSteps = buildPlatformPosition - buildPlatformTargetPosition;
+			// Calculate ramping points.
+			// Consider end speed and calculate ramp length by slope.
+			buildRampLength = (buildTimerCompareValue - buildTimerTargetCompareValue) / buildRampSlope;
+			// If ramp will be longer than half of the number of steps...
+			if (buildNumberOfSteps < buildRampLength * 2)
+			{
+				// Calc ramp length 
+				buildRampLength = buildNumberOfSteps / 2;
+			}
+			buildRampUpEnd = buildRampLength;
+			buildRampDownStart = buildNumberOfSteps - buildRampLength;
+			
+			// Reset counter for ramping.
+			buildRampCounter = 0;
+			
 			ledGreenOn();
 			// Set downward direction.
 			buildPlatformDownwards();
@@ -687,8 +741,19 @@ void buildPlatformComparePosition (uint8_t buildPlatformSpeed)
 		// Home limit switch not active (low).
 		if (!(LIMITBUILDBOTTOMPOLL & (1 << LIMITBUILDBOTTOMPIN)))
 		{
+			// Ramping.
+			// Consider end speed and calculate ramp length by slope.
+			buildRampLength = (buildTimerCompareValue - buildTimerTargetCompareValue) / buildRampSlope;
+			buildRampUpEnd = buildRampLength;
+			sendStringUSB("Up end: ");
+			sendByteAsStringUSB(buildRampUpEnd);
+			buildRampDownStart = 65535;
+			sendStringUSB("Down start length: ");
+			sendByteAsStringUSB(buildRampDownStart);
+			// Set a dummy value for build ramp down start point.
+			buildRampCounter = 0;
 			ledGreenOn();
-			// Set upward direction.
+			// Set downward direction.
 			buildPlatformDownwards();
 			
 			// Enable stepper.
@@ -707,14 +772,14 @@ void buildPlatformComparePosition (uint8_t buildPlatformSpeed)
 // Control build platform movement. ********************************************TODO: ramping
 void buildPlatformControl(void)
 {
-	// Adjust speed for ramping.
-	if (buildTimerCompareValue > buildTimerTargetCompareValue)
+	
+/*	if (buildTimerCompareValue > buildTimerTargetCompareValue)
 	{
 		buildTimerCompareValue -= 20;
 		// Testing
 		timer1SetCompareValue(buildTimerCompareValue);
 	}
-
+*/
 	// Adjust position every nth step. ********************
 	// Upward direction.
 	if (!(BUILDDIRPORT & (1 << BUILDDIRPIN)))
@@ -723,6 +788,20 @@ void buildPlatformControl(void)
 		// Test if steps per standard layer are reached.
 		if (++buildPlatformCount == buildPlatformMinimumMove)	// should be configured to be 0.01 mm
 		{
+			buildRampCounter += 1;
+		//	sendByteAsStringUSB(buildRampCounter);
+			// Ramp up.
+			if (buildRampCounter < buildRampUpEnd)
+			{
+				buildTimerCompareValue -= buildRampSlope;
+				timer1SetCompareValue(buildTimerCompareValue);
+			}
+			// If ramping down.
+			if ((buildRampCounter > buildRampDownStart) && !(buildPlatformHomingFlag))
+			{
+				buildTimerCompareValue += buildRampSlope;
+				timer1SetCompareValue(buildTimerCompareValue);
+			}	
 			// Reset step counter
 			buildPlatformCount = 0;
 			// Deactivate stepper if target reached.
@@ -732,7 +811,7 @@ void buildPlatformControl(void)
 				// Disable stepper.
 				ledGreenOff();
 				ledYellowOff();
-				buildPlatformDisableStepper();
+				buildPlatformStopStepper();
 		//		menuChanged();
 			}
 			else if (buildPlatformPosition > buildPlatformTargetPosition)
@@ -750,6 +829,22 @@ void buildPlatformControl(void)
 		// Increment step counter every step.
 		if (++buildPlatformCount == buildPlatformMinimumMove)
 		{
+			// Ramping.
+			buildRampCounter += 1;
+			sendByteAsStringUSB(buildRampCounter);
+			// Ramp up.
+			if (buildRampCounter < buildRampUpEnd)
+			{
+				sendStringUSB("foo");
+				buildTimerCompareValue -= buildRampSlope;
+				timer1SetCompareValue(buildTimerCompareValue);
+			}
+			// If ramping down.
+			if (buildRampCounter > buildRampDownStart)
+			{
+				buildTimerCompareValue += buildRampSlope;
+				timer1SetCompareValue(buildTimerCompareValue);
+			}	
 			// Dont check if homing. Go until limit switch is hit.
 			if (buildPlatformHomingFlag)
 			{
@@ -767,7 +862,7 @@ void buildPlatformControl(void)
 				{
 					ledGreenOff();
 					ledYellowOff();
-					buildPlatformDisableStepper();
+					buildPlatformStopStepper();
 				//	menuChanged();
 				}
 				else if (buildPlatformPosition < buildPlatformTargetPosition)
@@ -786,7 +881,7 @@ void buildPlatformControl(void)
 		// Dectivate stepper timer clock source.
 		ledYellowOff();
 		ledGreenOff();
-		buildPlatformDisableStepper();
+		buildPlatformStopStepper();
 		//TCCR1B &= ~(1 << CS10);
 		// Reset stop flag.
 		stopFlag = 0;
@@ -1288,8 +1383,8 @@ void printerSetNumberOfSlices(uint16_t input)
 
 void disableSteppers(void)
 {
-	TILTENABLEPORT |= (1 << TILTENABLEPIN);
-	BUILDENABLEPORT |= (1 << BUILDENABLEPIN);
+	TILTENABLEPORT &= ~(1 << TILTENABLEPIN);
+	BUILDENABLEPORT &= ~(1 << BUILDENABLEPIN);
 //	BEAMERENABLEPORT |= (1 << BEAMERENABLEPIN);
 }
 //void tiltDisableStepper(void)
