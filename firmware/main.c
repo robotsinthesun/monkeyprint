@@ -503,7 +503,7 @@ ISR (INT6_vect)
 	ledGreenOff();
 	if (tiltStepperRunning() && !(tiltStepperGetDirection()))
 	{
-		disableTiltStepper();
+		stopTiltStepper();
 		// Set forward direction for next run.
 		tiltStepperSetForward();
 	}

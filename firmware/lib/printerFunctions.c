@@ -38,13 +38,18 @@ uint16_t tiltAngle = 400;
 #define TILT_ANGLE_MIN 1
 #define TILT_ANGLE_MAX 4
 #define TILT_STEPS_PER_TURN 800
+#define TILT_TIMER_COMPARE_MAX 380
 uint16_t tiltAngleEep EEMEM;
+uint8_t tiltRampSlope = 6;
+uint16_t tiltRampLength;// = 20;
+uint16_t tiltRampUpEnd = 0;
+uint16_t tiltRampDownStart = 0;
 
 uint16_t tiltAngleMin = 0;	//TODO
 uint16_t tiltAngleMax = 400;	// Tilt steps for 180°.
 uint16_t tiltAngleFull = 800;	// Tilt steps for 360°.
 
-uint16_t tiltCompareValue;
+volatile uint16_t tiltTimerCompareValue;
 volatile uint16_t tiltCounter = 0;
 //volatile uint16_t tiltCounterMax = 0;
 volatile uint8_t tiltingFlag = 0;
@@ -73,6 +78,14 @@ void disableTiltStepper ( void )
 	TCCR3B &= ~(1 << CS30);
 	//TCCR3B &= ~(1 << CS30);
 }
+// Stop stepper without disabling. *********************************************
+void stopTiltStepper ( void )
+{
+	// Stop.
+	TCCR3B &= ~(1 << CS31);
+	TCCR3B &= ~(1 << CS30);
+	//TCCR3B &= ~(1 << CS30);
+}
 // Set forward direction. ******************************************************
 void tiltStepperSetForward ( void )
 {
@@ -94,15 +107,44 @@ void tilt(uint8_t inputAngle, uint8_t inputSpeed)
 	// Tilt angle 10--180° in steps of 10° --> 1--18.
 	// Tilt speed 0.25--2.5 Hz in steps of 0.25 Hz --> 1--10. See log file for calculations.
 	// Timer compare value = -158 * x + 1738 with x ranging from 1--10. Output will be 
-	int16_t tiltTimerCompareValue = inputSpeed * -158;
-	tiltTimerCompareValue += 1738;
-	tiltTimerCompareValue /= 10;
+	int16_t tiltTimerCompareValueCalc = inputSpeed * -158;
+	tiltTimerCompareValueCalc += 1738;
+	tiltTimerCompareValue = tiltTimerCompareValueCalc / 10;
 // TODO ordentlich machen
 //	tiltTimerCompareValue *= 2;
-	timer3SetCompareValue(tiltTimerCompareValue);
+//	timer3SetCompareValue(tiltTimerCompareValue);	// Do this later, calc ramps first.
 
 	// Tilt angle 1--18 (10°--180°) --> 89--1600 steps (3200 steps per rev).
 	//tiltAngleSteps = inputAngle * 89;
+
+	// Calculate ramping points.
+	// Consider end speed and calc ramp length by slope.
+	tiltRampLength = (TILT_TIMER_COMPARE_MAX - tiltTimerCompareValue) / tiltRampSlope;
+	// If ramp will be longer than half of the number of steps...
+	if (tiltAngleSteps < tiltRampLength * 2)
+	{
+		// Calc ramp length 
+		tiltRampLength = tiltAngleSteps / 2;
+	}
+	tiltRampUpEnd = tiltRampLength;
+	tiltRampDownStart = tiltAngleSteps - tiltRampLength;
+//	sendStringUSB("Upward ramp end point");
+//	sendByteAsStringUSB(tiltRampUpEnd);
+//	sendStringUSB("Downward ramp start point");
+//	sendByteAsStringUSB(tiltRampDownStart);
+//	sendStringUSB("Timer top value");
+//	sendByteAsStringUSB(tiltTimerCompareValue);
+	
+	
+
+	// Now set the timer compare value. Start with lowest speed.
+	tiltTimerCompareValue = TILT_TIMER_COMPARE_MAX;
+//	sendStringUSB("Timer start value");
+//	sendByteAsStringUSB(tiltTimerCompareValue);
+	timer3SetCompareValue(tiltTimerCompareValue);
+
+	
+
 
 	// Reset tilt counter.
 	tiltCounter = 0;
@@ -120,9 +162,23 @@ void tilt(uint8_t inputAngle, uint8_t inputSpeed)
 void tiltControl (void)
 {
 	// Check direction. Only reverse if forward.
-//	if (!(TILTDIRPOLL & (1 << TILTDIRPIN)))
 	if (tiltStepperGetDirection())
 	{
+		// Ramp.
+		// If ramping up...
+		if (tiltCounter < tiltRampUpEnd)
+		{
+	//		sendByteAsStringUSB(tiltTimerCompareValue);
+			tiltTimerCompareValue -= tiltRampSlope;
+			timer3SetCompareValue(tiltTimerCompareValue);
+		}
+		// If ramping down.
+		if (tiltCounter > tiltRampDownStart)
+		{
+
+			tiltTimerCompareValue += tiltRampSlope;
+			timer3SetCompareValue(tiltTimerCompareValue);
+		}	
 		// Increase step count and compare to target count.
 		if (++tiltCounter == tiltAngleSteps)
 		{
@@ -130,9 +186,45 @@ void tiltControl (void)
 			ledGreenOn();
 			ledYellowOff();
 			// Run stepper backwards.
-			sendByteAsStringUSB(tiltCounter);
+		//	sendStringUSB("End count");
+		//	sendByteAsStringUSB(tiltCounter);
+			// Reset tilt counter and flip direction.
+			tiltCounter = 0;
 			tiltStepperSetBackward();
-			// TILTDIRPORT ^= (1 << TILTDIRPIN);
+
+		}
+	}
+	
+	// Check direction. Only if backward.
+	else
+	{
+		// Ramp.
+//		sendStringUSB("Cnt: ");
+//		sendByteAsStringUSB(tiltCounter);
+		// If ramping up...
+		if (tiltCounter < tiltRampUpEnd)
+		{
+	//		sendByteAsStringUSB(tiltTimerCompareValue);
+			tiltTimerCompareValue -= tiltRampSlope;
+			timer3SetCompareValue(tiltTimerCompareValue);
+		}
+		// If ramping down.
+		if (tiltCounter > tiltRampDownStart)
+		{
+//			sendStringUSB("timer: ");
+			tiltTimerCompareValue += tiltRampSlope;
+//			sendByteAsStringUSB(tiltTimerCompareValue);
+			timer3SetCompareValue(tiltTimerCompareValue);
+		}	
+		// Increase step count and compare to target count.
+		if (++tiltCounter == tiltAngleSteps)
+		{
+			
+			ledGreenOff();
+			// Run stepper backwards.
+		//	sendStringUSB("End count");
+		//	sendByteAsStringUSB(tiltCounter);
+			// Just keep on running until the end switch is hit.
 		}
 	}
 }
@@ -195,7 +287,7 @@ void tiltSetAngle (uint16_t input)
 		tiltAngleSteps = tiltAngleFull;
 		
 	}
-	else if (input<tiltAngleMin)
+	else if (input < tiltAngleMin)
 	{
 		tiltAngleSteps = tiltAngleMin;
 	}
@@ -477,19 +569,10 @@ void buildPlatformHome (void)
 		// Stop motor if running already.
 		else
 		{
-	//		LEDPORT ^= (1<<LEDPIN);
 			stopFlag = 1;
 			buildPlatformHomingFlag = 0;
 		}
 	}
-	
-/*	if (!(LIMITBUILDBOTTOMPOLL & (1 << LIMITBUILDBOTTOMPIN)))
-	{
-// TODO: Wait a bit to give control script a chance to listen for inputs.
-		_delay_ms(100);
-		printerOperatingFlag = 1;
-	}
-*/		
 }
 
 
@@ -632,13 +715,13 @@ void buildPlatformControl(void)
 		timer1SetCompareValue(buildTimerCompareValue);
 	}
 
-	// Adjust position every 20th step (every 0.01 mm). ********************
+	// Adjust position every nth step. ********************
 	// Upward direction.
 	if (!(BUILDDIRPORT & (1 << BUILDDIRPIN)))
 	{
 		// Increment step counter every step.
 		// Test if steps per standard layer are reached.
-		if (++buildPlatformCount == buildPlatformMinimumMove)
+		if (++buildPlatformCount == buildPlatformMinimumMove)	// should be configured to be 0.01 mm
 		{
 			// Reset step counter
 			buildPlatformCount = 0;
@@ -1047,7 +1130,7 @@ void printerInit (void)
 //	lcd_puts("Initialising printer.");	
 	
 	// Initialise values.
-	tiltSpeed = 1;
+	tiltSpeed = 6;
 	tiltAngle = 3;
 	buildPlatformHomingFlag = 0;
 	buildPlatformPosition = 0;

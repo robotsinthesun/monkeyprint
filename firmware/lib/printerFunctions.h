@@ -27,12 +27,12 @@ void printerInit(void);
 // Variables. ******************************************************************
 uint8_t tiltSpeed;
 uint16_t tiltAngle;
-uint16_t tiltCompareValue;
+volatile uint16_t tiltTimerCompareValue;
 volatile uint16_t tiltCounter;
 volatile uint16_t tiltCounterMax;
 volatile uint8_t tiltingFlag;
 uint16_t tiltAngleSteps;
-int16_t tiltTimerCompareValue;
+//int16_t tiltTimerCompareValue;
 
 // Turn with given angle and speed. ********************************************
 uint8_t tiltStepperRunning(void);
@@ -46,6 +46,7 @@ uint8_t tiltStepperGetDirection(void);
 void tilt(uint8_t tiltAngle, uint8_t tiltSpeed);
 void controlTilt(void);
 void tiltDisableStepper(void);
+void stopTiltStepper(void);
 void tiltSetSpeed(uint8_t input);
 
 
