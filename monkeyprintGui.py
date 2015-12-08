@@ -284,6 +284,7 @@ class gui(gtk.Window):
 		filepath = ""
 		# File open dialog to retrive file name and file path.
 		dialog = gtk.FileChooserDialog("Load project", None, gtk.FILE_CHOOSER_ACTION_OPEN, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+		dialog.set_modal(True)
 		dialog.set_default_response(gtk.RESPONSE_OK)
 		dialog.set_current_folder(self.programSettings['currentFolder'].value)
 		# File filter for the dialog.
@@ -352,6 +353,7 @@ class gui(gtk.Window):
 		filepath = ""
 		# File open dialog to retrive file name and file path.
 		dialog = gtk.FileChooserDialog("Save project", None, gtk.FILE_CHOOSER_ACTION_SAVE, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+		dialog.set_modal(True)
 		dialog.set_default_response(gtk.RESPONSE_OK)
 		dialog.set_current_folder(self.programSettings['currentFolder'].value)
 		# File filter for the dialog.
@@ -422,10 +424,10 @@ class gui(gtk.Window):
 		dialogSettings(self.programSettings, parent=self)
 		
 	def callbackFlash(self, event):
-		dialogFirmware(self.programSettings)
+		dialogFirmware(self.programSettings, parent=self)
 	
 	def callbackManualControl(self, event):
-		dialogManualControl(self.programSettings)
+		dialogManualControl(self.programSettings, parent=self)
 
 	def callbackDocu(self, event):
 		pass
@@ -1187,9 +1189,15 @@ class modelListView(gtk.VBox):
 # Window for firmware upload. ##################################################
 class dialogFirmware(gtk.Window):
 	# Override init function.
-	def __init__(self, settings):
+	def __init__(self, settings, parent):
 		# Call super class init function.
 		gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+		# Set title.
+		self.set_title("Ready to print?")
+		# Set modal.
+		self.set_modal(True)
+		# Associate with parent window (no task bar icon, hide if parent is hidden etc)
+		self.set_transient_for(parent)
 		self.show()
 		
 		# Internalise settings.
@@ -1383,9 +1391,15 @@ class dialogFirmware(gtk.Window):
 
 class dialogManualControl(gtk.Window):
 	# Override init function.
-	def __init__(self, settings):
+	def __init__(self, settings, parent):
 		# Call super class init function.
 		gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+		# Set title.
+		self.set_title("Manual printer control?")
+		# Set modal.
+		self.set_modal(True)
+		# Associate with parent window (no task bar icon, hide if parent is hidden etc)
+		self.set_transient_for(parent)
 		self.show()
 		
 		# Internalise settings.
@@ -1827,7 +1841,7 @@ class dialogSettings(gtk.Window):
 # or just exit on cancel.
 class dialogStartPrint(gtk.Window):
 	# Override init function.
-	def __init__(self):
+	def __init__(self, parent):
 		# Call super class init function.
 		gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
 #		self.show()
@@ -1836,8 +1850,7 @@ class dialogStartPrint(gtk.Window):
 		# Set modal.
 		self.set_modal(True)
 		# Associate with parent window (no task bar icon, hide if parent is hidden etc)
-#TODO	print self.get_parent().get_parent_window()
-#TODO	self.set_transient_for(self.get_parent_window())
+		self.set_transient_for(parent)
 		self.result = False
 		# Create check buttons.
 		self.boxCheckbuttons = gtk.VBox()
