@@ -487,7 +487,7 @@ ISR (INT0_vect)
 
 	ledGreenOff();
 	// Disable build platform clock timer.
-	buildPlatformDisableStepper();
+	buildPlatformStopStepper();
 //	TCCR1B &= ~(1 << CS10);		// Deactivate timer by disabling clock source.
 	// Reset flags and position.
 	buildPlatformHomingFlag = 0;

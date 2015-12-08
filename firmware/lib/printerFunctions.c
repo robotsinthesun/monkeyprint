@@ -579,6 +579,8 @@ void buildPlatformHome (void)
 		{
 			stopFlag = 1;
 			buildPlatformHomingFlag = 0;
+			buildPlatformPosition = 0;
+			buildPlatformTargetPosition = 0;
 		}
 	}
 }
@@ -591,6 +593,10 @@ void buildPlatformTop (void)
 	if (!(TCCR1B & (1 << CS10)))	// If not running.
 	{
 		buildPlatformTargetPosition = BUILDPLATFORM_TARGET_POSITION_MAX;
+	//	sendStringUSB("Target:");
+	//	sendByteAsStringUSB(buildPlatformTargetPosition);
+	//	sendStringUSB("Current:");
+	//	sendByteAsStringUSB(buildPlatformPosition);
 //		menuValueSet(buildPlatformTargetPosition,20);
 	}
 	else
@@ -642,7 +648,7 @@ void buildPlatformMove (int16_t input)
 	else buildPlatformTargetPosition += input;
 }
 
-uint16_t buildRampSlope = 600;
+uint16_t buildRampSlope = 400;
 uint16_t buildRampLength;
 uint16_t buildNumberOfSteps;
 volatile uint16_t buildRampUpEnd;
@@ -759,7 +765,7 @@ void buildPlatformComparePosition (uint8_t buildPlatformSpeed)
 			// Enable stepper.
 			buildPlatformEnableStepper();
 		}
-		// Switch not pressed.
+		// Switch pressed.
 		else
 		{
 			buildPlatformPosition = 0;
