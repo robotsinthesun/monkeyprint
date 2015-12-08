@@ -34,9 +34,10 @@ uint8_t tiltSpeed;
 #define TILT_SPEED_MAX 10
 uint8_t tiltSpeedEep EEMEM;
 
-uint16_t tiltAngle = 2;
+uint16_t tiltAngle = 400;
 #define TILT_ANGLE_MIN 1
 #define TILT_ANGLE_MAX 4
+#define TILT_STEPS_PER_TURN 800
 uint16_t tiltAngleEep EEMEM;
 
 uint16_t tiltAngleMin = 0;	//TODO
@@ -101,7 +102,7 @@ void tilt(uint8_t inputAngle, uint8_t inputSpeed)
 	timer3SetCompareValue(tiltTimerCompareValue);
 
 	// Tilt angle 1--18 (10°--180°) --> 89--1600 steps (3200 steps per rev).
-	tiltAngleSteps = inputAngle * 89;
+	//tiltAngleSteps = inputAngle * 89;
 
 	// Reset tilt counter.
 	tiltCounter = 0;
@@ -125,9 +126,11 @@ void tiltControl (void)
 		// Increase step count and compare to target count.
 		if (++tiltCounter == tiltAngleSteps)
 		{
+			
 			ledGreenOn();
 			ledYellowOff();
 			// Run stepper backwards.
+			sendByteAsStringUSB(tiltCounter);
 			tiltStepperSetBackward();
 			// TILTDIRPORT ^= (1 << TILTDIRPIN);
 		}
@@ -136,9 +139,17 @@ void tiltControl (void)
 
 void tiltSetAngleMax ( uint16_t input )
 {
-	if (input < 0) tiltAngleMax = 0;
-	else	tiltAngleMax = input / 2;	// We do not need to go over 180°
-	tiltAngleFull = input;
+	if (input < 0)
+	{
+		tiltAngleMax = TILT_STEPS_PER_TURN / 2;
+		tiltAngleFull = TILT_STEPS_PER_TURN;
+	}
+	else
+	{
+		tiltAngleMax = input / 2;	// We do not need to go over 180°
+		tiltAngleFull = input;
+	}
+//	sendByteAsStringUSB(tiltAngleMax);
 }
 
 // Adjust tilt angle. **********************************************************
@@ -181,17 +192,18 @@ void tiltSetAngle (uint16_t input)
 {
 	if (input>=tiltAngleMax)
 	{
-		tiltAngle = tiltAngleFull;
+		tiltAngleSteps = tiltAngleFull;
+		
 	}
 	else if (input<tiltAngleMin)
 	{
-		tiltAngle = tiltAngleMin;
+		tiltAngleSteps = tiltAngleMin;
 	}
 	else
 	{
-		tiltAngle = input;
+		tiltAngleSteps = input;
 	}
-	
+//	sendByteAsStringUSB(input);
 	menuValueSet(tiltAngle,13);
 	eeprom_update_byte (&tiltAngleEep, tiltAngle);
 }
@@ -445,6 +457,14 @@ void buildPlatformSetBaseLayerHeight (uint8_t input)
 // Home build platform. Input is speed from 1 (slow) to 4 (fast). **************
 void buildPlatformHome (void)
 {
+	// Check if build platform is in home position already.
+	if (LIMITBUILDBOTTOMPOLL & (1 << LIMITBUILDBOTTOMPIN))		// Active high.
+	{
+		// Set printer in action flag.
+		// Printer ready function will react as if printer was just running and return true.
+		printerOperatingFlag = 1;
+	}
+
 	// Start motor if not running already.
 	if (!buildPlatformHomingFlag )//&& (LIMITBUILDBOTTOMPOLL & (1 << LIMITBUILDBOTTOMPIN)))	//(!(TCCR3B & (1 << CS30)) && (LIMITBUILDBOTTOMPOLL & (1 << LIMITBUILDBOTTOMPIN)))
 	{

@@ -339,6 +339,7 @@ class gui(gtk.Window):
 				self.modelListView.setSensitive(remove=self.modelCollection.modelsLoaded())
 				# Update notebook to set sensitivities.
 				self.updateAllEntries(state=1)
+				self.notebook.set_current_page(0)
 				
 			# Close dialog.
 			dialog.destroy()
@@ -775,7 +776,7 @@ class gui(gtk.Window):
 
 	def callbackStartPrintProcess(self, data=None):
 		# Create a print start dialog.
-		self.dialogStart = dialogStartPrint()
+		self.dialogStart = dialogStartPrint(parent = self)
 		# Run the dialog and get the result.
 		response = self.dialogStart.run()
 		self.dialogStart.destroy()
@@ -1193,12 +1194,14 @@ class dialogFirmware(gtk.Window):
 		# Call super class init function.
 		gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
 		# Set title.
-		self.set_title("Ready to print?")
+		self.set_title("Update firmware")
 		# Set modal.
 		self.set_modal(True)
 		# Associate with parent window (no task bar icon, hide if parent is hidden etc)
 		self.set_transient_for(parent)
+		self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
 		self.show()
+
 		
 		# Internalise settings.
 		self.settings = settings
@@ -1400,6 +1403,7 @@ class dialogManualControl(gtk.Window):
 		self.set_modal(True)
 		# Associate with parent window (no task bar icon, hide if parent is hidden etc)
 		self.set_transient_for(parent)
+		self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
 		self.show()
 		
 		# Internalise settings.
@@ -1525,9 +1529,9 @@ class dialogSettings(gtk.Window):
 		self.set_title("Monkeyprint settings")
 		self.set_modal(True)
 		self.set_transient_for(parent)
-		print parent
-		
+		self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
 		self.show()
+
 		
 		# Internalise settings.
 		self.settings = settings
@@ -1851,6 +1855,9 @@ class dialogStartPrint(gtk.Window):
 		self.set_modal(True)
 		# Associate with parent window (no task bar icon, hide if parent is hidden etc)
 		self.set_transient_for(parent)
+		self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
+		self.show()
+		
 		self.result = False
 		# Create check buttons.
 		self.boxCheckbuttons = gtk.VBox()

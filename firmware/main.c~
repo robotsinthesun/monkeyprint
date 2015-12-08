@@ -263,14 +263,6 @@ int main(void)
 				buildPlatformMove(stringValue);
 				sendStringUSB("buildMove\n");
 			}
-			else if (!(strcmp(firstString, "tiltRes")))
-			{
-				// Retrieve value and convert to int.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				buildPlatformSetResolution(stringValue);
-				sendStringUSB("tiltRes\n");
-			}
 			else if (!(strcmp(firstString, "printingFlag")))
 			{
 				// Retrieve layer value.
