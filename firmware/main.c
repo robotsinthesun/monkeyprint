@@ -29,7 +29,7 @@ int8_t menuMove = 0;
 
 
 // Stepper idle timer. *********************************************************
-uint8_t stepperIdleCount = 0;
+uint16_t stepperIdleCount = 0;
 
 
 
@@ -353,13 +353,13 @@ int main(void)
 			}
 
 
-			// Disable steppers if idle for more than 10 seconds.
+			// Disable steppers if idle for more than 100 seconds or print has ended.
 			if ( !( (TCCR1B & (1 << CS10)) || (TCCR3B & (1 << CS30)) || (TCCR4B & (1 << CS43 | 1 << CS40)) ) )
 			{
-				if (++stepperIdleCount == 100)
+				if (++stepperIdleCount == 1000) && !(printerGetState())
 				{
 					stepperIdleCount = 0;
-//					disableSteppers();	// Dont do this to avoid loosing steps. Do this on purpose only and not during prints.
+					disableSteppers();	// Dont do this to avoid loosing steps. Do this on purpose only and not during prints.
 //					tiltDisableStepper();	// That's OK, loosing steps in tilt is not that much of a problem.
 				}
 			}
