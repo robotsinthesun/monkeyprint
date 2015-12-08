@@ -419,7 +419,7 @@ class gui(gtk.Window):
 		self.on_closing(None, None, None)
 	
 	def callbackSettings(self, event):
-		dialogSettings(self.programSettings)
+		dialogSettings(self.programSettings, parent=self)
 		
 	def callbackFlash(self, event):
 		dialogFirmware(self.programSettings)
@@ -1505,9 +1505,14 @@ class dialogManualControl(gtk.Window):
 
 class dialogSettings(gtk.Window):
 	# Override init function.
-	def __init__(self, settings):
+	def __init__(self, settings, parent):
 		# Call super class init function.
 		gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+		self.set_title("Monkeyprint settings")
+		self.set_modal(True)
+		self.set_transient_for(parent)
+		print parent
+		
 		self.show()
 		
 		# Internalise settings.
