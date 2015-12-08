@@ -1662,17 +1662,21 @@ class dialogSettings(gtk.Window):
 		self.boxTilt.show()
 		# Entries.
 		# Resolution.
-		self.entryTiltStepsPerDeg = monkeyprintGuiHelper.entry('Tilt steps / °', self.settings, width=15)
-		self.boxTilt.pack_start(self.entryTiltStepsPerDeg, expand=False, fill=False)
-		self.entryTiltStepsPerDeg.show()
+		self.entryTiltStepAngle = monkeyprintGuiHelper.entry('Tilt step angle', self.settings, width=15)
+		self.boxTilt.pack_start(self.entryTiltStepAngle, expand=False, fill=False)
+		self.entryTiltStepAngle.show()
+		# Resolution.
+		self.entryTiltMicrostepping = monkeyprintGuiHelper.entry('Tilt microsteps per step', self.settings, width=15)
+		self.boxTilt.pack_start(self.entryTiltMicrostepping, expand=False, fill=False)
+		self.entryTiltMicrostepping.show()
 		# Tilt angle.
 		self.entryTiltAngle = monkeyprintGuiHelper.entry('Tilt angle', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltAngle, expand=False, fill=False)
 		self.entryTiltAngle.show()
 		# Tilt speed.
-		self.entryTiltSpeed = monkeyprintGuiHelper.entry('Tilt speed', self.settings, width=15)
-		self.boxTilt.pack_start(self.entryTiltSpeed, expand=False, fill=False)
-		self.entryTiltSpeed.show()
+#		self.entryTiltSpeed = monkeyprintGuiHelper.entry('Tilt speed', self.settings, width=15)
+#		self.boxTilt.pack_start(self.entryTiltSpeed, expand=False, fill=False)
+#		self.entryTiltSpeed.show()
 		
 		# Frame for build stepper.
 		self.frameBuildStepper = gtk.Frame('Build platform stepper')
@@ -1772,7 +1776,7 @@ class dialogSettings(gtk.Window):
 			return True
 	
 	def callbackDebug(self, widget, data=None):
-		self.settings['Debug'].value = self.checkboxDebug.get_active()
+		self.settings['Debug'].value = str(self.checkboxDebug.get_active())
 	
 	def callbackProjectorControl(self, widget, data=None):
 		self.settings['Projector control'].value = self.checkboxProjectorControl.get_active()

@@ -168,7 +168,14 @@ int main(void)
 			//lcd_gotoxy(0,3);
 			//lcd_puts("check");
 		}
-		else if (!(strcmp(testBuffer, "beamerHome")))
+		else if (!(strcmp(testBuffer, "triggerCam")))
+		{
+	/*		triggerCamera();
+			sendStringUSB("triggerCam\n");	// Important: don't forget newline character.
+			//lcd_gotoxy(0,3);
+			//lcd_puts("check");
+		}
+	*/	else if (!(strcmp(testBuffer, "beamerHome")))
 		{
 //			beamerHome();
 		}
@@ -215,6 +222,14 @@ int main(void)
 				// Adjust value according to input.
 				tiltSetAngle(stringValue);
 				sendStringUSB("tiltAngle\n");
+			}
+			else if (!(strcmp(firstString, "tiltRes")))
+			{
+				// Retrieve layer value.
+				stringValue = atoi(secondString);
+				// Adjust value according to input.
+				tiltSetAngleMax(stringValue);
+				sendStringUSB("tiltRes\n");
 			}
 			else if (!(strcmp(firstString, "buildSpeed")))
 			{

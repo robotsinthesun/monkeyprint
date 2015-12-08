@@ -34,10 +34,14 @@ uint8_t tiltSpeed;
 #define TILT_SPEED_MAX 10
 uint8_t tiltSpeedEep EEMEM;
 
-uint8_t tiltAngle = 2;
+uint16_t tiltAngle = 2;
 #define TILT_ANGLE_MIN 1
 #define TILT_ANGLE_MAX 4
-uint8_t tiltAngleEep EEMEM;
+uint16_t tiltAngleEep EEMEM;
+
+uint16_t tiltAngleMin = 0;	//TODO
+uint16_t tiltAngleMax = 400;	// Tilt steps for 180°.
+uint16_t tiltAngleFull = 800;	// Tilt steps for 360°.
 
 uint16_t tiltCompareValue;
 volatile uint16_t tiltCounter = 0;
@@ -130,6 +134,13 @@ void tiltControl (void)
 	}
 }
 
+void tiltSetAngleMax ( uint16_t input )
+{
+	if (input < 0) tiltAngleMax = 0;
+	else	tiltAngleMax = input / 2;	// We do not need to go over 180°
+	tiltAngleFull = input;
+}
+
 // Adjust tilt angle. **********************************************************
 void tiltAdjustAngle (uint8_t input)
 {
@@ -166,15 +177,15 @@ void tiltAdjustSpeed (uint8_t input)
 
 
 // Set tilt angle. *************************************************************
-void tiltSetAngle (uint8_t input)
+void tiltSetAngle (uint16_t input)
 {
-	if (input>=TILT_ANGLE_MAX)
+	if (input>=tiltAngleMax)
 	{
-		tiltAngle = TILT_ANGLE_MAX;
+		tiltAngle = tiltAngleFull;
 	}
-	else if (input<TILT_ANGLE_MIN)
+	else if (input<tiltAngleMin)
 	{
-		tiltAngle = TILT_ANGLE_MIN;
+		tiltAngle = tiltAngleMin;
 	}
 	else
 	{
@@ -317,13 +328,13 @@ void buildPlatformSetSpeed (uint8_t input)
 void buildPlatformSetResolution (uint16_t input)
 {
 	buildPlatformResolution = input;
-	sendByteAsStringUSB(buildPlatformResolution);
+//	sendByteAsStringUSB(buildPlatformResolution);
 }
 
 void buildPlatformSetMinMove (uint16_t input)
 {
 	buildPlatformMinimumMove = input;
-	sendByteAsStringUSB(buildPlatformMinimumMove);
+//	sendByteAsStringUSB(buildPlatformMinimumMove);
 }
 
 void buildPlatformSetTargetPositionMax (uint16_t input)
@@ -1186,3 +1197,9 @@ void buildDisableStepper(void)
 {
 	BUILDENABLEPORT |= (1 <<BUILDENABLEPIN);
 }
+/*
+void triggerCamera(void)
+{
+	
+}
+*/

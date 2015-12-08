@@ -168,7 +168,14 @@ int main(void)
 			//lcd_gotoxy(0,3);
 			//lcd_puts("check");
 		}
-		else if (!(strcmp(testBuffer, "beamerHome")))
+		else if (!(strcmp(testBuffer, "triggerCam")))
+		{
+	/*		triggerCamera();
+			sendStringUSB("triggerCam\n");	// Important: don't forget newline character.
+			//lcd_gotoxy(0,3);
+			//lcd_puts("check");
+		}
+	*/	else if (!(strcmp(testBuffer, "beamerHome")))
 		{
 //			beamerHome();
 		}
@@ -216,6 +223,14 @@ int main(void)
 				tiltSetAngle(stringValue);
 				sendStringUSB("tiltAngle\n");
 			}
+			else if (!(strcmp(firstString, "tiltRes")))
+			{
+				// Retrieve layer value.
+				stringValue = atoi(secondString);
+				// Adjust value according to input.
+				tiltSetAngleMax(stringValue);
+				sendStringUSB("tiltRes\n");
+			}
 			else if (!(strcmp(firstString, "buildSpeed")))
 			{
 				// Retrieve layer value.
@@ -228,7 +243,6 @@ int main(void)
 			{
 				// Retrieve value and convert to int.
 				stringValue = atoi(secondString);
-				sendStringUSB(secondString);
 				// Adjust value according to input.
 				buildPlatformSetResolution(stringValue);
 				sendStringUSB("buildRes\n");
@@ -245,11 +259,17 @@ int main(void)
 			{
 				// Retrieve value and convert to int.
 				stringValue = atoi(secondString);
-
 				// Adjust value according to input.
 				buildPlatformMove(stringValue);
-				sendStringUSB(secondString);
 				sendStringUSB("buildMove\n");
+			}
+			else if (!(strcmp(firstString, "tiltRes")))
+			{
+				// Retrieve value and convert to int.
+				stringValue = atoi(secondString);
+				// Adjust value according to input.
+				buildPlatformSetResolution(stringValue);
+				sendStringUSB("tiltRes\n");
 			}
 			else if (!(strcmp(firstString, "printingFlag")))
 			{
