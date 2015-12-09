@@ -162,6 +162,8 @@ class programSettings(dict):
 		self['Exposure time base'] = setting(value=14.0, lower=1.0, upper=15.0)
 		self['Exposure time'] = setting(value=9.0, lower=1.0, upper=15.0)
 		self['Resin settle time'] = setting(value=1.0, lower=0.1, upper=3.0)
+		self['camTriggerWithExposure'] = setting(value=False, default=False)
+		self['camTriggerAfterExposure'] = setting(value=False, default=False)
 
 	# Load default settings.
 	def loadDefaults(self):

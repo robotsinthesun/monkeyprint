@@ -672,6 +672,32 @@ class gui(gtk.Window):
 		self.boxResinVolume.pack_start(self.resinVolumeLabel, expand=False, fill=False)
 		self.resinVolumeLabel.show()
 		
+		# Create camera trigger frame.
+		self.frameCameraTrigger = gtk.Frame(label="Camera trigger")
+		self.printTab.pack_start(self.frameCameraTrigger, expand=False, fill=False, padding = 5)
+		self.frameCameraTrigger.show()
+		self.boxCameraTrigger = gtk.HBox()
+		self.frameCameraTrigger.add(self.boxCameraTrigger)
+		self.boxCameraTrigger.show()
+		
+		# Resin volume label.
+		self.labelCamTrigger1 = gtk.Label("During exposure")
+		self.boxCameraTrigger.pack_start(self.labelCamTrigger1, expand=False, fill=False, padding=5)
+		self.labelCamTrigger1.show()
+		self.checkboxCameraTrigger1 = gtk.CheckButton()
+		self.boxCameraTrigger.pack_start(self.checkboxCameraTrigger1, expand=False, fill=False, padding=5)
+		self.checkboxCameraTrigger1.set_active(eval(self.programSettings['camTriggerWithExposure'].value))
+		self.checkboxCameraTrigger1.connect("toggled", self.callbackCheckButtonTrigger1)
+		self.checkboxCameraTrigger1.show()
+		self.labelCamTrigger2 = gtk.Label("After exposure")
+		self.boxCameraTrigger.pack_start(self.labelCamTrigger2, expand=False, fill=False, padding=5)
+		self.labelCamTrigger2.show()
+		self.checkboxCameraTrigger2 = gtk.CheckButton()
+		self.boxCameraTrigger.pack_start(self.checkboxCameraTrigger2, expand=False, fill=False, padding=5)
+		self.checkboxCameraTrigger2.set_active(eval(self.programSettings['camTriggerAfterExposure'].value))
+		self.checkboxCameraTrigger2.connect("toggled", self.callbackCheckButtonTrigger2)
+		self.checkboxCameraTrigger2.show()
+		
 		# Create print control frame.
 		self.framePrintControl = gtk.Frame(label="Print control")
 		self.printTab.pack_start(self.framePrintControl, expand=False, fill=False, padding = 5)
@@ -773,6 +799,20 @@ class gui(gtk.Window):
 	def callbackCheckButtonFill(self, widget, data=None):
 		self.modelCollection.getCurrentModel().settings['Fill'].setValue(widget.get_active())
 		self.updateCurrentModel()
+	
+	def callbackCheckButtonTrigger1(self, widget, data=None):
+		# Uncheck other option if both are true.
+		if self.checkboxCameraTrigger1.get_active() and self.checkboxCameraTrigger2.get_active():
+			self.checkboxCameraTrigger2.set_active(False)
+		# Write to settings.
+		self.programSettings['camTriggerWithExposure'].setValue(widget.get_active())
+	
+	def callbackCheckButtonTrigger2(self, widget, data=None):
+		# Uncheck other option if both are true.
+		if self.checkboxCameraTrigger1.get_active() and self.checkboxCameraTrigger2.get_active():
+			self.checkboxCameraTrigger1.set_active(False)
+		# Write to settings.
+		self.programSettings['camTriggerAfterExposure'].setValue(widget.get_active())
 
 	def callbackStartPrintProcess(self, data=None):
 		# Create a print start dialog.
