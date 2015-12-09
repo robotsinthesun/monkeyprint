@@ -170,11 +170,9 @@ int main(void)
 		}
 		else if (!(strcmp(testBuffer, "triggerCam")))
 		{
-	/*		triggerCamera();
+			triggerCamera();
 			sendStringUSB("triggerCam\n");	// Important: don't forget newline character.
-			//lcd_gotoxy(0,3);
-			//lcd_puts("check");
-	*/	}
+		}
 		else if (!(strcmp(testBuffer, "beamerHome")))
 		{
 //			beamerHome();

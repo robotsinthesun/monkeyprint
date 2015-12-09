@@ -6,13 +6,13 @@
 
 // LEDs. ***********************************************************************
 // Orange.
-#define LED1DDR DDRF
-#define LED1PORT PORTF
-#define LED1PIN PIN4
-// Green.
 #define LED2DDR DDRF
 #define LED2PORT PORTF
-#define LED2PIN PIN5
+#define LED2PIN PIN4
+// Green.
+#define LED1DDR DDRF
+#define LED1PORT PORTF
+#define LED1PIN PIN5
 
 // Stepper outputs. ************************************************************
 // Build platform stepper. ******

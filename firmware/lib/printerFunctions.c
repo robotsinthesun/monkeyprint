@@ -846,6 +846,7 @@ void buildPlatformControl(void)
 			// If ramping down.
 			if (buildRampCounter > buildRampDownStart)
 			{
+		//		sendStringUSB("foo")
 				buildTimerCompareValue += buildRampSlope;
 				timer1SetCompareValue(buildTimerCompareValue);
 			}	
@@ -1354,6 +1355,16 @@ uint8_t printerReady(void)
 	}
 	return printerReadyFlag;
 }
+
+
+// Function to toggle camera pin.
+void triggerCamera ( void )
+{
+	CAMPORT |= (1 << CAMPIN);
+	_delay_ms(5);
+	CAMPORT &= ~(1 << CAMPIN);
+}
+
 
 uint8_t printerGetState(void)
 {

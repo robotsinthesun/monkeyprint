@@ -27,6 +27,11 @@ void setupHardware(void)
 	// Green.
 	LED2DDR |= (1 << LED2PIN);
 	LED2PORT &= ~(1 << LED2PIN);	//OFF
+	
+	
+	// Configure camera trigger pin. Active high.
+	CAMDDR |= (1 << CAMPIN);
+	CAMPORT &= ~(1 << CAMPIN);	//OFF
 
 
 	// Stepper ports. Step on rising edge, enable active low.

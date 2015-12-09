@@ -593,10 +593,10 @@ void buildPlatformTop (void)
 	if (!(TCCR1B & (1 << CS10)))	// If not running.
 	{
 		buildPlatformTargetPosition = BUILDPLATFORM_TARGET_POSITION_MAX;
-		sendStringUSB("Target:");
-		sendByteAsStringUSB(buildPlatformTargetPosition);
-		sendStringUSB("Current:");
-		sendByteAsStringUSB(buildPlatformPosition);
+	//	sendStringUSB("Target:");
+	//	sendByteAsStringUSB(buildPlatformTargetPosition);
+	//	sendStringUSB("Current:");
+	//	sendByteAsStringUSB(buildPlatformPosition);
 //		menuValueSet(buildPlatformTargetPosition,20);
 	}
 	else
@@ -846,6 +846,7 @@ void buildPlatformControl(void)
 			// If ramping down.
 			if (buildRampCounter > buildRampDownStart)
 			{
+		//		sendStringUSB("foo")
 				buildTimerCompareValue += buildRampSlope;
 				timer1SetCompareValue(buildTimerCompareValue);
 			}	
@@ -1354,6 +1355,19 @@ uint8_t printerReady(void)
 	}
 	return printerReadyFlag;
 }
+
+
+// Function to toggle camera pin.
+void triggerCamera ( void )
+{
+	ledGreenOn();
+	_delay_ms(100);
+	ledGreenOff();
+	CAMPORT |= (1 << CAMPIN);
+	_delay_ms(5);
+	CAMPORT &= ~(1 << CAMPIN);
+}
+
 
 uint8_t printerGetState(void)
 {

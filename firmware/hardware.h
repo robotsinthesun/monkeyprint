@@ -14,6 +14,11 @@
 #define LED1PORT PORTF
 #define LED1PIN PIN5
 
+// Camera trigger pin. *********************************************************
+# define CAMDDR DDRB
+# define CAMPORT PORTB
+# define CAMPIN PIN6
+
 // Stepper outputs. ************************************************************
 // Build platform stepper. ******
 // Clock.
