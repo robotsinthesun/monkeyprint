@@ -430,7 +430,7 @@ class modelCollection(dict):
 		imgList = []
 		for model in self:
 	#		self[model].updateSlice3d(sliceNumber)
-			if model != "default" and i<len(self[model].model.sliceStack):
+			if model != "default" and self[model].isActive() and i<len(self[model].model.sliceStack):
 				imgList.append((self[model].model.sliceStack[i], self[model].model.getSlicePosition()))
 		# Add list of slice images to projector frame.
 		for i in range(len(imgList)):

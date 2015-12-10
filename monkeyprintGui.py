@@ -1248,6 +1248,9 @@ class modelListView(gtk.VBox):
 		# Restore previous selection. Only on deactivation.
 		if model[path][3] == False:
 			self.modelSelection.select_iter(treeiter)
+		else:
+			# Start slicer again.
+			self.modelCollection.getCurrentModel().updateSliceStack()
 
 	# Selection changed callback.
 	def onSelectionChanged(self, selection):		
