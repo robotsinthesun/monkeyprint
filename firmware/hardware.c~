@@ -31,7 +31,7 @@ void setupHardware(void)
 	
 	// Configure camera trigger pin. Active high.
 	CAMDDR |= (1 << CAMPIN);
-	CAMPORT &= ~(1 << CAMPIN)	//OFF
+	CAMPORT &= ~(1 << CAMPIN);	//OFF
 
 
 	// Stepper ports. Step on rising edge, enable active low.
@@ -85,7 +85,7 @@ void setupHardware(void)
   	//			Overflow at 200 clock cycles comes every 0,1 ms.
   	TCCR0A |= (1 << WGM01);	// CTC mode. Data sheet page 104.
   	TCCR0B |= (1<<CS01);	// Set prescaler to 8. Data sheet page 106.
-  	OCR0A = 200;		// Set channel A compare value.
+  	OCR0A = 200;			// Set channel A compare value.
   	TIMSK0 |= (1<<OCIE0A);	// Enable channel A compare interrupt.
 
 

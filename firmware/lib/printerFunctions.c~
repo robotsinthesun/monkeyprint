@@ -1360,9 +1360,6 @@ uint8_t printerReady(void)
 // Function to toggle camera pin.
 void triggerCamera ( void )
 {
-	ledGreenOn();
-	_delay_ms(100);
-	ledGreenOff();
 	CAMPORT |= (1 << CAMPIN);
 	_delay_ms(5);
 	CAMPORT &= ~(1 << CAMPIN);

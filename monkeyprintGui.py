@@ -742,7 +742,7 @@ class gui(gtk.Window):
 	# Model page.
 	def tabSwitchModelUpdate(self):
 		# Set render actor visibilities.
-		self.modelCollection.viewDefault()
+		self.modelCollection.viewState(0)
 		self.renderView.render()
 		# Enable model management load and remove buttons.
 		self.modelListView.setSensitive(remove=self.modelCollection.modelsLoaded())
@@ -752,7 +752,7 @@ class gui(gtk.Window):
 		# Update supports.
 		self.modelCollection.updateAllSupports()
 		# Set render actor visibilities.
-		self.modelCollection.viewSupports()
+		self.modelCollection.viewState(1)
 		self.renderView.render()
 		# Activate slice tab if not already activated.
 		if self.getGuiState() == 1:
@@ -767,7 +767,7 @@ class gui(gtk.Window):
 		# Update slice stack height.
 		self.modelCollection.updateSliceStack()
 		# Set render actor visibilites.
-		self.modelCollection.viewSlices()
+		self.modelCollection.viewState(2)
 		self.renderView.render()
 		# Activate print tab if not already activated.
 		if self.getGuiState() == 2:
@@ -778,7 +778,7 @@ class gui(gtk.Window):
 	# Print page.
 	def tabSwitchPrintUpdate(self):
 		# Set render actor visibilites.
-		self.modelCollection.viewPrint()
+		self.modelCollection.viewState(3)
 		self.renderView.render()
 		# Update the model volume.
 		self.updateVolume()
@@ -947,27 +947,67 @@ class gui(gtk.Window):
 	
 	
 	# Update all the settings if the current model has changed.
-	def updateAllEntries(self, state=None):
-		self.entryScaling.update()
-		self.entryRotationX.update()
-		self.entryRotationY.update()
-		self.entryRotationZ.update()
-		self.entryPositionX.update()
-		self.entryPositionY.update()
-		self.entryBottomClearance.update()
-		self.entryOverhangAngle.update()
-		self.entrySupportSpacingX.update()
-		self.entrySupportSpacingY.update()
-		self.entrySupportMaxHeight.update()
-		self.entrySupportBaseDiameter.update()
-		self.entrySupportTipDiameter.update()
-		self.entrySupportTipHeight.update()
-		self.entrySupportBottomPlateThickness.update()
+	def updateAllEntries(self, state=None, render=None):
+		if not self.modelCollection.getCurrentModel().isActive():
+			self.entryScaling.set_sensitive(False)
+			self.entryRotationX.set_sensitive(False)
+			self.entryRotationY.set_sensitive(False)
+			self.entryRotationZ.set_sensitive(False)
+			self.entryPositionX.set_sensitive(False)
+			self.entryPositionY.set_sensitive(False)
+			self.entryBottomClearance.set_sensitive(False)
+			self.entryOverhangAngle.set_sensitive(False)
+			self.entrySupportSpacingX.set_sensitive(False)
+			self.entrySupportSpacingY.set_sensitive(False)
+			self.entrySupportMaxHeight.set_sensitive(False)
+			self.entrySupportBaseDiameter.set_sensitive(False)
+			self.entrySupportTipDiameter.set_sensitive(False)
+			self.entrySupportTipHeight.set_sensitive(False)
+			self.entrySupportBottomPlateThickness.set_sensitive(False)
+		else:
+			self.entryScaling.set_sensitive(True)
+			self.entryRotationX.set_sensitive(True)
+			self.entryRotationY.set_sensitive(True)
+			self.entryRotationZ.set_sensitive(True)
+			self.entryPositionX.set_sensitive(True)
+			self.entryPositionY.set_sensitive(True)
+			self.entryBottomClearance.set_sensitive(True)
+			self.entryOverhangAngle.set_sensitive(True)
+			self.entrySupportSpacingX.set_sensitive(True)
+			self.entrySupportSpacingY.set_sensitive(True)
+			self.entrySupportMaxHeight.set_sensitive(True)
+			self.entrySupportBaseDiameter.set_sensitive(True)
+			self.entrySupportTipDiameter.set_sensitive(True)
+			self.entrySupportTipHeight.set_sensitive(True)
+			self.entrySupportBottomPlateThickness.set_sensitive(True)
+			self.entryScaling.update()
+			self.entryRotationX.update()
+			self.entryRotationY.update()
+			self.entryRotationZ.update()
+			self.entryPositionX.update()
+			self.entryPositionY.update()
+			self.entryBottomClearance.update()
+			self.entryOverhangAngle.update()
+			self.entrySupportSpacingX.update()
+			self.entrySupportSpacingY.update()
+			self.entrySupportMaxHeight.update()
+			self.entrySupportBaseDiameter.update()
+			self.entrySupportTipDiameter.update()
+			self.entrySupportTipHeight.update()
+			self.entrySupportBottomPlateThickness.update()
 		self.updateMenu()
 		if state != None:
 			self.setGuiState(state)
 			if state == 0:
 				self.notebook.setCurrentPage(0)
+		# Update model visibilities.
+		if render == True:	
+			self.modelCollection.getCurrentModel().showAllActors(self.notebook.getCurrentPage())
+	#		if self.modelCollection.getCurrentModel().isActive():
+#
+#			else:
+#				self.modelCollection.getCurrentModel().hideAllActors()
+			self.renderView.render()
 	
 	
 				
@@ -979,7 +1019,6 @@ class gui(gtk.Window):
 	def updateMenu(self):
 		self.menuItemSave.set_sensitive(self.modelCollection.modelsLoaded())
 		self.menuItemClose.set_sensitive(self.modelCollection.modelsLoaded())
-	
 
 
 
@@ -1001,6 +1040,7 @@ class modelListView(gtk.VBox):
 		self.console = console
 		
 		self.modelRemovedFlag = False
+		self.previousSelection = None
 		
 		# Create the scrolled window.
 		self.scrolledWindow = gtk.ScrolledWindow()
@@ -1187,19 +1227,30 @@ class modelListView(gtk.VBox):
 		
 	# Active state toggled callback.
 	def callbackToggleChanged(self, cell, path, model):
+		# Save previous selection. Contains tree model and selection iter.
+		model, treeiter = self.modelSelection.get_selected()
+		# Select the row that has been clicked.
+		self.modelSelection.select_path(path)	
 		# Toggle active flag in model list.
 		model[path][3] = not model[path][3]
 		# Toggle active flag in model collection.
 		self.modelCollection.getCurrentModel().setActive(model[path][3])
+		# Show box.
+		self.modelCollection.getCurrentModel().showBox()
+		# Call gui update function to change actor visibilities.
+		self.guiUpdateFunction(render=True)
 		# Console output.
 		if self.console:
 			if model[path][3] == True:
 				self.console.addLine("Model " + model[path][0] + " activated.")
 			else:
 				self.console.addLine("Model " + model[path][0] + " deactivated.")
+		# Restore previous selection. Only on deactivation.
+		if model[path][3] == False:
+			self.modelSelection.select_iter(treeiter)
 
 	# Selection changed callback.
-	def onSelectionChanged(self, selection):
+	def onSelectionChanged(self, selection):		
 		# Hide the previous models bounding box actor.
 		self.modelCollection.getCurrentModel().hideBox()
 		model, treeiter = selection.get_selected()
@@ -1213,6 +1264,8 @@ class modelListView(gtk.VBox):
 			self.renderView.render()
 			# Update the gui.
 			self.guiUpdateFunction()
+		# Save for later.
+		self.previousSelection = treeiter
 	
 	# Disable buttons so models can only be loaded in first tab.
 	def setSensitive(self, load=True, remove=True):

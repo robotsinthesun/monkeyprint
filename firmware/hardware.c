@@ -85,7 +85,7 @@ void setupHardware(void)
   	//			Overflow at 200 clock cycles comes every 0,1 ms.
   	TCCR0A |= (1 << WGM01);	// CTC mode. Data sheet page 104.
   	TCCR0B |= (1<<CS01);	// Set prescaler to 8. Data sheet page 106.
-  	OCR0A = 200;		// Set channel A compare value.
+  	OCR0A = 200;			// Set channel A compare value.
   	TIMSK0 |= (1<<OCIE0A);	// Enable channel A compare interrupt.
 
 
@@ -113,7 +113,7 @@ void setupHardware(void)
 	// Configure timer4 in 8 bit mode for CTC with interrupt on compare match. Prescaler 64.
 //	TCCR4A |= (1 << COM4A0);				// Toggle OC4A on compare match. Datasheet p 162.
 //	TCCR4B |= (1 << CS42 | 1 << CS41 | 1 << CS40);		// Prescaler 64. Datasheet p 166. 			DISABLED! Enable in menu function.
-	TIMSK4 |= (1 << OCIE4A);
+//	TIMSK4 |= (1 << OCIE4A);
 	
 	
 	// Inititalise USB using LUFA function. ***********************************

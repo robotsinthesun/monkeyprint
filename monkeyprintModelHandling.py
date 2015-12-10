@@ -80,14 +80,14 @@ class modelContainer:
 		self.model.setChanged()
 	
 	def updateModel(self):
-		self.model.updateModel()
 		self.model.setChanged()
+		self.model.updateModel()	
 	
 	def updateSupports(self):
+		self.model.setChanged()
 		self.model.updateBottomPlate()
 		self.model.updateSupports()
-		self.model.setChanged()
-	
+		
 	def updateSlice3d(self, sliceNumber):
 		self.model.updateSlice3d(sliceNumber)
 	
@@ -107,9 +107,68 @@ class modelContainer:
 				self.getSupportsActor(),
 				self.getSlicesActor()
 				)
+	def hideAllActors(self):
+		self.hideModel(),
+		self.hideBox(),
+		self.hideOverhang(),
+		self.hideBottomPlate(),
+		self.hideSupports(),
+		self.hideSlices()
+		
+	def showAllActors(self, state):
+		if self.isActive():
+			if state == 0:
+				self.showActorsDefault()
+			elif state == 1:
+				self.showActorsSupports()
+			elif state == 2:
+				self.showActorsSlices()
+			elif state == 3:
+				self.showActorsPrint()
+		else:
+			self.hideAllActors()
+			
+	# Adjust view for model manipulation.
+	def showActorsDefault(self):
+		self.showModel()
+		self.opaqueModel()
+		self.hideOverhang()
+		self.hideBottomPlate()
+		self.hideSupports()
+		self.hideSlices()
+	# Adjust view for support generation.
+	def showActorsSupports(self):
+		self.showModel()	
+		self.transparentModel()
+		self.showOverhang()
+		self.showBottomPlate()
+		self.opaqueBottomPlate()
+		self.showSupports()
+		self.opaqueSupports()
+		self.hideSlices()
+	# Adjust view for slicing.
+	def showActorsSlices(self):
+		self.showModel()
+		self.transparentModel()
+		self.hideOverhang()
+		self.showBottomPlate()
+		self.transparentBottomPlate()
+		self.showSupports()
+		self.transparentSupports()
+		self.showSlices()
+	def showActorsPrint(self):
+		self.showModel()
+		self.transparentModel()
+		self.hideOverhang()
+		self.showBottomPlate()
+		self.transparentBottomPlate()
+		self.showSupports()
+		self.transparentSupports()
+		self.showSlices()
 	
 	def setActive(self, active):
 		self.flagActive = active
+		self.model.setActive(active)
 	
 	def isActive(self):
 		return self.flagActive
@@ -138,18 +197,20 @@ class modelContainer:
 		return self.model.getActorSlices()
 
 	def showBox(self):
-		self.model.showBoundingBox()
-		self.model.showBoundingBoxText()
+		if self.flagActive:
+			self.model.showBoundingBox()
+			self.model.showBoundingBoxText()
 		
 	def hideBox(self):
 		self.model.hideBoundingBox()
 		self.model.hideBoundingBoxText()
 	
 	def showModel(self):
-		pass
+		if self.flagActive:
+			self.model.show()
 	
 	def hideModel(self):
-		pass
+		self.model.hide()
 	
 	def opaqueModel(self):
 		self.model.opacity(1.0)
@@ -158,13 +219,15 @@ class modelContainer:
 		self.model.opacity(.5)
 	
 	def showOverhang(self):
-		self.model.showActorOverhang()
+		if self.flagActive:
+			self.model.showActorOverhang()
 
 	def hideOverhang(self):
 		self.model.hideActorOverhang()
 	
 	def showBottomPlate(self):
-		self.model.showActorBottomPlate()
+		if self.flagActive:
+			self.model.showActorBottomPlate()
 
 	def hideBottomPlate(self):
 		self.model.hideActorBottomPlate()
@@ -176,7 +239,8 @@ class modelContainer:
 		self.model.setOpacityBottomPlate(.5)
 			
 	def showSupports(self):
-		self.model.showActorSupports()
+		if self.flagActive:
+			self.model.showActorSupports()
 	
 	def hideSupports(self):
 		self.model.hideActorSupports()
@@ -188,7 +252,8 @@ class modelContainer:
 		self.model.setOpacitySupports(.5)
 	
 	def showSlices(self):
-		self.model.showActorSlices()
+		if self.flagActive:
+			self.model.showActorSlices()
 	
 	def hideSlices(self):
 		self.model.hideActorSlices()
@@ -371,7 +436,20 @@ class modelCollection(dict):
 		for i in range(len(imgList)):
 			self.sliceImage = imageHandling.imgAdd(self.sliceImage, imgList[i][0], imgList[i][1])
 		return self.sliceImage
-		
+	
+	def viewState(self, state):
+		if state == 0:
+			for model in self:
+				self[model].showActorsDefault()
+		elif state == 1:
+			for model in self:
+				self[model].showActorsSupports()
+		elif state == 2:
+			for model in self:
+				self[model].showActorsSlices()
+		elif state == 3:
+			for model in self:
+				self[model].showActorsPrint()
 
 	# Adjust view for model manipulation.
 	def viewDefault(self):
@@ -930,6 +1008,13 @@ class modelData:
 			self.modelBoundingBox.SetZLength(self.getBounds()[5])
 			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )
 			self.modelBoundingBoxTextActor.SetAttachmentPoint(self.getBounds()[1], self.getBounds()[3], self.getBounds()[5])
+			
+			# Update slice stack if it was filled before (if the slice tab was opened before).
+#			if len(self.sliceStack) > 1:
+#				print "foo"
+#				self.startBackgroundSlicer()
+#			else:
+#				print "bar"
 
 
 	def updateBottomPlate(self):
