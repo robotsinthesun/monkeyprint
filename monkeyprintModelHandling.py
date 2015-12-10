@@ -71,6 +71,9 @@ class modelContainer:
 		self.hideSupports()
 		self.hideBottomPlate()
 		self.hideSlices()
+		
+		# Set changed flag to start slicer.
+		self.setChanged()
 
 
 	def getHeight(self):
@@ -80,11 +83,11 @@ class modelContainer:
 		self.model.setChanged()
 	
 	def updateModel(self):
-		self.model.setChanged()
+		#self.model.setChanged()
 		self.model.updateModel()	
 	
 	def updateSupports(self):
-		self.model.setChanged()
+		#self.model.setChanged()
 		self.model.updateBottomPlate()
 		self.model.updateSupports()
 		
@@ -514,7 +517,8 @@ class modelCollection(dict):
 	def getTotalVolume(self):
 		volume = 0
 		for model in self:
-			volume += self[model].model.getVolume()
+			if self[model].isActive():
+				volume += self[model].model.getVolume()
 		return volume
 	
 	def getAllActors(self):
@@ -1190,7 +1194,7 @@ class modelData:
 	def startBackgroundSlicer(self):
 		# Only update if this is not default flag and the 
 		# model or supports have been changed before.
-		if self.filename!="" and self.flagChanged==True and self.isActive():
+		if self.filename!="" and self.flagChanged and self.isActive():
 			if self.console != None:
 				self.console.addLine('Slicer started.')
 			# Reset the slice stack.

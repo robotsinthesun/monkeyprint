@@ -636,6 +636,8 @@ class gui(gtk.Window):
 		self.sliceSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection, self.programSettings, self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
 		self.boxPreview.pack_start(self.sliceSlider, expand=True, fill=True, padding=5)
 		self.sliceSlider.show()
+		# Register slice image update function to GUI main loop.
+	#	listenerSliceSlider = gobject.timeout_add(100, self.sliceSlider.updateImage)
 	
 	# Print page.
 	def createPrintTab(self):
@@ -737,6 +739,9 @@ class gui(gtk.Window):
 		self.sliceView = monkeyprintGuiHelper.imageView(self.programSettings, self.modelCollection, width = 250)
 		self.boxPreviewPrint.pack_start(self.sliceView, expand=True, fill=True)
 		self.sliceView.show()
+
+
+
 	
 	# Notebook tab switch callback functions. #################################
 	# Model page.
@@ -1000,6 +1005,9 @@ class gui(gtk.Window):
 			self.setGuiState(state)
 			if state == 0:
 				self.notebook.setCurrentPage(0)
+		# Update the volume label in the print tab.
+		if self.notebook.getCurrentPage() == 3:
+			self.updateVolume()
 		# Update model visibilities.
 		if render == True:	
 			self.modelCollection.getCurrentModel().showAllActors(self.notebook.getCurrentPage())
@@ -1249,10 +1257,12 @@ class modelListView(gtk.VBox):
 		if model[path][3] == False:
 			self.modelSelection.select_iter(treeiter)
 		else:
-			# Start slicer again.
+	#		# Update model.
 			self.modelCollection.getCurrentModel().updateModel()
 			self.modelCollection.getCurrentModel().updateSupports()
-			self.modelCollection.getCurrentModel().updateSliceStack()
+			self.renderView.render()
+	#		self.modelCollection.getCurrentModel().updateSliceStack()
+		
 
 	# Selection changed callback.
 	def onSelectionChanged(self, selection):		

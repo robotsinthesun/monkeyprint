@@ -156,9 +156,11 @@ class imageSlider(gtk.VBox):
 		# Write image to pixbuf.
 		self.pixbuf = gtk.gdk.pixbuf_new_from_array(img, gtk.gdk.COLORSPACE_RGB, 8)
 		# Resize the image.
-		self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_NEAREST)
+		self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
 		# Set image to viewer.
 		self.imageView.set_from_pixbuf(self.pixbuf)
+		# Return true in order to keep running as a gui listener.
+		return True
 
 
 	# Handle the scroll event by displaying the respective imageArray
@@ -289,6 +291,8 @@ class entry(gtk.HBox):
 #						function()
 				# Set the entrys text field as it might have changed during the previous function call.
 				self.entry.set_text(str(self.modelCollection.getCurrentModel().settings[self.string].value))
+				# Set model changed flag in model collection. Needed to decide if slicer should be started again.
+				self.modelCollection.getCurrentModel().setChanged()
 			# If this is not a model setting but a printer setting...
 			elif self.settings != None:
 				# ... write the value to the settings.
