@@ -1250,6 +1250,8 @@ class modelListView(gtk.VBox):
 			self.modelSelection.select_iter(treeiter)
 		else:
 			# Start slicer again.
+			self.modelCollection.getCurrentModel().updateModel()
+			self.modelCollection.getCurrentModel().updateSupports()
 			self.modelCollection.getCurrentModel().updateSliceStack()
 
 	# Selection changed callback.
