@@ -803,7 +803,7 @@ void buildPlatformControl(void)
 				timer1SetCompareValue(buildTimerCompareValue);
 			}
 			// If ramping down.
-			if ((buildRampCounter > buildRampDownStart) && !(buildPlatformHomingFlag))
+			if (buildRampCounter > buildRampDownStart)
 			{
 				buildTimerCompareValue += buildRampSlope;
 				timer1SetCompareValue(buildTimerCompareValue);
@@ -844,7 +844,7 @@ void buildPlatformControl(void)
 				timer1SetCompareValue(buildTimerCompareValue);
 			}
 			// If ramping down.
-			if (buildRampCounter > buildRampDownStart)
+			if ((buildRampCounter > buildRampDownStart  && !(buildPlatformHomingFlag))
 			{
 		//		sendStringUSB("foo")
 				buildTimerCompareValue += buildRampSlope;

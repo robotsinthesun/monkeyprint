@@ -803,7 +803,7 @@ void buildPlatformControl(void)
 				timer1SetCompareValue(buildTimerCompareValue);
 			}
 			// If ramping down.
-			if ((buildRampCounter > buildRampDownStart) && !(buildPlatformHomingFlag))
+			if (buildRampCounter > buildRampDownStart)
 			{
 				buildTimerCompareValue += buildRampSlope;
 				timer1SetCompareValue(buildTimerCompareValue);
@@ -844,7 +844,7 @@ void buildPlatformControl(void)
 				timer1SetCompareValue(buildTimerCompareValue);
 			}
 			// If ramping down.
-			if (buildRampCounter > buildRampDownStart)
+			if (()buildRampCounter > buildRampDownStart  && !(buildPlatformHomingFlag))
 			{
 		//		sendStringUSB("foo")
 				buildTimerCompareValue += buildRampSlope;
@@ -1361,7 +1361,7 @@ uint8_t printerReady(void)
 void triggerCamera ( void )
 {
 	CAMPORT |= (1 << CAMPIN);
-	_delay_ms(20);
+	_delay_ms(50);
 	CAMPORT &= ~(1 << CAMPIN);
 }
 
