@@ -825,9 +825,7 @@ class gui(gtk.Window):
 		# Run the dialog and get the result.
 		response = self.dialogStart.run()
 		self.dialogStart.destroy()
-		# Set stop button sensititve.
-		self.buttonPrintStop.set_sensitive(True)
-		
+				
 		# If positive, create the projector window and start the print process
 		if response==True:
 			self.console.addLine("Starting print")
@@ -840,6 +838,9 @@ class gui(gtk.Window):
 			# Start the print.
 			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
 			self.printProcess.start()
+			# Set button sensitivities.
+			self.buttonPrintStart.set_sensitive(False)
+			self.buttonPrintStop.set_sensitive(True)
 
 	def callbackStopPrintProcess(self, data=None):
 		# Create a dialog window with yes/no buttons.
@@ -887,6 +888,7 @@ class gui(gtk.Window):
 			message = self.queueStatus.get()
 			if message == "destroy":
 				# Reset gui.
+				self.buttonPrintStart.set_sensitive(True)
 				self.buttonPrintStop.set_sensitive(False)
 				self.modelCollection.updateAllSlices3d(0)
 				self.renderView.render()
