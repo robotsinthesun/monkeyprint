@@ -1361,7 +1361,7 @@ uint8_t printerReady(void)
 void triggerCamera ( void )
 {
 	CAMPORT |= (1 << CAMPIN);
-	_delay_ms(20);
+	_delay_ms(50);
 	CAMPORT &= ~(1 << CAMPIN);
 }
 

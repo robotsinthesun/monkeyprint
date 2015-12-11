@@ -159,8 +159,7 @@ class imageSlider(gtk.VBox):
 		self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
 		# Set image to viewer.
 		self.imageView.set_from_pixbuf(self.pixbuf)
-		# Return true in order to keep running as a gui listener.
-		return True
+
 
 
 	# Handle the scroll event by displaying the respective imageArray
