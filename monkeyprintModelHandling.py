@@ -71,6 +71,7 @@ class modelContainer:
 		self.hideSupports()
 		self.hideBottomPlate()
 		self.hideSlices()
+		self.hideClipModel()
 		
 		# Set changed flag to start slicer.
 		self.setChanged()
@@ -108,6 +109,7 @@ class modelContainer:
 				self.getOverhangActor(),
 				self.getBottomPlateActor(),
 				self.getSupportsActor(),
+				self.getClipModelActor(),
 				self.getSlicesActor()
 				)
 	def hideAllActors(self):
@@ -116,6 +118,7 @@ class modelContainer:
 		self.hideOverhang(),
 		self.hideBottomPlate(),
 		self.hideSupports(),
+		self.hideClipModel(),
 		self.hideSlices()
 		
 	def showAllActors(self, state):
@@ -139,6 +142,7 @@ class modelContainer:
 		self.hideBottomPlate()
 		self.hideSupports()
 		self.hideSlices()
+		self.hideClipModel()
 	# Adjust view for support generation.
 	def showActorsSupports(self):
 		self.showModel()	
@@ -149,25 +153,28 @@ class modelContainer:
 		self.showSupports()
 		self.opaqueSupports()
 		self.hideSlices()
+		self.hideClipModel()
 	# Adjust view for slicing.
 	def showActorsSlices(self):
-		self.showModel()
+		self.hideModel()
 		self.transparentModel()
 		self.hideOverhang()
-		self.showBottomPlate()
+		self.hideBottomPlate()
 		self.transparentBottomPlate()
-		self.showSupports()
+		self.hideSupports()
 		self.transparentSupports()
 		self.showSlices()
+		self.showClipModel()
 	def showActorsPrint(self):
-		self.showModel()
+		self.showClipModel()
+		self.hideModel()
 		self.opaqueModel()
 		self.hideOverhang()
-		self.showBottomPlate()
+		self.hideBottomPlate()
 		self.opaqueBottomPlate()
-		self.showSupports()
+		self.hideSupports()
 		self.opaqueSupports()
-		self.showSlices()
+		self.hideSlices()
 	
 	def setActive(self, active):
 		self.flagActive = active
@@ -195,6 +202,9 @@ class modelContainer:
 	
 	def getOverhangActor(self):
 		return self.model.getActorOverhang()
+	
+	def getClipModelActor(self):
+		return self.model.getActorClipModel()
 	
 	def getSlicesActor(self):
 		return self.model.getActorSlices()
@@ -253,6 +263,19 @@ class modelContainer:
 	
 	def transparentSupports(self):
 		self.model.setOpacitySupports(.5)
+	
+	def showClipModel(self):
+		if self.flagActive:
+			self.model.showActorClipModel()
+	
+	def hideClipModel(self):
+		self.model.hideActorClipModel()
+	
+	def opaqueClipModel(self):
+		self.model.setOpacityClipModel(1.0)
+	
+	def transparentClipModel(self):
+		self.model.setOpacityClipModel(.5)
 	
 	def showSlices(self):
 		if self.flagActive:
@@ -686,13 +709,29 @@ class modelData:
 
 
 			# The following is for 3D slice data. ################################
-			# Create cutting plane, cutting filter and cut line polydata twice,
-			# one for 3d display and one for slice image generation in background.
+			# Create cutting plane, clip filter, cutting filter and cut line polydata.
 			self.extrusionVector = (0,0,-1)
 			# Create cutting plane.
 			self.cuttingPlane = vtk.vtkPlane()
-			self.cuttingPlane.SetNormal(0,0,1)
+			self.cuttingPlane.SetNormal(0,0,-1)
 			self.cuttingPlane.SetOrigin(0,0,0.001)	# Make sure bottom plate is cut properly.
+			# Create clip filter for model.
+			self.clipFilterModel = vtk.vtkClipPolyData()
+			self.clipFilterModel.SetClipFunction(self.cuttingPlane)
+			self.clipFilterModel.SetInput(self.stlPositionFilter.GetOutput())
+			# Create clip filter for model.
+			self.clipFilterSupports = vtk.vtkClipPolyData()
+			self.clipFilterSupports.SetClipFunction(self.cuttingPlane)
+			self.clipFilterSupports.SetInput(self.supports.GetOutput())
+			# Create clip filter for model.
+			self.clipFilterBottomPlate = vtk.vtkClipPolyData()
+			self.clipFilterBottomPlate.SetClipFunction(self.cuttingPlane)
+			self.clipFilterBottomPlate.SetInput(self.bottomPlate.GetOutput())
+			# Combine clipped models.
+			self.combinedClipModels = vtk.vtkAppendPolyData()
+			self.combinedClipModels.AddInput(self.clipFilterModel.GetOutput())
+			self.combinedClipModels.AddInput(self.clipFilterSupports.GetOutput())
+			self.combinedClipModels.AddInput(self.clipFilterBottomPlate.GetOutput())
 			# Create cutting filter for model.
 			self.cuttingFilterModel = vtk.vtkCutter()
 			self.cuttingFilterModel.SetCutFunction(self.cuttingPlane)
@@ -807,6 +846,17 @@ class modelData:
 		if self.filename != "":
 			self.modelBoundingBoxActor.SetMapper(self.modelBoundingBoxMapper)
 		
+		# Clipped model mapper. **********************************************
+		self.clipFilterMapper = vtk.vtkPolyDataMapper()
+		if vtk.VTK_MAJOR_VERSION <= 5 and self.filename != "":
+			self.clipFilterMapper.SetInput(self.combinedClipModels.GetOutput())
+		elif self.filename != "":
+			self.clipFilterMapper.SetInputConnection(self.combinedClipModels.GetOutputPort())	
+		# Cut lines actor.
+		self.clipFilterActor = vtk.vtkActor()
+		if self.filename != "":
+			self.clipFilterActor.SetMapper(self.clipFilterMapper)
+			
 		# Cut lines mapper. **************************************************
 		self.cuttingFilterMapper = vtk.vtkPolyDataMapper()
 		if vtk.VTK_MAJOR_VERSION <= 5 and self.filename != "":
@@ -1190,6 +1240,7 @@ class modelData:
 			# Update pipeline with slice position given by layer height and slice number.
 			self.cuttingPlane.SetOrigin(0,0,self.programSettings['Layer height'].value*sliceNumber)
 			self.combinedCutlines.Update()
+			self.combinedClipModels.Update()
 	
 	def startBackgroundSlicer(self):
 		# Only update if this is not default flag and the 
@@ -1381,6 +1432,21 @@ class modelData:
 	
 	def setOpacitySupports(self, opacity):
 		self.supportsActor.GetProperty().SetOpacity(opacity)
+
+	def getActorClipModel(self):
+		return self.clipFilterActor
+		
+	def hideActorClipModel(self):
+		self.clipFilterActor.SetVisibility(False)
+	
+	def showActorClipModel(self):
+		self.clipFilterActor.SetVisibility(True)
+		
+	def colorActorClipModel(self, r, g, b):
+		self.clipFilterActor.GetProperty().SetColor(r,g,b)		
+	
+	def setOpacityClipModel(self, opacity):
+		self.clipFilterActor.GetProperty().SetOpacity(opacity)
 
 	def getActorSlices(self):
 		return self.cuttingFilterActor
