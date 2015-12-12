@@ -634,7 +634,7 @@ class projectorDisplay(gtk.Window):
 		
 		debugWidth = 200
 		
-		self.debug = eval(self.settings['Debug'].value)
+		self.debug = self.settings['Debug'].value
 		
 		# Customise window.
 		# No decorations.
