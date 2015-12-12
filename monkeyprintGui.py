@@ -688,7 +688,7 @@ class gui(gtk.Window):
 		self.labelCamTrigger1.show()
 		self.checkboxCameraTrigger1 = gtk.CheckButton()
 		self.boxCameraTrigger.pack_start(self.checkboxCameraTrigger1, expand=False, fill=False, padding=5)
-		self.checkboxCameraTrigger1.set_active(eval(self.programSettings['camTriggerWithExposure'].value))
+		self.checkboxCameraTrigger1.set_active(self.programSettings['camTriggerWithExposure'].value)
 		self.checkboxCameraTrigger1.connect("toggled", self.callbackCheckButtonTrigger1)
 		self.checkboxCameraTrigger1.show()
 		self.labelCamTrigger2 = gtk.Label("After exposure")
@@ -696,7 +696,7 @@ class gui(gtk.Window):
 		self.labelCamTrigger2.show()
 		self.checkboxCameraTrigger2 = gtk.CheckButton()
 		self.boxCameraTrigger.pack_start(self.checkboxCameraTrigger2, expand=False, fill=False, padding=5)
-		self.checkboxCameraTrigger2.set_active(eval(self.programSettings['camTriggerAfterExposure'].value))
+		self.checkboxCameraTrigger2.set_active(self.programSettings['camTriggerAfterExposure'].value)
 		self.checkboxCameraTrigger2.connect("toggled", self.callbackCheckButtonTrigger2)
 		self.checkboxCameraTrigger2.show()
 		
@@ -1720,7 +1720,7 @@ class dialogSettings(gtk.Window):
 		self.labelDebug.show()
 		self.checkboxDebug = gtk.CheckButton()
 		self.boxDebug.pack_start(self.checkboxDebug)
-		self.checkboxDebug.set_active(eval(str(self.settings['Debug'].value)))
+		self.checkboxDebug.set_active(self.settings['Debug'].value)
 		self.checkboxDebug.show()
 		self.checkboxDebug.connect('toggled', self.callbackDebug)
 		
@@ -1758,7 +1758,7 @@ class dialogSettings(gtk.Window):
 		self.labelProjectorControl.show()
 		self.checkboxProjectorControl = gtk.CheckButton()
 		self.boxProjectorControl.pack_start(self.checkboxProjectorControl)
-		self.checkboxProjectorControl.set_active(eval(str(self.settings['Projector control'].value)))
+		self.checkboxProjectorControl.set_active(self.settings['Projector control'].value)
 		self.checkboxProjectorControl.show()
 		self.checkboxProjectorControl.connect('toggled', self.callbackProjectorControl)
 		# Entries.

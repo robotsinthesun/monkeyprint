@@ -161,12 +161,12 @@ class modelContainer:
 		self.showSlices()
 	def showActorsPrint(self):
 		self.showModel()
-		self.transparentModel()
+		self.opaqueModel()
 		self.hideOverhang()
 		self.showBottomPlate()
-		self.transparentBottomPlate()
+		self.opaqueBottomPlate()
 		self.showSupports()
-		self.transparentSupports()
+		self.opaqueSupports()
 		self.showSlices()
 	
 	def setActive(self, active):

@@ -43,7 +43,8 @@ class printProcess(threading.Thread):
 		self.tiltAngle = int(float(self.settings['Tilt angle'].value) / (float(self.settings['Tilt step angle'].value) / float(self.settings['Tilt microsteps per step'].value)))
 		self.tiltStepsPerTurn = int(360. / float(self.settings['Tilt step angle'].value) * float(self.settings['Tilt microsteps per step'].value))
 
-		
+		# Are we in debug mode?
+		self.debug = self.settings['Debug'].value
 		
 		# Initialise stop flag.
 		self.stopThread = threading.Event()
@@ -65,12 +66,19 @@ class printProcess(threading.Thread):
 		self.queueSlice.put(sliceNumber)
 	
 	# Non blocking wait function.
-	def wait(self, timeInterval):
+	def wait(self, timeInterval, trigger=False):
 		timeCount = 0
 		timeStart = time.time()
+		index = 0
 		while timeCount < timeInterval:
+			# Fire the camera during exposure if desired.
+			# Do not wait for ack to keep exposure time precise.
+			if trigger and index == 2:
+				self.queueConsole.put("   Triggering camera.")
+				self.serialPrinter.send(['triggerCam', None, False, None])
 			time.sleep(.1)
 			timeCount = time.time() - timeStart
+			index += 1
 	
 	
 	# Listen to the carry on command queue until the carry on command is issued.
@@ -89,7 +97,7 @@ class printProcess(threading.Thread):
 		#	Start loop.
 		
 		# Find out if this is a debug session without serial and projector.
-		debug = eval(self.settings['Debug'].value)
+		debug = self.settings['Debug'].value
 		projectorControl = True
 		
 		
@@ -218,19 +226,15 @@ class printProcess(threading.Thread):
 			self.queueSliceSend(self.slice)
 			self.queueConsole.put("   Exposing with " + str(self.exposureTime) + " seconds.")
 			
-			# Fire the camera during exposure if desired.
-			# Do not wait for ack to keep exposure time precise.
-			if not debug and self.settings['camTriggerWithExposure'].value:
-				self.serialPrinter.send(['triggerCam', None, False, None])
-			
-			# Wait during exposure.
-			self.wait(self.exposureTime)
+			# Wait during exposure. Wait function also fires camera trigger if necessary.
+			self.wait(self.exposureTime, trigger=(not self.debug and self.settings['camTriggerWithExposure'].value))
 				
 			# Stop exposure by writing -1 to queue.
 			self.queueSliceSend(-1)
 			
 			# Fire the camera after exposure if desired.
 			if not debug and self.settings['camTriggerAfterExposure'].value:
+				self.queueConsole.put("   Triggering camera.")
 				self.serialPrinter.send(['triggerCam', None, False, None])
 			
 			# Tilt.

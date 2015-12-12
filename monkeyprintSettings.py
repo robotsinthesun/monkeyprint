@@ -42,8 +42,9 @@ class setting:
 			else:
 				self.value = float(inVal)
 #				print "Float: " + inVal
-		else:
-			pass
+		# Cast to bool if "True" or "False"
+		elif inVal == "True" or inVal == "False":
+			self.value = eval(inVal)
 #			print "String: " + inVal
 		# Correct for upper bound.
 		if self.upper != None:
@@ -182,7 +183,7 @@ class programSettings(dict):
 	def string2Setting(self, string):
 		string = string.strip()
 		strSplit = string.split(':')
-		self[strSplit[0]].setValue(strSplit[1])
+		self[strSplit[0]].setValue(strSplit[1])	# Use eval to turn string into object.
 
 	# Save program settings to file.
 	def saveFile(self):
