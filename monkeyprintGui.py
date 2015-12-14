@@ -654,12 +654,12 @@ class gui(gtk.Window):
 		self.boxPrintParameters.show()
 		
 		# Create entries.
-		self.entryShellThickness = monkeyprintGuiHelper.entry('Exposure time base', settings=self.programSettings)
-		self.boxPrintParameters.pack_start(self.entryShellThickness, expand=True, fill=True)
-		self.entryFillSpacing = monkeyprintGuiHelper.entry('Exposure time', settings=self.programSettings)
-		self.boxPrintParameters.pack_start(self.entryFillSpacing, expand=True, fill=True)
-		self.entryFillThickness = monkeyprintGuiHelper.entry('Resin settle time', settings=self.programSettings)
-		self.boxPrintParameters.pack_start(self.entryFillThickness, expand=True, fill=True)
+		self.entryExposureBase = monkeyprintGuiHelper.entry('Exposure time base', settings=self.programSettings)
+		self.boxPrintParameters.pack_start(self.entryExposureBase, expand=True, fill=True)
+		self.entryExposure = monkeyprintGuiHelper.entry('Exposure time', settings=self.programSettings)
+		self.boxPrintParameters.pack_start(self.entryExposure, expand=True, fill=True)
+		self.entrySettleTime = monkeyprintGuiHelper.entry('Resin settle time', settings=self.programSettings)
+		self.boxPrintParameters.pack_start(self.entrySettleTime, expand=True, fill=True)
 		
 		# Create model volume frame.
 		self.frameResinVolume = gtk.Frame(label="Resin volume")
@@ -784,6 +784,8 @@ class gui(gtk.Window):
 	def tabSwitchPrintUpdate(self):
 		# Set render actor visibilites.
 		self.modelCollection.viewState(3)
+		# Set current slice to 0.
+		self.modelCollection.updateAllSlices3d(0)
 		self.renderView.render()
 		# Update the model volume.
 		self.updateVolume()
@@ -971,6 +973,9 @@ class gui(gtk.Window):
 			self.entrySupportTipDiameter.set_sensitive(False)
 			self.entrySupportTipHeight.set_sensitive(False)
 			self.entrySupportBottomPlateThickness.set_sensitive(False)
+			self.entryFillSpacing.set_sensitive(False)
+			self.entryFillThickness.set_sensitive(False)
+			self.entryShellThickness.set_sensitive(False)
 		else:
 			self.entryScaling.set_sensitive(True)
 			self.entryRotationX.set_sensitive(True)
@@ -987,6 +992,9 @@ class gui(gtk.Window):
 			self.entrySupportTipDiameter.set_sensitive(True)
 			self.entrySupportTipHeight.set_sensitive(True)
 			self.entrySupportBottomPlateThickness.set_sensitive(True)
+			self.entryFillSpacing.set_sensitive(True)
+			self.entryFillThickness.set_sensitive(True)
+			self.entryShellThickness.set_sensitive(True)
 			self.entryScaling.update()
 			self.entryRotationX.update()
 			self.entryRotationY.update()
@@ -1002,6 +1010,9 @@ class gui(gtk.Window):
 			self.entrySupportTipDiameter.update()
 			self.entrySupportTipHeight.update()
 			self.entrySupportBottomPlateThickness.update()
+			self.entryFillSpacing.update()
+			self.entryFillThickness.update()
+			self.entryShellThickness.update()
 		self.updateMenu()
 		if state != None:
 			self.setGuiState(state)
@@ -1013,10 +1024,6 @@ class gui(gtk.Window):
 		# Update model visibilities.
 		if render == True:	
 			self.modelCollection.getCurrentModel().showAllActors(self.notebook.getCurrentPage())
-	#		if self.modelCollection.getCurrentModel().isActive():
-#
-#			else:
-#				self.modelCollection.getCurrentModel().hideAllActors()
 			self.renderView.render()
 	
 	
@@ -1243,7 +1250,7 @@ class modelListView(gtk.VBox):
 		self.modelSelection.select_path(path)	
 		# Toggle active flag in model list.
 		model[path][3] = not model[path][3]
-		# Toggle active flag in model collection.
+		# Set active flag in model collection.
 		self.modelCollection.getCurrentModel().setActive(model[path][3])
 		# Show box.
 		self.modelCollection.getCurrentModel().showBox()

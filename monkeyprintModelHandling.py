@@ -113,6 +113,7 @@ class modelContainer:
 				self.getSlicesActor()
 				)
 	def hideAllActors(self):
+		print "bar"
 		self.hideModel(),
 		self.hideBox(),
 		self.hideOverhang(),
@@ -122,7 +123,7 @@ class modelContainer:
 		self.hideSlices()
 		
 	def showAllActors(self, state):
-		if self.isActive():
+	#	if self.isActive():
 			if state == 0:
 				self.showActorsDefault()
 			elif state == 1:
@@ -131,13 +132,21 @@ class modelContainer:
 				self.showActorsSlices()
 			elif state == 3:
 				self.showActorsPrint()
-		else:
-			self.hideAllActors()
+	#	else:
+	#		self.ghostAllActors()
+	
+	def ghostAllActors(self):
+		self.ghostModel()
+		self.ghostSupports()
+		self.ghostBottomPlate()
+		self.ghostClipModel()
+		self.ghostSlices()
+		self.hideOverhang()
 			
 	# Adjust view for model manipulation.
 	def showActorsDefault(self):
-		self.showModel()
 		self.opaqueModel()
+		self.showModel()
 		self.hideOverhang()
 		self.hideBottomPlate()
 		self.hideSupports()
@@ -145,35 +154,38 @@ class modelContainer:
 		self.hideClipModel()
 	# Adjust view for support generation.
 	def showActorsSupports(self):
-		self.showModel()	
 		self.transparentModel()
+		self.showModel()	
 		self.showOverhang()
-		self.showBottomPlate()
 		self.opaqueBottomPlate()
-		self.showSupports()
+		self.showBottomPlate()
 		self.opaqueSupports()
+		self.showSupports()
 		self.hideSlices()
 		self.hideClipModel()
 	# Adjust view for slicing.
 	def showActorsSlices(self):
+#		self.transparentModel()
 		self.hideModel()
-		self.transparentModel()
 		self.hideOverhang()
+#		self.transparentBottomPlate()
 		self.hideBottomPlate()
-		self.transparentBottomPlate()
+#		self.transparentSupports()
 		self.hideSupports()
-		self.transparentSupports()
+		self.opaqueSlices()
 		self.showSlices()
+		self.opaqueClipModel()
 		self.showClipModel()
 	def showActorsPrint(self):
+		self.opaqueClipModel()
 		self.showClipModel()
+#		self.opaqueModel()
 		self.hideModel()
-		self.opaqueModel()
 		self.hideOverhang()
+#		self.opaqueBottomPlate()
 		self.hideBottomPlate()
-		self.opaqueBottomPlate()
+#		self.opaqueSupports()
 		self.hideSupports()
-		self.opaqueSupports()
 		self.hideSlices()
 	
 	def setActive(self, active):
@@ -210,7 +222,7 @@ class modelContainer:
 		return self.model.getActorSlices()
 
 	def showBox(self):
-		if self.flagActive:
+	#	if self.flagActive:
 			self.model.showBoundingBox()
 			self.model.showBoundingBoxText()
 		
@@ -219,8 +231,9 @@ class modelContainer:
 		self.model.hideBoundingBoxText()
 	
 	def showModel(self):
-		if self.flagActive:
-			self.model.show()
+		self.model.show()
+		if not self.flagActive:
+			self.model.opacity(.1)
 	
 	def hideModel(self):
 		self.model.hide()
@@ -231,16 +244,21 @@ class modelContainer:
 	def transparentModel(self):
 		self.model.opacity(.5)
 	
+	def ghostModel(self):
+		self.model.opacity(.1)
+	
 	def showOverhang(self):
-		if self.flagActive:
-			self.model.showActorOverhang()
+		self.model.showActorOverhang()
+		if not self.flagActive:
+			self.hideOverhang()
 
 	def hideOverhang(self):
 		self.model.hideActorOverhang()
 	
 	def showBottomPlate(self):
-		if self.flagActive:
-			self.model.showActorBottomPlate()
+		self.model.showActorBottomPlate()
+		if not self.flagActive:
+			self.model.setOpacityBottomPlate(.1)
 
 	def hideBottomPlate(self):
 		self.model.hideActorBottomPlate()
@@ -250,10 +268,14 @@ class modelContainer:
 	
 	def transparentBottomPlate(self):
 		self.model.setOpacityBottomPlate(.5)
+	
+	def ghostBottomPlate(self):
+		self.model.setOpacityBottomPlate(.1)
 			
 	def showSupports(self):
-		if self.flagActive:
-			self.model.showActorSupports()
+		self.model.showActorSupports()
+		if not self.flagActive:
+			self.model.setOpacitySupports(.1)
 	
 	def hideSupports(self):
 		self.model.hideActorSupports()
@@ -264,9 +286,13 @@ class modelContainer:
 	def transparentSupports(self):
 		self.model.setOpacitySupports(.5)
 	
+	def ghostSupports(self):
+		self.model.setOpacitySupports(.1)
+	
 	def showClipModel(self):
-		if self.flagActive:
-			self.model.showActorClipModel()
+		self.model.showActorClipModel()
+		if not self.flagActive:
+			self.model.setOpacityClipModel(.1)
 	
 	def hideClipModel(self):
 		self.model.hideActorClipModel()
@@ -277,9 +303,19 @@ class modelContainer:
 	def transparentClipModel(self):
 		self.model.setOpacityClipModel(.5)
 	
+	def ghostClipModel(self):
+		self.model.setOpacityClipModel(.1)
+	
 	def showSlices(self):
-		if self.flagActive:
-			self.model.showActorSlices()
+		self.model.showActorSlices()
+		if not self.flagActive:
+			self.model.setOpacitySlices(.1)
+	
+	def opaqueSlices(self):
+		self.model.setOpacitySlices(1.0)
+	
+	def ghostSlices(self):
+		self.model.setOpacitySlices(.1)
 	
 	def hideSlices(self):
 		self.model.hideActorSlices()
@@ -476,7 +512,7 @@ class modelCollection(dict):
 		elif state == 3:
 			for model in self:
 				self[model].showActorsPrint()
-
+	'''
 	# Adjust view for model manipulation.
 	def viewDefault(self):
 		for model in self:
@@ -516,7 +552,7 @@ class modelCollection(dict):
 			self[model].transparentSupports()
 			self[model].showSlices()
 	
-	
+	'''
 	# Update supports.
 	def updateAllSupports(self):
 		for model in self:
@@ -1238,7 +1274,11 @@ class modelData:
 	def updateSlice3d(self, sliceNumber):
 		if self.filename != "" and self.isActive():
 			# Update pipeline with slice position given by layer height and slice number.
-			self.cuttingPlane.SetOrigin(0,0,self.programSettings['Layer height'].value*sliceNumber)
+			if sliceNumber == 0:
+				zPosition = 0.01
+			else:
+				zPosition = self.programSettings['Layer height'].value*sliceNumber
+			self.cuttingPlane.SetOrigin(0,0,zPosition)
 			self.combinedCutlines.Update()
 			self.combinedClipModels.Update()
 	
