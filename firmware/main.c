@@ -10,6 +10,7 @@
 #include "hardware.h"
 		
 #include "lib/virtualSerial.h"
+#include "lib/uartSerial.h"
 #include "lib/lcd.h"
 #include "lib/button.h"
 #include "lib/rotaryEncoder.h"

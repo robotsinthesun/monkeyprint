@@ -5,6 +5,18 @@
 #include <string.h>
 #include <stdio.h>
 #include <util/delay.h>
+//#define F_CPU 1000000 		// CPU clock frequency. Set in makefile.
+//#define BAUD 9600			// Baud rate for UART.
+//#include <util/setbaud.h>	// Calculates UART interval from baud rate and clock frequency.
+
+// Include the updated version of Peter Fleurys UART lib.
+#include "lib/uart.h"
+//Set F_CPU as well if not set in makefile. Needed for baud calculation.
+#ifndef F_CPU
+	#define F_CPU	16000000
+#endif
+// Define baut rate.
+#define UART_BAUD_RATE	9600  
 		
 #include "hardware.h"
 
@@ -116,6 +128,14 @@ void setupHardware(void)
 //	TIMSK4 |= (1 << OCIE4A);
 	
 	
+	
+	// Initialise UART using uart.c function.
+	// This calculates the baud interval and passes it to the init function.
+	// Don't forget to enable interrupts later on...
+	uart1_init( UART_BAUD_SELECT(UART_BAUD_RATE,F_CPU) );
+	
+	
+	
 	// Inititalise USB using LUFA function. ***********************************
 	USB_Init();
 	
@@ -130,6 +150,7 @@ void setupHardware(void)
 //	rotaryEncoderInit();
 	
 }
+
 
 
 // Define functions to set timer1 and timer3 compare values (two 8 bit registers OCR1AH / OCR1AL ).

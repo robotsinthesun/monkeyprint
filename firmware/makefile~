@@ -19,7 +19,7 @@ F_CPU        = 16000000
 F_USB        = $(F_CPU)
 OPTIMIZATION = s
 TARGET       = main
-SRC          = $(TARGET).c hardware.c $(LIBS)/lcd.c $(LIBS)/printerFunctions.c $(LIBS)/menu.c $(LIBS)/button.c $(LIBS)/rotaryEncoder.c $(LIBS)/virtualSerial.c $(LIBS)/Descriptors.c $(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
+SRC          = $(TARGET).c hardware.c $(LIBS)/uart.c $(LIBS)uartSerial.c $(LIBS)/lcd.c $(LIBS)/printerFunctions.c $(LIBS)/menu.c $(LIBS)/button.c $(LIBS)/rotaryEncoder.c $(LIBS)/virtualSerial.c $(LIBS)/Descriptors.c $(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
 LIBS	     = ./lib
 LUFA_PATH    = $(LIBS)/lufa-master/LUFA
 CC_FLAGS     = -DUSE_LUFA_CONFIG_HEADER -IConfig/
@@ -70,6 +70,6 @@ AVRDUDE_FLAGS += $(AVRDUDE_VERBOSE)
 
 # Program the device.  
 program:	$(TARGET).hex $(TARGET).eep
-	python bootloaderKick.py $(AVRDUDE_PORT)
-	sleep 2
+#	python bootloaderKick.py $(AVRDUDE_PORT)
+#	sleep 2
 	$(AVRDUDE) $(AVRDUDE_FLAGS) $(AVRDUDE_WRITE_FLASH) $(AVRDUDE_WRITE_EEPROM)

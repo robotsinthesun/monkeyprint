@@ -6,7 +6,6 @@
 #include "virtualSerial.h"
 #include "hardware.h"
 
-
 /** LUFA CDC Class driver interface configuration and state information. This structure is
  *  passed to all CDC Class driver functions, so that multiple instances of the same class
  *  within a device can be differentiated from one another.
@@ -160,6 +159,26 @@ char receiveCharUSB(void)
 {
 	char* byte = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
 	return byte;	
+}
+
+// Receive a complete string.
+// First, prepare some variables.
+char* inputChar;
+char inputString[30];
+uint8_t charIndex;
+// Run receive function in a loop until no bytes are left in the buffer.
+char* receiveStringUSB(void)
+{
+	// Use echo -n "command" > /dev/ttyACM0	to send commands. -n option is important to suppress newline char at end of string.
+	// Reset the character counter.
+	charIndex = 0;	
+	// Read until buffer is empty.	
+	while(bytesWaitingUSB())
+	{
+		inputString[charIndex] = receiveCharUSB();
+		charIndex++;
+	}
+	inputString[charIndex]='\0';	// Append end of string character, clear the string if nothing was received (charIndex=0).
 }
 
 
