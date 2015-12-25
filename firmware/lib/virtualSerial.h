@@ -18,7 +18,7 @@ void sendByteUSB(uint8_t dataByte);
 uint16_t bytesWaitingUSB(void);
 uint16_t receiveByteUSB(void);
 char receiveCharUSB(void);
-char* receiveStringUSB(char* inputString, uint8_t stringSize);
+void receiveStringUSB(char* inputString, uint8_t stringSize);
 
 // Function prototype for managing the USB interface.
 void manageUSB(uint8_t receiving);

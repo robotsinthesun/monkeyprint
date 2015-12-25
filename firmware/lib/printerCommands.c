@@ -19,7 +19,7 @@ int16_t stringValue;
 // Maybe the USB virtual serial input buffer is set to 16 byte?
 void processCommandInput( void )
 {
-	sendStringUART("ping");
+	//sendStringUART("ping");
 	_delay_ms(100);
 	
 	// Receive a string from USB virtual serial.

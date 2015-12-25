@@ -157,7 +157,7 @@ uint16_t receiveByteUSB(void)
 }
 char receiveCharUSB(void)
 {
-	char* byte = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
+	char byte = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
 	return byte;	
 }
 
@@ -171,8 +171,7 @@ char receiveCharUSB(void)
 // and return the string. This way the memory allocated by the string will
 // not be reallocated when the function has finished because the memory has been
 // allocated by the caller of the function.
-char* receiveStringUSB
-(char* inputString, uint8_t stringSize)
+void receiveStringUSB (char* inputString, uint8_t stringSize)
 {
 	// Use echo -n "command" > /dev/ttyACM0	to send commands. -n option is important to suppress newline char at end of string.
 	// Reset the character counter.
@@ -188,7 +187,7 @@ char* receiveStringUSB
 	// Return pointer to string.
 	// There is no need for the * because a string already is a pointer
 	// to it's first character.
-	return inputString;
+//	return inputString;
 }
 
 
