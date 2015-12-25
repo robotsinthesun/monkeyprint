@@ -171,7 +171,8 @@ char receiveCharUSB(void)
 // and return the string. This way the memory allocated by the string will
 // not be reallocated when the function has finished because the memory has been
 // allocated by the caller of the function.
-char* receiveStringUSB(char* inputString, uint8_t stringSize)
+char* receiveStringUSB
+(char* inputString, uint8_t stringSize)
 {
 	// Use echo -n "command" > /dev/ttyACM0	to send commands. -n option is important to suppress newline char at end of string.
 	// Reset the character counter.

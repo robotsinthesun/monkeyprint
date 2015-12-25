@@ -179,7 +179,6 @@ char* receiveStringUSB(char* inputString, uint8_t stringSize)
 	// Read until buffer is empty.	
 	while(bytesWaitingUSB() && charIndex < stringSize-1)	// -1 because the '\0' has to be added at the end.
 	{
-		sendStringUSB("foo");	
 		inputString[charIndex] = receiveCharUSB();
 		charIndex++;
 	}
