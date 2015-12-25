@@ -5,19 +5,12 @@
 #include "lib/uartSerial.h"
 #include "lib/virtualSerial.h"
 
-// Index for the string.
-unsigned int inputChar;
-//char inputString[30];
-
-
-
+// Send a string via UART serial.
 void sendStringUART (char* string)
 {
 	uart1_puts(string);
 	// TODO: check out the type error warning...
 }
-
-
 
 // Get a string from the ring buffer.
 // If bytes are in the buffer, the receive function will run as long

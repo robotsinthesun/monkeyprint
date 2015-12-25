@@ -1,14 +1,11 @@
-#include <avr/io.h>
 #include <string.h>
 #include <stdlib.h>
 #include <util/delay.h>
+
 #include "lib/printerCommands.h"
-// Load custom serial functions.
-#include "lib/uartSerial.h"
-// Load USB virtual serial functions.
-#include "lib/virtualSerial.h"
-// Load printer functions.
-#include "lib/printerFunctions.h"
+#include "lib/uartSerial.h"		// Load custom serial functions.
+#include "lib/virtualSerial.h"	// Load USB virtual serial functions.
+#include "lib/printerFunctions.h"	// Load printer functions.
 
 
 char inputString[30];
@@ -16,13 +13,17 @@ char* firstString;
 char* secondString;
 int16_t stringValue;
 
-// Function to analyse an incoming string and parse it for printer commands.
+
+// *****************************************************************************
+// Function: Analyse an incoming string and parse it for printer commands. *****
+// *****************************************************************************
+
 // TODO: find out why a command cannot be longer than 16 characters (at least via USB).
 // Maybe the USB virtual serial input buffer is set to 16 byte?
 void processCommandInput( void )
 {
-	//sendStringUART("ping");
-	_delay_ms(100);
+	//sendStringUART("tilt");
+	//_delay_ms(100);
 	
 	// Receive a string from USB virtual serial.
 	// This will write the received string to the input variable "inputString".

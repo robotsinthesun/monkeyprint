@@ -132,7 +132,7 @@ void setupHardware(void)
 	// Initialise UART using uart.c function.
 	// This calculates the baud interval and passes it to the init function.
 	// Don't forget to enable interrupts later on...
-	uart_init( UART_BAUD_SELECT(UART_BAUD_RATE,F_CPU) );
+	uart1_init( UART_BAUD_SELECT(UART_BAUD_RATE,F_CPU) );
 	
 	
 	

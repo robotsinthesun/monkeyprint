@@ -162,10 +162,6 @@ char receiveCharUSB(void)
 }
 
 // Receive a complete string.
-// First, prepare some variables.
-//char* inputChar;
-//char inputString[30];
-//uint8_t charIndex;
 // Run receive function in a loop until no bytes are left in the buffer.
 // Pass a string to the function, write the received chars into the string
 // and return the string. This way the memory allocated by the string will

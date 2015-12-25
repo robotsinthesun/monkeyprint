@@ -17,7 +17,6 @@
 #include "lib/menu.h"
 #include "lib/printerFunctions.h"
 #include "lib/printerCommands.h"
-//#include "lib/gCodeInterpreter.h"
 
 
 // *****************************************************************************
@@ -46,19 +45,7 @@ volatile uint16_t timerCount = 0;
 volatile uint16_t timerMilliSeconds = 100;	// ms
 
 
-char* testChar;
-char testBuffer[30];
-uint8_t bytesWaiting;
-uint8_t charIndex;
-uint8_t sendErrorCode;
-char* firstString;
-char* secondString;
-int16_t stringValue;
-
 uint8_t pingFlag = 0;
-//uint8_t printingFlag;
-//uint16_t numberOfSlices;
-//uint16_t currentSlice;
 
 
 // *****************************************************************************
@@ -113,198 +100,9 @@ int main(void)
 		//**************************************************************
 		
 		// Receive and analyse incoming data. ******************
+		// Use echo -n "command" > /dev/ttyACM0	to send commands. -n option is important to suppress newline char at end of string.
 		processCommandInput();
-/*		// Use echo -n "command" > /dev/ttyACM0	to send commands. -n option is important to suppress newline char at end of string.
-		
-		charIndex = 0;		
-//		lcd_gotoxy(0,0);
-		while(bytesWaitingUSB())
-		{	
-//			lcd_clrscr();
-			testBuffer[charIndex] = receiveCharUSB();
-			charIndex++;
-		}
-		testBuffer[charIndex]='\0';	// Append end of string character, clear the string if nothing was received (charIndex=0).
-//		if(strlen(testBuffer)>2)
-//		{
-//			lcd_putu(strlen(testBuffer));
-//			lcd_gotoxy(0,3);
-//			lcd_puts(testBuffer);
-//		}
-		
-		// Look for commands. ******************************************
-		// strcmp returns and int wich is:
-		//	0 in case of match
-		//	<0 if str1 is lexicographically smaller than str2 (str1 will appear before str2 in a dictionary)
-		//	>0 if str1 is lexicographically larger than str2 
-		if (!(strcmp(testBuffer, "ping")))
-		{
-			pingFlag = 1;
-		}
-		if (!(strcmp(testBuffer, "tilt")))
-		{
-			tilt(tiltAngle,tiltSpeed);
-			_delay_ms(10);
-			sendStringUSB("tilt\n");	// Important: don't forget newline character.
-		}
-		else if (!(strcmp(testBuffer, "buildHome")))
-		{
-			buildPlatformHome();
-			_delay_ms(10);
-			sendStringUSB("buildHome\n");	// Important: don't forget newline character.
-		}
-		else if (!(strcmp(testBuffer, "buildTop")))
-		{
-			buildPlatformTop();
-			sendStringUSB("buildTop\n");	// Important: don't forget newline character.
-		}
-		else if (!(strcmp(testBuffer, "buildBaseUp")))
-		{
-			buildPlatformBaseLayerUp();
-			sendStringUSB("buildBaseUp\n");
-		}
-		else if (!(strcmp(testBuffer, "buildUp")))
-		{
-			buildPlatformLayerUp();
-			sendStringUSB("buildUp\n");	// Important: don't forget newline character.
-			//lcd_gotoxy(0,3);
-			//lcd_puts("check");
-		}
-		else if (!(strcmp(testBuffer, "triggerCam")))
-		{
-			triggerCamera();
-			sendStringUSB("triggerCam\n");	// Important: don't forget newline character.
-		}
-		else if (!(strcmp(testBuffer, "beamerHome")))
-		{
-//			beamerHome();
-		}
-		else if (!(strcmp(testBuffer, "beamerTop")))
-		{
-//			beamerBottom();
-		}
-		// Look for commands that change values.
-		else if (strlen(testBuffer)>0)
-		{
-			// Retrieve first string and second string separated by space.
-			// Does not work if first + second string is longer than 16 chars.
-			firstString = strtok(testBuffer, " ");
-			secondString = strtok(NULL, " ");	// WHY DOES THIS WORK?
-
-			if (!(strcmp(firstString, "buildLayer")))
-			{
-				// Retrieve layer value.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				buildPlatformSetLayerHeight(stringValue);
-				sendStringUSB("buildLayer\n");
-			}
-			else if (!(strcmp(firstString, "buildBaseLayer")))
-			{
-				// Convert value to integer.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				buildPlatformSetBaseLayerHeight(stringValue);
-				sendStringUSB("buildBaseLayer\n");
-			}
-			else if (!(strcmp(firstString, "tiltSpeed")))
-			{
-				// Retrieve layer value.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				tiltSetSpeed(stringValue);
-				sendStringUSB("tiltSpeed\n");
-			}
-			else if (!(strcmp(firstString, "tiltAngle")))
-			{
-				// Retrieve layer value.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				tiltSetAngle(stringValue);
-				sendStringUSB("tiltAngle\n");
-			}
-			else if (!(strcmp(firstString, "tiltRes")))
-			{
-				// Retrieve layer value.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				tiltSetAngleMax(stringValue);
-				sendStringUSB("tiltRes\n");
-			}
-			else if (!(strcmp(firstString, "buildSpeed")))
-			{
-				// Retrieve layer value.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				buildPlatformSetSpeed(stringValue);
-				sendStringUSB("buildSpeed\n");
-			}
-			else if (!(strcmp(firstString, "buildRes")))
-			{
-				// Retrieve value and convert to int.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				buildPlatformSetResolution(stringValue);
-				sendStringUSB("buildRes\n");
-			}
-			else if (!(strcmp(firstString, "buildMinMove")))
-			{
-				// Retrieve value and convert to int.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				buildPlatformSetMinMove(stringValue);
-				sendStringUSB("buildMinMove\n");
-			}
-			else if (!(strcmp(firstString, "buildMove")))
-			{
-				// Retrieve value and convert to int.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				buildPlatformMove(stringValue);
-				sendStringUSB("buildMove\n");
-			}
-			else if (!(strcmp(firstString, "printingFlag")))
-			{
-				// Retrieve layer value.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				// 0 is idle, 1 is printing.
-				if (stringValue==0 || stringValue==1)
-				{
-					printerSetState(stringValue);
-//					menuGoInfoScreen();
-				}
-				sendStringUSB("printingFlag\n");
-			}
-			else if (!(strcmp(firstString, "slice")))
-			{
-				// Retrieve layer value.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				printerSetSlice(stringValue);
-//				menuChanged()
-				sendStringUSB("slice\n");;
-
-			}
-			else if (!(strcmp(firstString, "nSlices")))
-			{
-				// Retrieve layer value.
-				stringValue = atoi(secondString);
-				// Adjust value according to input.
-				printerSetNumberOfSlices(stringValue);
-//				lcd_gotoxy(0,3);
-//				lcd_puti(stringValue);
-				sendStringUSB("nSlices\n");
-			}
-		}
-*/
-
-		
-		
-		
-		
-
-		
+				
 		
 		//**************************************************************
 		//************* Update menu. ***********************************

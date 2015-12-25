@@ -5,12 +5,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <util/delay.h>
-//#define F_CPU 1000000 		// CPU clock frequency. Set in makefile.
-//#define BAUD 9600			// Baud rate for UART.
-//#include <util/setbaud.h>	// Calculates UART interval from baud rate and clock frequency.
 
-// Include the updated version of Peter Fleurys UART lib.
-#include "lib/uart.h"
+#include "hardware.h"
+#include "lib/uart.h"	// Include the updated version of Peter Fleurys UART lib.
+
 //Set F_CPU as well if not set in makefile. Needed for baud calculation.
 #ifndef F_CPU
 	#define F_CPU	16000000
@@ -18,7 +16,7 @@
 // Define baut rate.
 #define UART_BAUD_RATE	9600  
 		
-#include "hardware.h"
+
 
 // *****************************************************************************
 // Function: configure hardware. ***********************************************
