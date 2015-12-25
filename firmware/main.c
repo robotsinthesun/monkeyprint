@@ -16,6 +16,7 @@
 #include "lib/rotaryEncoder.h"
 #include "lib/menu.h"
 #include "lib/printerFunctions.h"
+#include "lib/printerCommands.h"
 //#include "lib/gCodeInterpreter.h"
 
 
@@ -112,8 +113,8 @@ int main(void)
 		//**************************************************************
 		
 		// Receive and analyse incoming data. ******************
-		
-		// Use echo -n "command" > /dev/ttyACM0	to send commands. -n option is important to suppress newline char at end of string.
+		processCommandInput();
+/*		// Use echo -n "command" > /dev/ttyACM0	to send commands. -n option is important to suppress newline char at end of string.
 		
 		charIndex = 0;		
 //		lcd_gotoxy(0,0);
@@ -296,7 +297,7 @@ int main(void)
 				sendStringUSB("nSlices\n");
 			}
 		}
-
+*/
 
 		
 		

@@ -13,11 +13,12 @@
 
 // Function prototypes sending and receiving.
 uint8_t sendStringUSB(char* dataString);
-void sendByteAsStringUSB(uint8_t dataByte);
+void sendByteAsStringUSB(uint16_t dataByte);
 void sendByteUSB(uint8_t dataByte);
 uint16_t bytesWaitingUSB(void);
 uint16_t receiveByteUSB(void);
 char receiveCharUSB(void);
+char receiveStringUSB(void);
 
 // Function prototype for managing the USB interface.
 void manageUSB(uint8_t receiving);

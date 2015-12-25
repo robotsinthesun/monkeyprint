@@ -163,22 +163,31 @@ char receiveCharUSB(void)
 
 // Receive a complete string.
 // First, prepare some variables.
-char* inputChar;
-char inputString[30];
-uint8_t charIndex;
+//char* inputChar;
+//char inputString[30];
+//uint8_t charIndex;
 // Run receive function in a loop until no bytes are left in the buffer.
-char* receiveStringUSB(void)
+// Pass a string to the function, write the received chars into the string
+// and return the string. This way the memory allocated by the string will
+// not be reallocated when the function has finished because the memory has been
+// allocated by the caller of the function.
+char* receiveStringUSB(char* inputString, uint8_t stringSize)
 {
 	// Use echo -n "command" > /dev/ttyACM0	to send commands. -n option is important to suppress newline char at end of string.
 	// Reset the character counter.
-	charIndex = 0;	
+	uint8_t charIndex = 0;
 	// Read until buffer is empty.	
-	while(bytesWaitingUSB())
+	while(bytesWaitingUSB() && charIndex < stringSize-1)	// -1 because the '\0' has to be added at the end.
 	{
 		inputString[charIndex] = receiveCharUSB();
 		charIndex++;
 	}
 	inputString[charIndex]='\0';	// Append end of string character, clear the string if nothing was received (charIndex=0).
+	
+	// Return pointer to string.
+	// There is no need for the * because a string already is a pointer
+	// to it's first character.
+	return inputString;
 }
 
 
