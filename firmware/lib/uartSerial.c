@@ -22,7 +22,7 @@ void sendStringUART (char* string)
 // Get a string from the ring buffer.
 // If bytes are in the buffer, the receive function will run as long
 // as the buffer is not empty.
-char* receiveStringUART ( char* inputString, uint8_t stringSize )
+void receiveStringUART ( char* inputString, uint8_t stringSize )
 {
 	// Received character and error bitmask.
 	unsigned int inputChar;
@@ -73,5 +73,5 @@ char* receiveStringUART ( char* inputString, uint8_t stringSize )
 		inputString[charIndex] = inputChar;
 	}
 	// Return the pointer to the received string.
-	return inputString;
+//	return inputString;
 }

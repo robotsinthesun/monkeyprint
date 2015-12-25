@@ -1,7 +1,7 @@
 #include <avr/io.h>
 #include <string.h>
-#include <stdio.h>
-#include <avr/delay.h>
+#include <stdlib.h>
+#include <util/delay.h>
 
 #include "virtualSerial.h"
 #include "hardware.h"

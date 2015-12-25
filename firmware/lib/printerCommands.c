@@ -1,10 +1,12 @@
 #include <avr/io.h>
 #include <string.h>
-#include <stdio.h>
+#include <stdlib.h>
 #include <util/delay.h>
 #include "lib/printerCommands.h"
 // Load custom serial functions.
 #include "lib/uartSerial.h"
+// Load USB virtual serial functions.
+#include "lib/virtualSerial.h"
 // Load printer functions.
 #include "lib/printerFunctions.h"
 
