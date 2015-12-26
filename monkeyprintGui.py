@@ -607,17 +607,11 @@ class gui(gtk.Window):
 		self.boxFill.pack_start(self.boxFillCheckbuttons)
 		self.boxFillCheckbuttons.show()
 		# Checkbox for hollow prints.
-		self.checkboxHollow = gtk.CheckButton(label="Print hollow?")
+		self.checkboxHollow = monkeyprintGuiHelper.toggleButton(string="Print hollow", settings=None, modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel])#gtk.CheckButton(label="Print hollow?")
 		self.boxFillCheckbuttons.pack_start(self.checkboxHollow, expand=True, fill=True)
-		self.checkboxHollow.set_active(True)
-		self.checkboxHollow.show()
-		self.checkboxHollow.connect("toggled", self.callbackCheckButtonHollow)
 		# Checkbox for fill structures.
-		self.checkboxFill = gtk.CheckButton(label="Use fill?")
+		self.checkboxFill = monkeyprintGuiHelper.toggleButton(string="Fill", settings=None, modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel])#gtk.CheckButton(label="Print hollow?")
 		self.boxFillCheckbuttons.pack_start(self.checkboxFill, expand=True, fill=True)
-		self.checkboxFill.set_active(True)
-		self.checkboxFill.show()
-		self.checkboxFill.connect("toggled", self.callbackCheckButtonFill)
 		# Entries.
 		self.entryShellThickness = monkeyprintGuiHelper.entry('Shell wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryShellThickness, expand=True, fill=True)
@@ -682,7 +676,8 @@ class gui(gtk.Window):
 		self.frameCameraTrigger.add(self.boxCameraTrigger)
 		self.boxCameraTrigger.show()
 		
-		# Resin volume label.
+		# Camera trigger checkbuttons.
+#TODO		self.checkButtonCameraTrigger1 = monkeyprintGuiHelper.toggleButton(string="During exposure",)
 		self.labelCamTrigger1 = gtk.Label("During exposure")
 		self.boxCameraTrigger.pack_start(self.labelCamTrigger1, expand=False, fill=False, padding=5)
 		self.labelCamTrigger1.show()

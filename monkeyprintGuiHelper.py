@@ -205,10 +205,72 @@ class imageSlider(gtk.VBox):
 
 
 
+# A toggle button class with a label on the left. ##############################
+# Will call custom functions passed as input. Label and default value are 
+# taken from settings object.
+# There are two possibilities: if a model collection is supplied, this is a 
+# toggle button for a model specific setting. If no model collection has been
+# supplied, this is a general setting.
+
+class toggleButton(gtk.CheckButton):
+	# Override init function.
+	def __init__(self, string, settings=None, modelCollection=None, customFunctions=None):
+	
+		# Internalise model collection.
+		self.modelCollection = modelCollection
+		self.string = string
+		
+		# Get settings object if model collection was supplied.
+		if self.modelCollection != None:
+			self.settings = self.modelCollection.getCurrentModel().settings
+		# If no model collection was supplied, this is a general setting.
+		elif settings != None:
+			self.settings = settings
+		
+		# Internalise custom functions.
+		self.customFunctions = customFunctions
+		
+		# Create the label string.
+		self.labelString = string+self.settings[string].unit
+		
+		# Create toggle button.
+		# Call super class init funtion.
+		gtk.CheckButton.__init__(self, self.labelString)
+		self.show()
+		# Set toggle state according to setting.
+		self.set_active(self.settings[string].value)
+		# Connect to callback function.
+		self.connect("toggled", self.callbackToggleChanged)
+	
+
+	def callbackToggleChanged(self, data=None):
+		# Set value.
+		# In case a model collection was provided...
+		if self.modelCollection != None:
+			# ... set the new value in the current model's settings.
+			self.modelCollection.getCurrentModel().settings[self.string].setValue(self.get_active())
+			# Set model changed flag in model collection. Needed to decide if slicer should be started again.
+			self.modelCollection.getCurrentModel().setChanged()
+		# If this is not a model setting but a printer setting...
+		elif self.settings != None:
+			# ... write the value to the settings.
+			self.settings[self.string].setValue(self.get_active())
+		# Call the custom functions specified for the setting.
+		if self.customFunctions != None:
+			for function in self.customFunctions:
+				function()		
+		
+	# Update the toggle state if current model has changed.	
+	def update(self):
+		# If this is a model setting...
+		if self.modelCollection != None:
+			self.set_active(self.modelCollection.getCurrentModel().settings[self.string].value)
+		else:
+			self.set_active(self.settings[self.string].value)		
 
 
 
-# A text entry including a label on the left. #################################
+# A text entry including a label on the left. ##################################
 # Will call a function passed to it on input. Label, default value and
 # callback function are taken from the settings object.
 
