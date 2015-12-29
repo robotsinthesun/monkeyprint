@@ -92,7 +92,84 @@ def imgSubtract(img1, img2, pos):
 	numpy.clip(img1, 0, 255, out=img1)
 	img1 = numpy.uint8(img1)
 	return img1
+
+
+def imgBinarise(img):
+	img = img / 255
+	return img
+
+def imgInvert(img):
+	img = numpy.invert(img, dtype='uint8')
+	return img
+
+def imgManhattanDistance(img):
+	# O(n^2) solution to find the Manhattan distance to "on" pixels in a two dimension array
+	# Taken from http://blog.ostermiller.org/dilate-and-erode
+	# Find the nearest on pixel.
+	# Traverse from top left to bottom right.
+	for i in range(img.shape[0]):			#for (int i=0; i<image.length; i++){
+		for j in range(img.shape[1]):			#for (int j=0; j<image[i].length; j++){
+			# If the current pixel is on...
+			if img[i,j] == 1:					#if (image[i][j] == 1){
+				# ... it gets a 0 as the distance to itself is 0.
+					img[i,j] = 0
+			# If the current pixel is off...
+			else:
+				# ... its distance to the next on pixel is at most
+				# the sum of the lengths of the array...
+				img[i,j] = img.shape[0] + img.shape[1]
+				# ... or one more than the pixel to the north...
+				if i > 0:		#if (i>0) image[i][j] = Math.min(image[i][j], image[i-1][j]+1);
+					img[i,j] = min(img[i,j], img[i-1,j]+1)
+				# ... or one more than the pixel to the west...
+				if j > 0:                # if (j>0) image[i][j] = Math.min(image[i][j], image[i][j-1]+1);
+					img[i,j] = min(img[i,j], img[i,j-1]+1)
+
+	# Traverse from bottom right to top left.
+	for i in range(img.shape[0]-1, -1, -1):
+		for j in range(img.shape[1]-1, -1, -1):
+			# The distance of the current pixel to the next on pixel
+			# is either what we had on the first pass or
+			# one more than the pixel to the south...
+			if i+1 < img.shape[0]:		#if (i+1<image.length) image[i][j] = Math.min(image[i][j], image[i+1][j]+1);
+				img[i,j] = min(img[i,j], img[i+1,j]+1)
+			# ... or one more than the pixel to the east.
+			if j+1 < img.shape[1]:		#if (j+1<image[i].length) image[i][j] = Math.min(image[i][j], image[i][j+1]+1);
+				img[i,j] = min(img[i,j], img[i,j+1]+1)
 	
+	# Distances are set, return the distance map.
+	return img;
+
+
+# Erode. This will shrink white areas in an image by a given radius.
+def imgErode(img, radius=1):
+	# First, we need to binarise and invert the image to create the distance map.
+	distanceMap = imgManhattanDistance(imgBinarise(imgInvert(img)))
+	# Copy the input image.
+	eroded = numpy.zeros_like(img, dtype='uint8')
+	# Now, all pixels with distance above threshold will get a 0.
+	for i in range(eroded.shape[0]):
+		for j in range(eroded.shape[1]):
+			if distanceMap[i,j] > radius:
+				eroded[i,j] = 255
+	# Return the eroded image as 0..255.
+	return eroded
+
+
+# Dilate. This will grow white areas in an image by a given radius.
+def imgDilate(img, radius=1):
+	# First, we need to binarise the image to create the distance map.
+	distanceMap = imgManhattanDistance(imgBinarise(img))
+	# Copy the input image.
+	dilated = numpy.ones_like(img, dtype='uint8') * 255
+	# Now, all pixels with distance above threshold will get a 0.
+	for i in range(dilated.shape[0]):
+		for j in range(dilated.shape[1]):
+			if distanceMap[i,j] > radius:
+				dilated[i,j] = 0
+	# Return the eroded image as 0..255.
+	return dilated
+
 
 # Convert single channel to 3 channel grayscale.
 def convertSingle2RGB(img):
