@@ -595,6 +595,45 @@ class modelCollection(dict):
 			return False
 
 
+################################################################################
+# Create an error observer for the VTK error messages. #########################
+################################################################################
+# Taken from here: http://www.vtk.org/pipermail/vtkusers/2012-June/074703.html
+class ErrorObserver:
+
+   def __init__(self):
+       self.__ErrorOccurred = False
+       self.__WarningOccurred = False
+       self.__ErrorMessage = None
+       self.__WarningMessage = None
+       self.CallDataType = 'string0'
+
+   def __call__(self, obj, event, message):
+       if event == 'WarningEvent':
+           self.__WarningOccurred = True
+           self.__WarningMessage = message
+       else:
+           self.__ErrorOccurred = True
+           self.__ErrorMessage = message
+
+   def ErrorOccurred(self):
+       occ = self.__ErrorOccurred
+       self.__ErrorOccurred = False
+       return occ
+      
+   def WarningOccurred(self):
+       occ = self.__WarningOccurred
+       self.__WarningOccurred = False
+       return occ
+
+   def ErrorMessage(self):
+       return self.__ErrorMessage
+
+   def WarningMessage(self):
+       return self.__WarningMessage
+
+
+
 
 ################################################################################
 ################################################################################
@@ -648,6 +687,10 @@ class modelData:
 	###########################################################################
 	
 	def __init__(self, filename, settings, programSettings, console=None):
+	
+		# Create VTK error observer to catch errors.
+		self.errorObserver = ErrorObserver()
+		
 		# Set up variables.
 		# Internalise settings.
 		self.filenameStl = ""
@@ -735,6 +778,7 @@ class modelData:
 		
 			# Create supports polydata.
 			self.supports = vtk.vtkAppendPolyData()
+			self.supports.AddObserver('ErrorEvent', self.errorObserver)
 
 			# Create bottom plate polydata. Edge length 1 mm, place outside of build volume by 1 mm.	
 			self.bottomPlate = vtk.vtkCubeSource()
@@ -765,6 +809,7 @@ class modelData:
 			self.clipFilterBottomPlate.SetInput(self.bottomPlate.GetOutput())
 			# Combine clipped models.
 			self.combinedClipModels = vtk.vtkAppendPolyData()
+			self.combinedClipModels.AddObserver('ErrorEvent', self.errorObserver)
 			self.combinedClipModels.AddInput(self.clipFilterModel.GetOutput())
 			self.combinedClipModels.AddInput(self.clipFilterSupports.GetOutput())
 			self.combinedClipModels.AddInput(self.clipFilterBottomPlate.GetOutput())
@@ -793,9 +838,11 @@ class modelData:
 			self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
 			# Combine cut lines from model, supports and bottom plate. This is for display only.
 			self.combinedCutlines = vtk.vtkAppendPolyData()
+			self.combinedCutlines.AddObserver('ErrorEvent', self.errorObserver)
 			self.combinedCutlines.AddInput(self.sectionStripperModel.GetOutput())
 			self.combinedCutlines.AddInput(self.sectionStripperSupports.GetOutput())
 			self.combinedCutlines.AddInput(self.sectionStripperBottomPlate.GetOutput())
+
 			# Create a small cone to have at least one input
 			# to the slice line vtkAppendPolyData in case no
 			# model intersections were found.
@@ -805,7 +852,7 @@ class modelData:
 			cone.SetResolution(6)
 			cone.SetCenter([-.1,-.1,-.1])
 			self.combinedCutlines.AddInput(cone.GetOutput())
-		
+			
 			# Bounding box. Create cube and set outline filter.
 			self.modelBoundingBox = vtk.vtkCubeSource()
 			self.modelBoundingBox.SetCenter(self.getCenter()[0], self.getCenter()[1], self.getBounds()[5]/2)
@@ -916,8 +963,8 @@ class modelData:
 		self.modelBoundingBoxTextActor.BorderOff()
 		self.modelBoundingBoxTextActor.LeaderOff()
 		self.modelBoundingBoxTextActor.SetPadding(0)
-		
-		
+
+
 		
 		######################################################################
 		# Other stuff. #######################################################
@@ -926,10 +973,13 @@ class modelData:
 		# Get volume.
 		if self.filename != "":
 			self.volumeModel = vtk.vtkMassProperties()
+			self.volumeModel.AddObserver('WarningEvent', self.errorObserver)
 			self.volumeModel.SetInput(self.stlPositionFilter.GetOutput())
 			self.volumeSupports = vtk.vtkMassProperties()
+			self.volumeSupports.AddObserver('WarningEvent', self.errorObserver)
 			self.volumeSupports.SetInput(self.supports.GetOutput())
 			self.volumeBottomPlate = vtk.vtkMassProperties()
+			self.volumeBottomPlate.AddObserver('WarningEvent', self.errorObserver)
 			self.volumeBottomPlate.SetInput(self.bottomPlate.GetOutput())
 		
 
@@ -945,7 +995,6 @@ class modelData:
 					self.console.addLine('Model loaded successfully.')
 					self.console.addLine('   ' + str(self.stlPolyData.GetNumberOfPoints()) + " points loaded.")
 					self.console.addLine('   ' + str(self.stlPolyData.GetNumberOfPolys()) + " polygons loaded.")
-
 
 
 
@@ -982,16 +1031,31 @@ class modelData:
 	def getVolume(self):
 		if self.filename != "":
 			self.volumeModel.Update()
-			self.volumeSupports.Update()
+			if self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+				print "VTK Warning: " + self.errorObserver.ErrorMessage()
+			# Only update supports volume if there are supports in the appendPolyData.
+			if self.supports.GetNumberOfInputConnections(0) > 0:
+				self.volumeSupports.Update()
+				if self.programSettings['Debug'].value and self.errorObserver.WarningOccurred():
+					print "VTK Warning: " + self.errorObserver.WarningMessage()
+				elif self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+					print "VTK Error: " + self.errorObserver.ErrorMessage()
 			self.volumeBottomPlate.Update()
+			if self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+				print "VTK Error: " + self.errorObserver.ErrorMessage()
+
 			# Get volume in mm³.
-			volume = self.volumeModel.GetVolume() + self.volumeSupports.GetVolume() + self.volumeBottomPlate.GetVolume()
+			if self.supports.GetNumberOfInputConnections(0) > 0:
+				volume = self.volumeModel.GetVolume() + self.volumeSupports.GetVolume() + self.volumeBottomPlate.GetVolume()
+			else:
+				volume = self.volumeModel.GetVolume() + self.volumeBottomPlate.GetVolume()
 			# Convert to cm³ and round to 2 decimals.
 			volume = math.trunc(volume / 10.) /100.
 			return volume
 		else:
 			return 0.0
-	
+			
+				
 	def getCenter(self):
 		return self.__getCenter(self.stlPositionFilter)
 		
@@ -1070,7 +1134,7 @@ class modelData:
 			# Restrict input scalingFactor if necessary.
 			if smallestRatio < self.settings['Scaling'].value:
 				self.settings['Scaling'].setValue(smallestRatio)
-			
+				
 			# Scale. *******************
 			# First, reset scale to 1.
 			self.stlScaleTransform.Scale(1/self.stlScaleTransform.GetScale()[0], 1/self.stlScaleTransform.GetScale()[1], 1/self.stlScaleTransform.GetScale()[2])
@@ -1090,15 +1154,14 @@ class modelData:
 
 			# Recalculate normals.
 			self.getNormalZComponent(self.stlPositionFilter.GetOutput())
-		
+
 			# Reposition bounding box.
 			self.modelBoundingBox.SetCenter(self.getCenter()[0], self.getCenter()[1],self.getBounds()[5]/2)
 			self.modelBoundingBox.SetXLength(self.getSize()[0])
 			self.modelBoundingBox.SetYLength(self.getSize()[1])
 			self.modelBoundingBox.SetZLength(self.getBounds()[5])
-			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )
+			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )				
 			self.modelBoundingBoxTextActor.SetAttachmentPoint(self.getBounds()[1], self.getBounds()[3], self.getBounds()[5])
-			
 			# Update slice stack if it was filled before (if the slice tab was opened before).
 #			if len(self.sliceStack) > 1:
 #				print "foo"
@@ -1116,7 +1179,7 @@ class modelData:
 			self.bottomPlate.SetCenter( (modelBounds[0] + modelBounds[1]) / 2.0, (modelBounds[2] + modelBounds[3]) / 2.0, self.settings['Bottom plate thickness'].value/2.0)
 			self.bottomPlate.Update()
 			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )
-		
+
 
 	def updateOverhang(self):
 		if self.filename != "" and self.isActive():
@@ -1130,10 +1193,11 @@ class modelData:
 
 	# Update supports. ########################################################
 	def updateSupports(self):
+
 		if self.filename != "" and self.isActive():
 			# Update overhang.
 			self.updateOverhang()
-		
+
 			# Clear all inputs from cones data.
 			self.supports.RemoveAllInputs()
 			
@@ -1147,7 +1211,7 @@ class modelData:
 			cone.SetResolution(6)
 			cone.SetCenter([-.1,-.1,-.1])
 			self.supports.AddInput(cone.GetOutput())
-	
+
 	#TODO: Add support regions using	overhangRegionFilter.Update();
 	
 			# Update the cell locator.
@@ -1270,8 +1334,9 @@ class modelData:
 		#	print "Created " + str(i) + " supports."
 			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )
 
+		
 	# Update slice actor.
-	def updateSlice3d(self, sliceNumber):
+	def updateSlice3d(self, sliceNumber):		
 		if self.filename != "" and self.isActive():
 			# Update pipeline with slice position given by layer height and slice number.
 			if sliceNumber == 0:
@@ -1710,6 +1775,9 @@ class backgroundSlicer(threading.Thread):
 		# Set up slice stack as list.
 		self.sliceStack = []
 		
+		# Create VTK error observer to catch errors.
+		self.errorObserver = ErrorObserver()
+		
 		# Create the VTK pipeline.
 		self.extrusionVector = (0,0,-1)
 		# Create cutting plane.
@@ -1736,6 +1804,7 @@ class backgroundSlicer(threading.Thread):
 		self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
 		# Extrude cut polyline of model.
 		self.extruderModel = vtk.vtkLinearExtrusionFilter()
+		self.extruderModel.AddObserver('ErrorEvent', self.errorObserver)
 		self.extruderModel.SetInput(self.sectionStripperModel.GetOutput())
 		self.extruderModel.SetScaleFactor(1)
 		self.extruderModel.CappingOn()
@@ -1743,6 +1812,7 @@ class backgroundSlicer(threading.Thread):
 		self.extruderModel.SetVector(self.extrusionVector)	# Adjust this later on to extrude each slice to Z = 0.
 		# Extrude cut polyline of supports.
 		self.extruderSupports = vtk.vtkLinearExtrusionFilter()
+		self.extruderSupports.AddObserver('ErrorEvent', self.errorObserver)
 		self.extruderSupports.SetInput(self.sectionStripperSupports.GetOutput())
 		self.extruderSupports.SetScaleFactor(1)
 		self.extruderSupports.CappingOn()
@@ -1750,6 +1820,7 @@ class backgroundSlicer(threading.Thread):
 		self.extruderSupports.SetVector(self.extrusionVector)	# Adjust this later on to extrude each slice to Z = 0.
 		# Extrude cut polyline.
 		self.extruderBottomPlate = vtk.vtkLinearExtrusionFilter()
+		self.extruderBottomPlate.AddObserver('ErrorEvent', self.errorObserver)
 		self.extruderBottomPlate.SetInput(self.sectionStripperBottomPlate.GetOutput())
 		self.extruderBottomPlate.SetScaleFactor(1)
 		self.extruderBottomPlate.CappingOn()
@@ -1921,8 +1992,14 @@ class backgroundSlicer(threading.Thread):
 			
 					# Update the pipeline.
 					self.stencilModel.Update()
+					if self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+						print "VTK Error: " + self.errorObserver.ErrorMessage()
 					self.stencilSupports.Update()
+					if self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+						print "VTK Error: " + self.errorObserver.ErrorMessage()
 					self.stencilBottomPlate.Update()
+					if self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+						print "VTK Error: " + self.errorObserver.ErrorMessage()
 		
 					# Get pixel values from vtk image data and turn into numpy array.
 					self.imageModel = numpy_support.vtk_to_numpy(self.stencilModel.GetOutput().GetPointData().GetScalars())
@@ -1951,7 +2028,10 @@ class backgroundSlicer(threading.Thread):
 					# Check if we are in the first or last mm of the model, then there should not be a pattern anyways, so we set everything black.
 					# Only do this whole thing if fillFlag is set and fill is shown or print is going.
 					if self.settings['Print hollow'].value == True:# and (self.programSettings['Show fill'].value == True or self.printFlag == True):
-					
+						# Start time measurement.
+						if self.programSettings['Debug'].value:
+							interval = time.time()	
+											
 						# Get wall thickness from settings.
 						wallThickness = self.settings['Shell wall thickness'].value	# [mm]
 						wallThicknessPx = wallThickness * self.programSettings['pxPerMm'].value
@@ -1995,16 +2075,11 @@ class backgroundSlicer(threading.Thread):
 
 						# Erode model image to create wall thickness.
 						self.imageEroded = cv2.erode(self.imageModel, numpy.ones((wallThicknessPx,wallThicknessPx), numpy.uint8), iterations=1)
-		
+						
 						# Multiply mask images with eroded image to prevent wall where mask images are black.
 						self.imageEroded = cv2.multiply(self.imageEroded, self.imageTopMask)
 						self.imageEroded = cv2.multiply(self.imageEroded, self.imageBottomMask)
 		
-						# Subtract eroded image from original slice image to create the wall.
-						self.imageWall = self.imageModel
-						self.imageWall = cv2.subtract(self.imageModel, self.imageEroded)
-			
-					
 						# Add internal pattern to wall. Write result to original slice image.
 						if self.settings['Fill'].value == True:
 					
@@ -2013,18 +2088,21 @@ class backgroundSlicer(threading.Thread):
 							self.imageFill = numpy.roll(self.imageFill, patternShift, axis=0)
 							self.imageFill = numpy.roll(self.imageFill, patternShift, axis=1)
 			
-							# Cut out internal pattern using the eroded image.
-							# Don't write to image pattern as we need it later.
+							# Mask internal pattern using the eroded image.
 							self.imageEroded = cv2.multiply(self.imageEroded, self.imageFill)
-							# Set image.
-							self.imageModel = cv2.add(self.imageWall, self.imageEroded)
-						else:
-							self.imageModel = self.imageWall
-					
+
+						# Subtract cavity with our without fill pattern from model.
+						self.imageModel = cv2.subtract(self.imageModel, self.imageEroded)
+						
+						# End time measurement.
+						if self.programSettings['Debug'].value:
+							interval = time.time() - interval
+							print "Slice: " + str(sliceNumber) + ". Erode time: " + str(interval) + "."
+						
 					# Combine model, supports and bottom plate images.
 					self.imageModel = cv2.add(self.imageModel, self.imageSupports)
 					self.imageModel = cv2.add(self.imageModel, self.imageBottomPlate)
-				
+					
 					# Write slice image to slice stack.
 					self.sliceStack.append(self.imageModel)
 				else:
@@ -2039,17 +2117,17 @@ class backgroundSlicer(threading.Thread):
 	def createFillPattern(self, width, height):
 		if not self.stopThread.isSet():
 			# Create an opencv image with rectangular pattern for filling large model areas.
-			imageFill = numpy.zeros((height, width), numpy.uint8)
+			imageFill = numpy.ones((height, width), numpy.uint8) * 255
 	
 			# Set every Nth vertical line (and it's  neighbour or so) white.
 			spacing = self.settings['Fill spacing'].value * self.programSettings['pxPerMm'].value
 			wallThickness = self.settings['Fill wall thickness'].value * self.programSettings['pxPerMm'].value
 			for pixelX in range(width):
 				if (pixelX / spacing - math.floor(pixelX / spacing)) * spacing < wallThickness:
-					imageFill[:,pixelX-1] = 255
+					imageFill[:,pixelX-1] = 0
 			for pixelY in range(height):
 				if (pixelY / spacing - math.floor(pixelY / spacing)) * spacing < wallThickness:
-					imageFill[pixelY-1,:] = 255		
+					imageFill[pixelY-1,:] = 0		
 			return imageFill
 			
 
