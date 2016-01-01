@@ -1800,14 +1800,21 @@ class dialogSettings(gtk.Window):
 		self.entryTiltStepAngle = monkeyprintGuiHelper.entry('Tilt step angle', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltStepAngle, expand=False, fill=False)
 		self.entryTiltStepAngle.show()
+		self.entryTiltStepAngle.set_sensitive(self.settings['Enable tilt'].value)
 		# Resolution.
 		self.entryTiltMicrostepping = monkeyprintGuiHelper.entry('Tilt microsteps per step', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltMicrostepping, expand=False, fill=False)
 		self.entryTiltMicrostepping.show()
+		self.entryTiltMicrostepping.set_sensitive(self.settings['Enable tilt'].value)
 		# Tilt angle.
 		self.entryTiltAngle = monkeyprintGuiHelper.entry('Tilt angle', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltAngle, expand=False, fill=False)
 		self.entryTiltAngle.show()
+		self.entryTiltAngle.set_sensitive(self.settings['Enable tilt'].value)
+		# Enable?
+		self.checkbuttonTilt = monkeyprintGuiHelper.toggleButton(string="Enable tilt", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive])
+		self.boxTilt.pack_end(self.checkbuttonTilt, expand=False, fill=False)
+		self.checkbuttonTilt.show()
 		# Tilt speed.
 #		self.entryTiltSpeed = monkeyprintGuiHelper.entry('Tilt speed', self.settings, width=15)
 #		self.boxTilt.pack_start(self.entryTiltSpeed, expand=False, fill=False)
@@ -1864,6 +1871,12 @@ class dialogSettings(gtk.Window):
 		self.boxButtons.pack_end(self.buttonDefaults, expand=False, fill=False)
 		self.buttonDefaults.connect("clicked", self.callbackDefaults)
 		self.buttonDefaults.show()
+
+	# Tilt enable function.
+	def setTiltSensitive(self):
+		self.entryTiltStepAngle.set_sensitive(self.settings['Enable tilt'].value)
+		self.entryTiltMicrostepping.set_sensitive(self.settings['Enable tilt'].value)
+		self.entryTiltAngle.set_sensitive(self.settings['Enable tilt'].value)
 
 	
 	# Serial connect function.

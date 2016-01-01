@@ -150,6 +150,7 @@ class programSettings(dict):
 		self['Tilt angle'] = setting(value='14', default='14')
 		self['Tilt speed'] = setting(value='10', default='10')
 		self['Tilt speed slow'] = setting(value='4', default='4')
+		self['Enable tilt'] = setting(value=True, default=True)
 		self['Build step angle'] = setting(value=1.8, default=1.8, unit="°")
 		self['Build microsteps per step'] = setting(value=16, default=16, lower=1, upper=32)
 		self['Build mm per turn'] = setting(value=1.0, default=1.0, unit="mm")
@@ -162,7 +163,7 @@ class programSettings(dict):
 		self['Debug'] = setting(value=False)
 		self['Exposure time base'] = setting(value=14.0, lower=1.0, upper=15.0)
 		self['Exposure time'] = setting(value=9.0, lower=1.0, upper=15.0)
-		self['Resin settle time'] = setting(value=1.0, lower=0.1, upper=3.0)
+		self['Resin settle time'] = setting(value=1.0, lower=0.0, upper=5.0)
 		self['camTriggerWithExposure'] = setting(value=False, default=False)
 		self['camTriggerAfterExposure'] = setting(value=False, default=False)
 

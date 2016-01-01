@@ -2103,6 +2103,11 @@ class backgroundSlicer(threading.Thread):
 					self.imageModel = cv2.add(self.imageModel, self.imageSupports)
 					self.imageModel = cv2.add(self.imageModel, self.imageBottomPlate)
 					
+					# Save image.
+			#		im = Image.fromarray(self.imageModel)
+			#		fileString = "sliceprint%03d.jpeg" % (sliceNumber,)
+			#		im.save(fileString)
+					
 					# Write slice image to slice stack.
 					self.sliceStack.append(self.imageModel)
 				else:

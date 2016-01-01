@@ -174,7 +174,7 @@ class printProcess(threading.Thread):
 		
 		
 		# Tilt to get rid of bubbles.
-		if not debug and not self.stopThread.isSet():
+		if not debug and not self.stopThread.isSet() and self.settings['Enable tilt'].value:
 			# Send info to gui.
 			self.queueConsole.put("Tilting to get rid of bubbles.")
 			self.queueStatus.put("Removing bubbles.")
@@ -219,6 +219,7 @@ class printProcess(threading.Thread):
 				self.exposureTime = self.settings['Exposure time'].value
 				self.queueConsole.put("   Set exposure time to " + str(self.settings['Exposure time base'].value) + " s.")
 			elif self.slice == 20:
+				#TODO: slow and fast tilting.
 	#			if not debug:
 	#				self.serialPrinter.send(["tiltSpeed", self.settings['Tilt speed'].value, True, None])
 				self.queueConsole.put("   Switched to fast tilting.")
@@ -238,22 +239,22 @@ class printProcess(threading.Thread):
 				self.serialPrinter.send(['triggerCam', None, False, None])
 			
 			# Tilt.
-			self.queueConsole.put("   Tilting.")
-			if not debug:
+			if not debug and self.settings['Enable tilt'].value:
+				self.queueConsole.put("   Tilting.")
 				self.serialPrinter.send(['tilt', None, True, 20])
 
 			# Move build platform up by one layer.
-			self.queueConsole.put("   Moving build platform.")
-			if self.slice == 1:
-				if not debug:
+			if not debug:
+				self.queueConsole.put("   Moving build platform.")
+				if self.slice == 1:
 					self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
-			else:
-				if not debug:
+				else:
 					self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
 			
 			# Waiting for resin to settle.
-			self.queueConsole.put("   Waiting for resin to settle.")
-			self.wait(self.settings['Resin settle time'].value)
+			if not debug and self.settings['Resin settle time'].value != 0.0:
+				self.queueConsole.put("   Waiting for resin to settle.")
+				self.wait(self.settings['Resin settle time'].value)
 			
 			self.slice+=1
 		
