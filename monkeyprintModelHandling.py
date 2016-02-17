@@ -18,6 +18,7 @@
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import vtk
 from vtk.util import numpy_support	# Functions to convert between numpy and vtk
 import math
@@ -338,6 +339,9 @@ class modelCollection(dict):
 		self.sliceImage = imageHandling.createImageGray(self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value, 0)
 		self.sliceImageBlack = numpy.empty_like(self.sliceImage)
 		
+		# Create calibration image. ***************************
+		self.calibrationImage = None#numpy.empty_like(self.sliceImage)
+		
 		# Set defaults. ***************************************
 		# Create current model id.
 		self.currentModelId = ""
@@ -352,6 +356,54 @@ class modelCollection(dict):
 		# Create job settings object. *************************
 		self.jobSettings = monkeyprintSettings.jobSettings(self.programSettings)
 	
+	# Reload calibration image.
+	def subtractCalibrationImage(self, inputImage):
+		# Get the image if it does not exist.
+		if self.calibrationImage == None and self.programSettings['calibrationImage'].value:
+			print "Loading calibration image."
+			calibrationImage = None
+			try:
+				if os.path.isfile('./calibrationImage.png'):
+					calibrationImage = cv2.imread('./calibrationImage.png')
+				elif os.path.isfile('./calibrationImage.jpg'):
+					calibrationImage = cv2.imread('./calibrationImage.jpg')
+			except Error:
+				print "Could not load calibration image. Skipping..."
+				
+			# If loading succeded...
+			if calibrationImage != None:
+				# Convert to grayscale.
+				calibrationImage = cv2.cvtColor(calibrationImage, cv2.COLOR_BGR2GRAY)
+				# ... scale the image according to projector size.
+				calibrationImage = cv2.resize(calibrationImage, (self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value)) 
+				# Blur the image to reduce the influence of noise.
+				calibrationImage = cv2.GaussianBlur(calibrationImage, (21, 21), 0)
+				# Turn into numpy array.
+				self.calibrationImage = numpy.asarray(calibrationImage, dtype=numpy.uint8)
+				# Find the lowest pixel value.
+				minVal = numpy.amin(self.calibrationImage)
+				# Shift pixel values down.
+				# Darkest pixel should be black now.
+				self.calibrationImage -= minVal
+				
+				print calibrationImage.shape
+		
+		# If the image exists now...
+		if self.calibrationImage != None and self.programSettings['calibrationImage'].value:
+			
+			# Resize in case of settings change.
+			if self.calibrationImage.shape[0] != self.programSettings['Projector size Y'].value or self.calibrationImage.shape[1] != self.programSettings['Projector size X'].value:
+				self.calibrationImage = cv2.resize(self.calibrationImage, (self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value)) 
+			print "Subtracting calibration image."
+			# ... subtract the calibration image from the input image.
+			inputImage = cv2.subtract(inputImage, self.calibrationImage)
+		
+		if not self.programSettings['calibrationImage'].value:
+			self.calibrationImage = None
+		
+		return inputImage
+
+		
 
 	# Save model collection to compressed disk file. Works well with huge objects.
 	def saveProject(self, filename, protocol = -1):
@@ -497,6 +549,8 @@ class modelCollection(dict):
 		# Add list of slice images to projector frame.
 		for i in range(len(imgList)):
 			self.sliceImage = imageHandling.imgAdd(self.sliceImage, imgList[i][0], imgList[i][1])
+		# Subtract calibration image.
+		self.sliceImage = self.subtractCalibrationImage(self.sliceImage)
 		return self.sliceImage
 	
 	def viewState(self, state):

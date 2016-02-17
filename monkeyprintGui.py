@@ -934,6 +934,7 @@ class gui(gtk.Window):
 	def updateCurrentModel(self):
 		if self.notebook.getCurrentPage() == 0:
 			self.modelCollection.getCurrentModel().updateModel()
+			self.modelCollection.getCurrentModel().updateSupports()
 		elif self.notebook.getCurrentPage() == 1:
 			self.modelCollection.getCurrentModel().updateSupports()
 		elif self.notebook.getCurrentPage() == 2:
@@ -971,6 +972,8 @@ class gui(gtk.Window):
 			self.entryFillSpacing.set_sensitive(False)
 			self.entryFillThickness.set_sensitive(False)
 			self.entryShellThickness.set_sensitive(False)
+			self.checkboxFill.set_sensitive(False)
+			self.checkboxHollow.set_sensitive(False)
 		else:
 			self.entryScaling.set_sensitive(True)
 			self.entryRotationX.set_sensitive(True)
@@ -990,6 +993,8 @@ class gui(gtk.Window):
 			self.entryFillSpacing.set_sensitive(True)
 			self.entryFillThickness.set_sensitive(True)
 			self.entryShellThickness.set_sensitive(True)
+			self.checkboxFill.set_sensitive(True)
+			self.checkboxHollow.set_sensitive(True)
 			self.entryScaling.update()
 			self.entryRotationX.update()
 			self.entryRotationY.update()
@@ -1008,6 +1013,8 @@ class gui(gtk.Window):
 			self.entryFillSpacing.update()
 			self.entryFillThickness.update()
 			self.entryShellThickness.update()
+			self.checkboxFill.update()
+			self.checkboxHollow.update()
 		self.updateMenu()
 		if state != None:
 			self.setGuiState(state)
@@ -1649,16 +1656,312 @@ class dialogSettings(gtk.Window):
 		self.settings = settings
 		
 		# Save settings in case of cancelling.
-		self.settingsBackup = settings
-		
-		# Console for serial test.
-		self.consoleSerial = monkeyprintGuiHelper.consoleText()
+		#self.settingsBackup = settings
 		
 		# Vertical box for settings and bottom buttons.
 		self.boxMain = gtk.VBox()
 		self.add(self.boxMain)
 		self.boxMain.show()
 		
+		# Create notebook.
+		self.notebookSettings = monkeyprintGuiHelper.notebook()
+		self.boxMain.pack_start(self.notebookSettings, expand=False, fill=False)
+		self.notebookSettings.show()
+		
+		# Create notebook pages.
+		self.tabMainSettings = self.createMainSettingsTab()
+		self.notebookSettings.append_page(self.tabMainSettings, gtk.Label('Main settings'))
+		self.tabMainSettings.show()
+		
+		self.tabCommunicationSettings = self.createCommunicationTab()
+		self.notebookSettings.append_page(self.tabCommunicationSettings, gtk.Label('Communication'))
+		self.tabCommunicationSettings.show()
+		
+		self.tabProjectorSettings = self.createProjectorTab()
+		self.notebookSettings.append_page(self.tabProjectorSettings, gtk.Label('Projector'))
+		self.tabProjectorSettings.show()
+		
+		self.tabMotionSettings = self.createMotionTab()
+		self.notebookSettings.append_page(self.tabMotionSettings, gtk.Label('Motion'))
+		self.tabMotionSettings.show()
+		
+		# Create bottom buttons.
+		# Horizontal box for buttons.
+		self.boxButtons = gtk.HBox()
+		self.boxMain.pack_start(self.boxButtons, expand=False, fill=False)
+		self.boxButtons.show()
+		
+		# Close button.
+		self.buttonClose = gtk.Button("Close")
+		self.boxButtons.pack_end(self.buttonClose, expand=False, fill=False)
+		self.buttonClose.connect("clicked", self.callbackClose)
+		self.buttonClose.show()
+		
+		# Cancel button.
+	#	self.buttonCancel = gtk.Button("Cancel")
+	#	self.boxButtons.pack_end(self.buttonCancel, expand=False, fill=False)
+	#	self.buttonCancel.connect("clicked", self.callbackCancel)
+	#	self.buttonCancel.show()
+		
+		# Restore defaults button.
+		self.buttonDefaults = gtk.Button("Load defaults")
+		self.boxButtons.pack_end(self.buttonDefaults, expand=False, fill=False)
+		self.buttonDefaults.connect("clicked", self.callbackDefaults)
+		self.buttonDefaults.show()
+		
+		
+	# Main settings tab.
+	def createMainSettingsTab(self):
+		
+		boxMainSettings = gtk.HBox()
+		
+		# Frame for build volume settings.
+		self.frameBuildVolume = gtk.Frame('Build volume')
+		boxMainSettings.pack_start(self.frameBuildVolume, padding=5)
+		self.frameBuildVolume.show()
+		self.boxBuildVolume = gtk.VBox()
+		self.frameBuildVolume.add(self.boxBuildVolume)
+		self.boxBuildVolume.show()
+		# Add entries.
+		self.entryBuildSizeX= monkeyprintGuiHelper.entry('Build size X', self.settings, width=15)
+		self.boxBuildVolume.pack_start(self.entryBuildSizeX, expand=False, fill=False)
+		self.entryBuildSizeX.show()
+		self.entryBuildSizeY= monkeyprintGuiHelper.entry('Build size Y', self.settings, width=15)
+		self.boxBuildVolume.pack_start(self.entryBuildSizeY, expand=False, fill=False)
+		self.entryBuildSizeY.show()
+		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('Build size Z', self.settings, width=15)
+		self.boxBuildVolume.pack_start(self.entryBuildSizeZ, expand=False, fill=False)
+		self.entryBuildSizeZ.show()
+		
+		# Frame for build volume settings.
+		self.frameDebug = gtk.Frame('Debug')
+		boxMainSettings.pack_start(self.frameDebug, padding=5)
+		self.frameDebug.show()
+		self.boxDebug = gtk.HBox()
+		self.frameDebug.add(self.boxDebug)
+		self.boxDebug.show()
+		# Add entry.
+		self.labelDebug = gtk.Label('Debug')
+		self.boxDebug.pack_start(self.labelDebug, expand=False, fill=False)
+		self.labelDebug.show()
+		self.checkboxDebug = gtk.CheckButton()
+		self.boxDebug.pack_start(self.checkboxDebug, expand=False, fill=False)
+		self.checkboxDebug.set_active(self.settings['Debug'].value)
+		self.checkboxDebug.show()
+		self.checkboxDebug.connect('toggled', self.callbackDebug)
+		
+		
+		boxMainSettings.show()
+		
+		return boxMainSettings
+		
+	# Communication tab.
+	def createCommunicationTab(self):
+		
+		# Communication settings box.
+		boxCommunication = gtk.HBox()
+		
+		
+		# USB to serial frame.
+		self.frameSerialUsb = gtk.Frame('USB serial connection')
+		boxCommunication.pack_start(self.frameSerialUsb, padding=5)
+		self.frameSerialUsb.show()
+		self.boxSerialUsb = gtk.VBox()
+		self.frameSerialUsb.add(self.boxSerialUsb)
+		self.boxSerialUsb.show()
+		# Add entries.
+		# Port.
+		self.entryPort = monkeyprintGuiHelper.entry('Port', self.settings, width=15)
+		self.boxSerialUsb.pack_start(self.entryPort, expand=False, fill=False)
+		self.entryPort.show()
+		# Baud rate.
+		self.entryBaud = monkeyprintGuiHelper.entry('Baud rate', self.settings, width=15)
+		self.boxSerialUsb.pack_start(self.entryBaud, expand=False, fill=False)
+		self.entryBaud.show()
+		
+		# Raspberry Pi serial frame.
+		self.frameSerialPi = gtk.Frame('RasPi serial connection')
+		boxCommunication.pack_start(self.frameSerialPi, padding=5)
+		self.frameSerialPi.show()
+		self.boxSerialPi = gtk.VBox()
+		self.frameSerialPi.add(self.boxSerialPi)
+		self.boxSerialPi.show()
+		# Add entries.
+		# Port.
+		self.entryPortPi = monkeyprintGuiHelper.entry('Port RasPi', self.settings, width=15)
+		self.boxSerialPi.pack_start(self.entryPortPi, expand=False, fill=False)
+		self.entryPortPi.show()
+		# Baud rate.
+		self.entryBaudPi = monkeyprintGuiHelper.entry('Baud rate RasPi', self.settings, width=15)
+		self.boxSerialPi.pack_start(self.entryBaudPi, expand=False, fill=False)
+		self.entryBaudPi.show()
+		
+		# Raspberry Pi network frame.
+		self.frameNetworkPi = gtk.Frame('RasPi network connection')
+		boxCommunication.pack_start(self.frameNetworkPi, padding=5)
+		self.frameNetworkPi.show()
+		self.boxNetworkPi = gtk.VBox()
+		self.frameNetworkPi.add(self.boxNetworkPi)
+		self.boxNetworkPi.show()
+		# Add entries.
+		# IP adress.
+		self.entryIpPi = monkeyprintGuiHelper.entry('IP RasPi', self.settings, width=15)
+		self.boxNetworkPi.pack_start(self.entryIpPi, expand=False, fill=False)
+		self.entryIpPi.show()
+		# User name.
+		self.entrySshPi = monkeyprintGuiHelper.entry('SSH user name', self.settings, width=15)
+		self.boxNetworkPi.pack_start(self.entrySshPi, expand=False, fill=False)
+		self.entrySshPi.show()
+		# User password.
+		self.entrySshPiPW = monkeyprintGuiHelper.entry('SSH password', self.settings, width=15)
+		self.boxNetworkPi.pack_start(self.entrySshPiPW, expand=False, fill=False)
+		self.entrySshPiPW.show()
+		
+		# Console for serial test.
+		self.consoleSerial = monkeyprintGuiHelper.consoleText()
+	
+		return boxCommunication
+	
+	
+	def createProjectorTab(self):
+		
+		boxProjectorSettings = gtk.HBox()
+		
+		# Frame for projector resolution.
+		self.frameProjector = gtk.Frame('Resolution & Position')
+		boxProjectorSettings.pack_start(self.frameProjector, expand=False, fill=False, padding=5)
+		self.frameProjector.show()
+		self.boxProjector = gtk.VBox()
+		self.frameProjector.add(self.boxProjector)
+		self.boxProjector.show()
+		
+		self.entryProjectorSizeX= monkeyprintGuiHelper.entry('Projector size X', self.settings, width=15)
+		self.boxProjector.pack_start(self.entryProjectorSizeX, expand=False, fill=False)
+		self.entryProjectorSizeX.show()
+		self.entryProjectorSizeY= monkeyprintGuiHelper.entry('Projector size Y', self.settings, width=15)
+		self.boxProjector.pack_start(self.entryProjectorSizeY, expand=False, fill=False)
+		self.entryProjectorSizeY.show()
+		self.entryProjectorPositionX= monkeyprintGuiHelper.entry('Projector position X', self.settings, width=15)
+		self.boxProjector.pack_start(self.entryProjectorPositionX, expand=False, fill=False)
+		self.entryProjectorPositionX.show()
+		self.entryProjectorPositionY= monkeyprintGuiHelper.entry('Projector position Y', self.settings, width=15)
+		self.boxProjector.pack_start(self.entryProjectorPositionY, expand=False, fill=False)
+		self.entryProjectorPositionY.show()
+		
+		# Frame projector control.
+		self.frameProjectorControl = gtk.Frame('Projector control')
+		boxProjectorSettings.pack_start(self.frameProjectorControl, expand=False, fill=False, padding=5)
+		self.frameProjectorControl.show()
+		self.boxProjectorControl = gtk.VBox()
+		self.frameProjectorControl.add(self.boxProjectorControl)
+		self.boxProjectorControl.show()
+		# Check box for using projector control via serial.
+		self.boxProjectorControlCheckbox = gtk.HBox()
+		self.boxProjectorControl.pack_start(self.boxProjectorControlCheckbox, expand=True, fill=True)
+		self.boxProjectorControlCheckbox.show()
+		self.labelProjectorControl = gtk.Label('Projector control')
+		self.boxProjectorControlCheckbox.pack_start(self.labelProjectorControl, expand=True, fill=True)
+		self.labelProjectorControl.show()
+		self.checkboxProjectorControl = gtk.CheckButton()
+		self.boxProjectorControlCheckbox.pack_start(self.checkboxProjectorControl)
+		self.checkboxProjectorControl.set_active(self.settings['Projector control'].value)
+		self.checkboxProjectorControl.show()
+		self.checkboxProjectorControl.connect('toggled', self.callbackProjectorControl)
+		# Entries.
+		self.entryProjectorPort= monkeyprintGuiHelper.entry('Projector port', self.settings, width=15)
+		self.boxProjectorControl.pack_start(self.entryProjectorPort, expand=False, fill=False)
+		self.entryProjectorPort.show()
+		self.entryProjectorBaud= monkeyprintGuiHelper.entry('Projector baud rate', self.settings, width=15)
+		self.boxProjectorControl.pack_start(self.entryProjectorBaud, expand=False, fill=False)
+		self.entryProjectorBaud.show()
+		
+		
+		# Frame for projector calibration image.
+		self.frameCalImage = gtk.Frame('Calibration image')
+		boxProjectorSettings.pack_start(self.frameCalImage, expand=False, fill=False, padding=5)
+		self.frameCalImage.show()
+		self.boxCalImage = gtk.VBox()
+		self.frameCalImage.add(self.boxCalImage)
+		self.boxCalImage.show()
+		# Image container to load from file.
+		self.imageContainer = monkeyprintGuiHelper.imageFromFile(self.settings, 200)
+		self.boxCalImage.pack_start(self.imageContainer)
+		self.imageContainer.show()
+		
+		return boxProjectorSettings
+
+
+	def createMotionTab(self):
+	
+		boxMotionSettings = gtk.HBox()
+		
+		# Frame for Tilt stepper.
+		self.frameTiltStepper = gtk.Frame('Tilt stepper')
+		boxMotionSettings.pack_start(self.frameTiltStepper, expand=False, fill=False, padding=5)
+		self.frameTiltStepper.show()
+		self.boxTilt = gtk.VBox()
+		self.frameTiltStepper.add(self.boxTilt)
+		self.boxTilt.show()
+		# Entries.
+		# Resolution.
+		self.entryTiltStepAngle = monkeyprintGuiHelper.entry('Tilt step angle', self.settings, width=15)
+		self.boxTilt.pack_start(self.entryTiltStepAngle, expand=False, fill=False)
+		self.entryTiltStepAngle.show()
+		self.entryTiltStepAngle.set_sensitive(self.settings['Enable tilt'].value)
+		# Resolution.
+		self.entryTiltMicrostepping = monkeyprintGuiHelper.entry('Tilt microsteps per step', self.settings, width=15)
+		self.boxTilt.pack_start(self.entryTiltMicrostepping, expand=False, fill=False)
+		self.entryTiltMicrostepping.show()
+		self.entryTiltMicrostepping.set_sensitive(self.settings['Enable tilt'].value)
+		# Tilt angle.
+		self.entryTiltAngle = monkeyprintGuiHelper.entry('Tilt angle', self.settings, width=15)
+		self.boxTilt.pack_start(self.entryTiltAngle, expand=False, fill=False)
+		self.entryTiltAngle.show()
+		self.entryTiltAngle.set_sensitive(self.settings['Enable tilt'].value)
+		# Enable?
+		self.checkbuttonTilt = monkeyprintGuiHelper.toggleButton(string="Enable tilt", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive])
+		self.boxTilt.pack_end(self.checkbuttonTilt, expand=False, fill=False)
+		self.checkbuttonTilt.show()
+		# Tilt speed.
+#		self.entryTiltSpeed = monkeyprintGuiHelper.entry('Tilt speed', self.settings, width=15)
+#		self.boxTilt.pack_start(self.entryTiltSpeed, expand=False, fill=False)
+#		self.entryTiltSpeed.show()
+		
+		# Frame for build stepper.
+		self.frameBuildStepper = gtk.Frame('Build platform stepper')
+		boxMotionSettings.pack_start(self.frameBuildStepper, expand=False, fill=False, padding=5)
+		self.frameBuildStepper.show()
+		self.boxBuildStepper = gtk.VBox()
+		self.frameBuildStepper.add(self.boxBuildStepper)
+		self.boxBuildStepper.show()
+		# Entries.
+		# Resolution.
+		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build step angle', self.settings, width=15)
+		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
+		self.entryBuildStepsPerMm.show()
+		# Resolution.
+		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build microsteps per step', self.settings, width=15)
+		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
+		self.entryBuildStepsPerMm.show()
+		# Resolution.
+		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build mm per turn', self.settings, width=15)
+		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
+		self.entryBuildStepsPerMm.show()
+		# Ramp slope.
+		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Build ramp slope', self.settings, width=15)
+		self.boxBuildStepper.pack_start(self.entryBuildRampSlope, expand=False, fill=False)
+		self.entryBuildRampSlope.show()
+		# Tilt speed.
+		self.entryBuildSpeed = monkeyprintGuiHelper.entry('Build platform speed', self.settings, width=15)
+		self.boxBuildStepper.pack_start(self.entryBuildSpeed, expand=False, fill=False)
+		self.entryBuildSpeed.show()
+		
+		boxMotionSettings.show()
+		return boxMotionSettings
+		
+
+		
+		'''
 		# Horizontal box for columns.
 		self.boxSettings = gtk.HBox()
 		self.boxMain.pack_start(self.boxSettings)
@@ -1708,169 +2011,8 @@ class dialogSettings(gtk.Window):
 	#	self.textOutputSerialTest = gtk.Entry()
 	#	self.boxSerialTest.pack_start(self.textOutputSerialTest, expand=False, fill=False)
 	#	self.textOutputSerialTest.show()
+		'''
 		
-		# Frame for build volume settings.
-		self.frameDebug = gtk.Frame('Debug')
-		self.boxCol1.pack_start(self.frameDebug, padding=5)
-		self.frameDebug.show()
-		self.boxDebug = gtk.HBox()
-		self.frameDebug.add(self.boxDebug)
-		self.boxDebug.show()
-		# Add entry.
-		self.labelDebug = gtk.Label('Debug')
-		self.boxDebug.pack_start(self.labelDebug, expand=True, fill=True)
-		self.labelDebug.show()
-		self.checkboxDebug = gtk.CheckButton()
-		self.boxDebug.pack_start(self.checkboxDebug)
-		self.checkboxDebug.set_active(self.settings['Debug'].value)
-		self.checkboxDebug.show()
-		self.checkboxDebug.connect('toggled', self.callbackDebug)
-		
-		# Frame for build volume settings.
-		self.frameBuildVolume = gtk.Frame('Build volume')
-		self.boxCol1.pack_start(self.frameBuildVolume, padding=5)
-		self.frameBuildVolume.show()
-		self.boxBuildVolume = gtk.VBox()
-		self.frameBuildVolume.add(self.boxBuildVolume)
-		self.boxBuildVolume.show()
-		# Add entries.
-		self.entryBuildSizeX= monkeyprintGuiHelper.entry('Build size X', self.settings, width=15)
-		self.boxBuildVolume.pack_start(self.entryBuildSizeX)
-		self.entryBuildSizeX.show()
-		self.entryBuildSizeY= monkeyprintGuiHelper.entry('Build size Y', self.settings, width=15)
-		self.boxBuildVolume.pack_start(self.entryBuildSizeY)
-		self.entryBuildSizeY.show()
-		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('Build size Z', self.settings, width=15)
-		self.boxBuildVolume.pack_start(self.entryBuildSizeZ)
-		self.entryBuildSizeZ.show()
-		
-		# Frame for projector settings.
-		self.frameProjector = gtk.Frame('Projector')
-		self.boxCol1.pack_start(self.frameProjector, expand=False, fill=False, padding=5)
-		self.frameProjector.show()
-		self.boxProjector = gtk.VBox()
-		self.frameProjector.add(self.boxProjector)
-		self.boxProjector.show()
-		# Check box for using projector control via serial.
-		self.boxProjectorControl = gtk.HBox()
-		self.boxProjector.pack_start(self.boxProjectorControl, expand=True, fill=True)
-		self.boxProjectorControl.show()
-		self.labelProjectorControl = gtk.Label('Projector control')
-		self.boxProjectorControl.pack_start(self.labelProjectorControl, expand=True, fill=True)
-		self.labelProjectorControl.show()
-		self.checkboxProjectorControl = gtk.CheckButton()
-		self.boxProjectorControl.pack_start(self.checkboxProjectorControl)
-		self.checkboxProjectorControl.set_active(self.settings['Projector control'].value)
-		self.checkboxProjectorControl.show()
-		self.checkboxProjectorControl.connect('toggled', self.callbackProjectorControl)
-		# Entries.
-		self.entryProjectorPort= monkeyprintGuiHelper.entry('Projector port', self.settings, width=15)
-		self.boxProjector.pack_start(self.entryProjectorPort, expand=False, fill=False)
-		self.entryProjectorPort.show()
-		self.entryProjectorBaud= monkeyprintGuiHelper.entry('Projector baud rate', self.settings, width=15)
-		self.boxProjector.pack_start(self.entryProjectorBaud, expand=False, fill=False)
-		self.entryProjectorBaud.show()
-		self.entryProjectorSizeX= monkeyprintGuiHelper.entry('Projector size X', self.settings, width=15)
-		self.boxProjector.pack_start(self.entryProjectorSizeX, expand=False, fill=False)
-		self.entryProjectorSizeX.show()
-		self.entryProjectorSizeY= monkeyprintGuiHelper.entry('Projector size Y', self.settings, width=15)
-		self.boxProjector.pack_start(self.entryProjectorSizeY, expand=False, fill=False)
-		self.entryProjectorSizeY.show()
-		self.entryProjectorPositionX= monkeyprintGuiHelper.entry('Projector position X', self.settings, width=15)
-		self.boxProjector.pack_start(self.entryProjectorPositionX, expand=False, fill=False)
-		self.entryProjectorPositionX.show()
-		self.entryProjectorPositionY= monkeyprintGuiHelper.entry('Projector position Y', self.settings, width=15)
-		self.boxProjector.pack_start(self.entryProjectorPositionY, expand=False, fill=False)
-		self.entryProjectorPositionY.show()
-		
-		# Vertical box for column 2.
-		self.boxCol2 = gtk.VBox()
-		self.boxSettings.pack_start(self.boxCol2, padding=5)
-		self.boxCol2.show()
-		
-		# Frame for Tilt stepper.
-		self.frameTiltStepper = gtk.Frame('Tilt stepper')
-		self.boxCol2.pack_start(self.frameTiltStepper, expand=False, fill=False, padding=5)
-		self.frameTiltStepper.show()
-		self.boxTilt = gtk.VBox()
-		self.frameTiltStepper.add(self.boxTilt)
-		self.boxTilt.show()
-		# Entries.
-		# Resolution.
-		self.entryTiltStepAngle = monkeyprintGuiHelper.entry('Tilt step angle', self.settings, width=15)
-		self.boxTilt.pack_start(self.entryTiltStepAngle, expand=False, fill=False)
-		self.entryTiltStepAngle.show()
-		self.entryTiltStepAngle.set_sensitive(self.settings['Enable tilt'].value)
-		# Resolution.
-		self.entryTiltMicrostepping = monkeyprintGuiHelper.entry('Tilt microsteps per step', self.settings, width=15)
-		self.boxTilt.pack_start(self.entryTiltMicrostepping, expand=False, fill=False)
-		self.entryTiltMicrostepping.show()
-		self.entryTiltMicrostepping.set_sensitive(self.settings['Enable tilt'].value)
-		# Tilt angle.
-		self.entryTiltAngle = monkeyprintGuiHelper.entry('Tilt angle', self.settings, width=15)
-		self.boxTilt.pack_start(self.entryTiltAngle, expand=False, fill=False)
-		self.entryTiltAngle.show()
-		self.entryTiltAngle.set_sensitive(self.settings['Enable tilt'].value)
-		# Enable?
-		self.checkbuttonTilt = monkeyprintGuiHelper.toggleButton(string="Enable tilt", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive])
-		self.boxTilt.pack_end(self.checkbuttonTilt, expand=False, fill=False)
-		self.checkbuttonTilt.show()
-		# Tilt speed.
-#		self.entryTiltSpeed = monkeyprintGuiHelper.entry('Tilt speed', self.settings, width=15)
-#		self.boxTilt.pack_start(self.entryTiltSpeed, expand=False, fill=False)
-#		self.entryTiltSpeed.show()
-		
-		# Frame for build stepper.
-		self.frameBuildStepper = gtk.Frame('Build platform stepper')
-		self.boxCol2.pack_start(self.frameBuildStepper, expand=False, fill=False, padding=5)
-		self.frameBuildStepper.show()
-		self.boxBuildStepper = gtk.VBox()
-		self.frameBuildStepper.add(self.boxBuildStepper)
-		self.boxBuildStepper.show()
-		# Entries.
-		# Resolution.
-		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build step angle', self.settings, width=15)
-		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
-		self.entryBuildStepsPerMm.show()
-		# Resolution.
-		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build microsteps per step', self.settings, width=15)
-		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
-		self.entryBuildStepsPerMm.show()
-		# Resolution.
-		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build mm per turn', self.settings, width=15)
-		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
-		self.entryBuildStepsPerMm.show()
-		# Ramp slope.
-		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Build ramp slope', self.settings, width=15)
-		self.boxBuildStepper.pack_start(self.entryBuildRampSlope, expand=False, fill=False)
-		self.entryBuildRampSlope.show()
-		# Tilt speed.
-		self.entryBuildSpeed = monkeyprintGuiHelper.entry('Build platform speed', self.settings, width=15)
-		self.boxBuildStepper.pack_start(self.entryBuildSpeed, expand=False, fill=False)
-		self.entryBuildSpeed.show()
-		
-		# Horizontal box for buttons.
-		self.boxButtons = gtk.HBox()
-		self.boxMain.pack_start(self.boxButtons, expand=False, fill=False)
-		self.boxButtons.show()
-		
-		# Close button.
-		self.buttonClose = gtk.Button("Close")
-		self.boxButtons.pack_end(self.buttonClose, expand=False, fill=False)
-		self.buttonClose.connect("clicked", self.callbackClose)
-		self.buttonClose.show()
-		
-		# Cancel button.
-		self.buttonCancel = gtk.Button("Cancel")
-		self.boxButtons.pack_end(self.buttonCancel, expand=False, fill=False)
-		self.buttonCancel.connect("clicked", self.callbackCancel)
-		self.buttonCancel.show()
-		
-		# Restore defaults button.
-		self.buttonDefaults = gtk.Button("Load defaults")
-		self.boxButtons.pack_end(self.buttonDefaults, expand=False, fill=False)
-		self.buttonDefaults.connect("clicked", self.callbackDefaults)
-		self.buttonDefaults.show()
 
 	# Tilt enable function.
 	def setTiltSensitive(self):
@@ -1933,16 +2075,23 @@ class dialogSettings(gtk.Window):
 	def callbackDefaults(self, widget, data=None):
 		# Load default settings.
 		self.settings.loadDefaults()
+		self.imageContainer.updateImage()
 		
 	# Cancel function.
-	def callbackCancel(self, widget, data=None):
-		# Restore values.
-		self.settings = self.settingsBackup
-		# Close with old values restored.
-		self.destroy()
+#	def callbackCancel(self, widget, data=None):
+#		# Restore values.
+#		print ("Before: " + str(self.settingsBackup['calibrationImage'].value))
+#		self.settings = self.settingsBackup
+#		print ("After: " + str(self.settings['calibrationImage'].value))
+#		# Delete the calibration image in case it was just added.
+#		if (self.settings['calibrationImage'].value == False): self.imageContainer.deleteImageFile()		
+#		# Close with old values restored.
+#		self.destroy()
 
 	# Destroy function.
 	def callbackClose(self, widget, data=None):
+		# Delete the calibration image in case it was just added.
+		if (self.settings['calibrationImage'].value == False): self.imageContainer.deleteImageFile()
 		# Close.
 		self.destroy()
 	'''

@@ -142,6 +142,11 @@ class programSettings(dict):
 		self['Firmware path'] = setting(value='./firmware/main.hex', default='./firmware/main.hex')
 		self['avrdudeSettings'] = setting(value=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'])
 		self['avrdudeSettingsDefault'] = setting(value=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'])
+		self['Port RasPi'] = setting(value='/dev/ttyS0', default='/dev/ttyS0')
+		self['Baud rate RasPi'] = setting(value='57600', default='57600')
+		self['IP RasPi'] = setting(value='192.168.2.111', default='192.168.2.111')
+		self['SSH user name'] = setting(value='pi', default='pi')
+		self['SSH password'] = setting(value='raspberry', default='raspberry')
 		self['Projector port'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0')
 		self['Projector baud rate'] = setting(value='9600', default='9600')
 		self['Projector control'] = setting(value=False, default=False)
@@ -166,6 +171,9 @@ class programSettings(dict):
 		self['Resin settle time'] = setting(value=1.0, lower=0.0, upper=5.0)
 		self['camTriggerWithExposure'] = setting(value=False, default=False)
 		self['camTriggerAfterExposure'] = setting(value=False, default=False)
+		self['calibrationImagePath'] = setting(value="./calibrationImage", default="./calibrationImage")
+		self['calibrationImage'] = setting(value=False, default=False)
+		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
 
 	# Load default settings.
 	def loadDefaults(self):

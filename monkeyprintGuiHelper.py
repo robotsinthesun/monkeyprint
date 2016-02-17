@@ -4,6 +4,9 @@ import pygtk
 pygtk.require('2.0')
 import gtk
 
+import sys
+import os.path
+import shutil
 import numpy
 import random
 import Image
@@ -85,6 +88,143 @@ class notebook(gtk.Notebook):
 			self.customFunctions[pageIndex]()
 
 
+# Pix buf for calibration image display.
+class imageFromFile(gtk.VBox):
+	def __init__(self, programSettings, width = 100):
+		# Init super class.
+		gtk.VBox.__init__(self)
+		
+		# Internalise data.
+		self.programSettings = programSettings
+		self.width = width
+		
+		# Get projector width and set height according to projector aspect ratio.
+		aspect = float(self.programSettings['Projector size Y'].value) / float(self.programSettings['Projector size X'].value)
+		self.height = int(width * aspect)
+		
+		# Create image view.
+		self.imageView = gtk.Image()
+		self.imgSpacingBox = gtk.HBox();
+		self.imgSpacingBox.pack_start(self.imageView, expand=True, fill=True, padding=5)
+		self.imgSpacingBox.show()
+		self.pack_start(self.imgSpacingBox, expand=True, fill=True, padding=5)
+		self.imageView.show()
+		
+		# Load and delete button.
+		self.buttonBox = gtk.HBox()
+		self.pack_start(self.buttonBox, expand=True, fill=True, padding=5)
+		self.buttonBox.show()
+		self.buttonLoad = gtk.Button(label='Load')
+		self.buttonBox.pack_start(self.buttonLoad, expand=True, fill=True, padding=5)
+		self.buttonLoad.connect("clicked", self.callbackLoad)
+		self.buttonLoad.show()
+		self.buttonRemove = gtk.Button(label='Remove')
+		self.buttonBox.pack_start(self.buttonRemove, expand=True, fill=True, padding=5)
+		self.buttonRemove.connect("clicked", self.callbackRemove)
+		self.buttonRemove.set_sensitive(self.programSettings['calibrationImage'].value)
+		self.buttonRemove.show()
+		
+		# Load the image.
+		self.updateImage()
+		
+		
+	def updateImage(self):
+		# Load calibration image into pixbuf if present.
+		if (self.programSettings['calibrationImage'].value == True):
+			# Load image from file.
+			if (os.path.isfile('./calibrationImage.jpg')):
+				# Write image to pixbuf.
+				self.pixbuf = gtk.gdk.pixbuf_new_from_file('./calibrationImage.jpg')
+				# Resize the image.
+				self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
+			elif (os.path.isfile('./calibrationImage.png')):
+				# Write image to pixbuf.
+				self.pixbuf = gtk.gdk.pixbuf_new_from_file('./calibrationImage.png')
+				# Resize the image.
+				self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
+			else:
+				self.programSettings['calibrationImage'].value = False
+				
+		# If no image present, create white dummy image.
+		if (self.programSettings['calibrationImage'].value == False):
+			# Create white dummy image.
+			self.imageWhite = numpy.ones((self.height, self.width, 3), numpy.uint8) * 255
+			# Create pixbuf from dummy image.
+			self.pixbuf = gtk.gdk.pixbuf_new_from_array(self.imageWhite, gtk.gdk.COLORSPACE_RGB, 8)		
+		
+		# Set image to viewer.
+		self.imageView.set_from_pixbuf(self.pixbuf)
+		
+	def callbackLoad(self, data=None):
+		# Open file chooser dialog."
+		filepath = ""
+		# File open dialog to retrive file name and file path.
+		dialog = gtk.FileChooserDialog("Load calibration image", None, gtk.FILE_CHOOSER_ACTION_OPEN, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+		dialog.set_modal(True)
+		dialog.set_default_response(gtk.RESPONSE_OK)
+		dialog.set_current_folder(self.programSettings['currentFolder'].value)
+		# File filter for the dialog.
+		fileFilter = gtk.FileFilter()
+		fileFilter.set_name("Image file")
+		fileFilter.add_pattern("*.jpg")
+		fileFilter.add_pattern("*.png")
+		#fileFilter.add_pattern("*.png")
+		dialog.add_filter(fileFilter)
+		# Run the dialog and return the file path.
+		response = dialog.run()
+		# Check the response.
+		# If OK was pressed...
+		if response == gtk.RESPONSE_OK:
+			filepath = dialog.get_filename()
+			filename = filepath.split('/')[-1]
+			fileExtension = filepath.lower()[-4:]	
+			# Check if file is an image. If not...
+			if (fileExtension == ".jpg" or fileExtension == ".png"):
+				# Copy image file to program path.
+				try:
+					shutil.copy(filepath, './calibrationImage' + fileExtension)
+				except shutil.Error:
+					print "File copy error, maybe you have chosen the calibration image?"
+				# Set button sensitivities.
+				self.buttonRemove.set_sensitive(True)
+				self.programSettings['calibrationImage'].value = True
+				# Update the image.
+				self.updateImage()
+				
+			# Close dialog.
+			dialog.destroy()
+		# If cancel was pressed...
+		elif response == gtk.RESPONSE_CANCEL:
+			#... do nothing.
+			dialog.destroy()
+	
+	def callbackRemove(self, data=None):
+		# Delete the current file.
+	#	try:
+	#		os.remove('./calibrationImage.jpg')
+	#	except (OSError, IOError):
+	#		pass
+	#	try:
+	#		os.remove('./calibrationImage.png')
+	#	except (OSError, IOError):
+	#		pass
+		self.programSettings['calibrationImage'].value = False	
+		# Set button sensitivities.
+		self.buttonRemove.set_sensitive(False)
+		# Update the image.
+		self.updateImage()
+			
+	def deleteImageFile(self):
+		# Delete the current file.
+		try:
+			os.remove('./calibrationImage.jpg')
+		except (OSError, IOError):
+			pass
+		try:
+			os.remove('./calibrationImage.png')
+		except (OSError, IOError):
+			pass
+		
 
 
 
