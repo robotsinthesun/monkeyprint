@@ -75,19 +75,37 @@ def runGui(filename=None):
 
 		# Create model collection object.
 		# This object contains model data and settings data for each model.
-		# Pass printer and program settings.
+		# Pass program settings.
 		modelCollection = monkeyprintModelHandling.modelCollection(programSettings, console)
 
 		# Create gui.
-		gui = monkeyprintGui.gui(modelCollection, programSettings, console)
+		gui = monkeyprintGui.gui(modelCollection, programSettings, console, filename)
 
 		# Start the gui main loop.
 		gui.main()
 
 
+
 def runNoGui(filename=None):
 	print "Starting without Gui."
 	print ("Project file: " + str(filename))
+	
+	# Create settings dictionary object for machine and program settings.
+	programSettings = monkeyprintSettings.programSettings()
+	
+	# Update settings from file.	
+	programSettings.readFile()
+	
+	
+	# Create model collection object.
+	# This object contains model data and settings data for each model.
+	# Pass program settings.
+	modelCollection = monkeyprintModelHandling.modelCollection(programSettings)
+	
+	# Load project file.
+	# TODO: test if file is mkp.
+	modelCollection.loadProject(filename)
+	
 
 def usage():
 	print "\nCommand line option not recognized.\n"

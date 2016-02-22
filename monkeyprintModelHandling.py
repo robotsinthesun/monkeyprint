@@ -770,7 +770,8 @@ class modelData:
 		self.queueSlicerOut = Queue.Queue()
 		if self.filename != "":
 			# Initialise the thread.
-			self.console.addLine("Starting slicer thread")
+			if self.console!=None:
+				self.console.addLine("Starting slicer thread")
 			self.slicerThread = backgroundSlicer(self.settings, self.programSettings, self.queueSlicerIn, self.queueSlicerOut, self.console)
 			self.slicerThread.start()
 				
@@ -1919,7 +1920,8 @@ class backgroundSlicer(threading.Thread):
 	# Overload the run method.
 	# This will automatically run once the init function is done.	
 	def run(self):
-		self.console.addLine("Slicer thread initialised")
+		if self.console:
+			self.console.addLine("Slicer thread initialised")
 		# Go straight into idle mode.
 		self.idle()
 		
@@ -2166,7 +2168,8 @@ class backgroundSlicer(threading.Thread):
 					self.sliceStack.append(self.imageModel)
 				else:
 					# If new stack is in queue, break. //return the current stack.
-					self.console.addLine("Restarting slicer.")
+					if self.console:
+						self.console.addLine("Restarting slicer.")
 					break
 					#return self.sliceStack
 			return self.sliceStack

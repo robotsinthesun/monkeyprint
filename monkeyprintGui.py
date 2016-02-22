@@ -35,13 +35,72 @@ import time
 
 boxSettingsWidth = 350
 
+
+################################################################################
+# Define a class for standalone without main GUI. ##############################
+################################################################################
+# Inherit from projector display window.
+class noGui(monkeyprintGuiHelper.projectorDisplay):
+
+	# Override init function. #################################################
+	def __init__(self, programSettings, modelCollection):
+		
+		# Initialise base class gtk window.********************
+		monkeyprintGuiHelper.projectorDisplay.__init__(self, programSettings, modelCollection)
+		# Set function for window close event.
+		self.connect("delete-event", self.on_closing, None)
+		# Show the window.
+		self.show()
+		
+		# Internalise parameters.******************************
+		self.modelCollection = modelCollection
+		self.programSettings = programSettings	
+		
+		
+		# Create queues for inter-thread communication.********
+		# Queue for setting print progess bar.
+		self.queueSlice = Queue.Queue(maxsize=1)
+		# Queue for status infos displayed above the status bar.
+		self.queueStatus = Queue.Queue()
+		# Queue for console messages.
+		self.queueConsole = Queue.Queue()
+		# Queue list.
+		self.queues = [	self.queueSlice,
+						self.queueStatus		]
+		
+		# Allow background threads.****************************
+		# Very important, otherwise threads will be
+		# blocked by gui main thread.
+		gtk.gdk.threads_init()
+		
+		# Add thread listener functions to run every n ms.****
+		# Check if the slicer threads have finished.
+		slicerListenerId = gobject.timeout_add(100, self.modelCollection.checkSlicerThreads)
+		# Update the progress bar, projector image and 3d view. during prints.
+		printProcessUpdateId = gobject.timeout_add(10, self.updateSlicePrint)
+		
+### ### ### ### ### ### TODO	
+		
+		
+		# Create additional variables.*************************
+		# Flag to set during print process.
+		self.printFlag = False
+		
+		
+	# Gui main function. ######################################################
+	def main(self):
+		# All PyGTK applications must have a gtk.main(). Control ends here
+		# and waits for an event to occur (like a key press or mouse event).
+		gtk.main()	
+		
+
 ################################################################################
 # Define a class for the main GUI. #############################################
 ################################################################################
 class gui(gtk.Window):
 
 	# Override init function. #################################################
-	def __init__(self, modelCollection, programSettings, console=None, *args, **kwargs):
+	def __init__(self, modelCollection, programSettings, console=None, filename=None, *args, **kwargs):
 		
 		# Initialise base class gtk window.********************
 		gtk.Window.__init__(self, *args, **kwargs)
@@ -82,8 +141,8 @@ class gui(gtk.Window):
 		slicerListenerId = gobject.timeout_add(100, self.modelCollection.checkSlicerThreads)
 		# Update the progress bar, projector image and 3d view. during prints.
 		printProcessUpdateId = gobject.timeout_add(10, self.updateSlicePrint)
-
 		
+	
 		
 		
 		# Create additional variables.*************************
@@ -125,6 +184,12 @@ class gui(gtk.Window):
 		# Set print progress values.
 		self.queueSlice.put(0)
 		self.queueStatus.put("Idle...")
+		
+		
+		# Add print job load function to be called once on startup.
+		printjobLoadFunctionId = gobject.idle_add(self.loadPrintjob, filename)
+		
+		
 		
 	# Override the close function. ############################################
 	def on_closing(self, widget, event, data):
@@ -273,6 +338,60 @@ class gui(gtk.Window):
 		# Return the menu.
 		return menuBar
 		
+	
+	
+	
+	
+	def loadPrintjob(self, filename):
+		# Check if file is an mkp. If not...
+		if filename.lower()[-3:] != "mkp":
+			# ... display message and nothing more.
+			self.console.addLine("File \"" + filename + "\" is not a monkeyprint project file.")
+		else:
+			# Console message.
+			self.console.addLine("Loading project \"" + filename.split('/')[-1] + "\".")
+			# Save path for next use.
+			self.programSettings['currentFolder'].value = filename[:-len(filename.split('/')[-1])]
+			# Now that we have the new selection, we can delete the previously selected model.
+			# First, remove the actors from the render view.
+			self.renderView.removeActors(self.modelCollection.getAllActors())
+			# Then, load the project into the model collection:
+			self.modelCollection.loadProject(filename)
+			# Update the list view.
+			self.modelListView.update()
+			# Set menu item sensitivities.
+			self.menuItemSave.set_sensitive(True)
+			self.menuItemClose.set_sensitive(True)
+
+			# Hide the previous models bounding box.
+	#		self.modelCollection.getCurrentModel().hideBox()
+			# Load the model into the model collection.
+	#		self.modelCollection.add(filename, filepath)
+			# Add the filename to the list and set selected.
+	#		self.add(filename, filename, filepath)	
+			# Activate the remove button which was deactivated when there was no model.
+	#		self.buttonRemove.set_sensitive(True)
+	
+			# Add actor to render view.
+			self.renderView.addActors(self.modelCollection.getAllActors())
+
+			# Update 3d view.
+			self.renderView.render()
+			
+			# Update menu to set sensitivities.
+			self.updateMenu()
+			# Update model list view to set sensitivities.
+			self.modelListView.setSensitive(remove=self.modelCollection.modelsLoaded())
+			# Update notebook to set sensitivities.
+			self.updateAllEntries(state=1)
+			self.notebook.set_current_page(0)
+				
+		
+		# Return false so this method will not be called again when
+		# called from gui idle functions stack.
+		return False
+		
+	
 		
 	
 	
@@ -297,12 +416,16 @@ class gui(gtk.Window):
 		# Check the response.
 		# If OK was pressed...
 		if response == gtk.RESPONSE_OK:
-			filename = dialog.get_filename()		
+			filename = dialog.get_filename()	
+			self.loadPrintjob(filename)
+			'''	
 			# Check if file is an mkp. If not...
 			if filename.lower()[-3:] != "mkp":
 				# ... display message and nothing more.
 				self.console.addLine("File \"" + filename + "\" is not a monkeyprint project file.")
 			else:
+				self.loadPrintjob(filename)
+				
 				# Console message.
 				self.console.addLine("Loading project \"" + filename.split('/')[-1] + "\".")
 				# Save path for next use.
@@ -340,7 +463,7 @@ class gui(gtk.Window):
 				# Update notebook to set sensitivities.
 				self.updateAllEntries(state=1)
 				self.notebook.set_current_page(0)
-				
+			'''
 			# Close dialog.
 			dialog.destroy()
 		# If cancel was pressed...
