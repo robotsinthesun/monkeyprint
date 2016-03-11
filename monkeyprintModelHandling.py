@@ -394,7 +394,7 @@ class modelCollection(dict):
 			# Resize in case of settings change.
 			if self.calibrationImage.shape[0] != self.programSettings['Projector size Y'].value or self.calibrationImage.shape[1] != self.programSettings['Projector size X'].value:
 				self.calibrationImage = cv2.resize(self.calibrationImage, (self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value)) 
-			print "Subtracting calibration image."
+		#	print "Subtracting calibration image."
 			# ... subtract the calibration image from the input image.
 			inputImage = cv2.subtract(inputImage, self.calibrationImage)
 		
@@ -624,6 +624,16 @@ class modelCollection(dict):
 			self[model].sliceThreadListener()
 		 # Return true, otherwise the function will not run again.
 		return True
+	
+	def slicerRunning(self):
+		# Return True if one of the slicers is still running.
+		running = False
+		for model in self:
+		#	if self[model].model.flagSlicerRunning:
+		#		print ("Slicer of model " + model + " is running.")
+			running = running or self[model].model.flagSlicerRunning
+		#	print running
+		return running
 
 
 	# Get all model volumes.
@@ -760,6 +770,8 @@ class modelData:
 		self.rotationZOld = 0
 		
 		self.flagChanged = False
+		
+		self.flagSlicerRunning = False
 		
 		# Set up the slice stack. Has one slice only at first...
 		self.sliceStack = sliceStack()
@@ -1086,17 +1098,17 @@ class modelData:
 	def getVolume(self):
 		if self.filename != "":
 			self.volumeModel.Update()
-			if self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 				print "VTK Warning: " + self.errorObserver.ErrorMessage()
 			# Only update supports volume if there are supports in the appendPolyData.
 			if self.supports.GetNumberOfInputConnections(0) > 0:
 				self.volumeSupports.Update()
-				if self.programSettings['Debug'].value and self.errorObserver.WarningOccurred():
+				if self.programSettings['showVtkErrors'].value and self.errorObserver.WarningOccurred():
 					print "VTK Warning: " + self.errorObserver.WarningMessage()
-				elif self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+				elif self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 					print "VTK Error: " + self.errorObserver.ErrorMessage()
 			self.volumeBottomPlate.Update()
-			if self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
 
 			# Get volume in mm³.
@@ -1390,6 +1402,7 @@ class modelData:
 			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )
 
 		
+		
 	# Update slice actor.
 	def updateSlice3d(self, sliceNumber):		
 		if self.filename != "" and self.isActive():
@@ -1401,6 +1414,8 @@ class modelData:
 			self.cuttingPlane.SetOrigin(0,0,zPosition)
 			self.combinedCutlines.Update()
 			self.combinedClipModels.Update()
+	
+	
 	
 	def startBackgroundSlicer(self):
 		# Only update if this is not default flag and the 
@@ -1415,7 +1430,10 @@ class modelData:
 				# ... write the model polydata to the queue.
 				self.queueSlicerIn.put([self.stlPositionFilter.GetOutput(), self.supports.GetOutput(), self.bottomPlate.GetOutput()])
 			self.flagChanged = False
+			self.flagSlicerRunning = True
 
+
+	# Listen for the slicer threads output if it has finished.
 	def checkBackgroundSlicer(self):
 		# If a slice stack is in the output queue...
 		if self.queueSlicerOut.qsize():
@@ -1423,9 +1441,15 @@ class modelData:
 			if self.console != None:
 				self.console.addLine('Slicer done.')
 			self.sliceStack[:] = self.queueSlicerOut.get()
+			self.flagSlicerRunning = False
+	
+	
+	
 	
 	def killBackgroundSlicer(self):
 		self.slicerThread.stop()
+		
+		
 		
 	def getSizePxXY(self):
 		# Get bounds.
@@ -1444,6 +1468,8 @@ class modelData:
 		
 		return (width, height, numberOfSlices, position)
 	
+	
+	
 	# Return slice size (width, height).
 	def getSliceSize(self):
 		# Get bounds.
@@ -1456,6 +1482,8 @@ class modelData:
 		size = (width, height)
 		return size
 	
+	
+	
 	def getNumberOfSlices(self):
 		# Get bounds.
 		bounds = self.getBounds()
@@ -1464,6 +1492,8 @@ class modelData:
 		# Calc number of layers.
 		numberOfSlices = int(math.ceil(bounds[5] / layerHeight))
 		return numberOfSlices
+	
+	
 	
 	def getSlicePosition(self):
 		# Get bounds.
@@ -2048,13 +2078,13 @@ class backgroundSlicer(threading.Thread):
 			
 					# Update the pipeline.
 					self.stencilModel.Update()
-					if self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+					if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 						print "VTK Error: " + self.errorObserver.ErrorMessage()
 					self.stencilSupports.Update()
-					if self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+					if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 						print "VTK Error: " + self.errorObserver.ErrorMessage()
 					self.stencilBottomPlate.Update()
-					if self.programSettings['Debug'].value and self.errorObserver.ErrorOccurred():
+					if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 						print "VTK Error: " + self.errorObserver.ErrorMessage()
 		
 					# Get pixel values from vtk image data and turn into numpy array.

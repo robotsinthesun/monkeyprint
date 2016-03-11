@@ -19,7 +19,7 @@
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 import sys, getopt # Needed to parse command line arguments.
-
+import time
 import monkeyprintModelHandling
 import monkeyprintSettings
 import monkeyprintGui
@@ -88,7 +88,6 @@ def runGui(filename=None):
 
 def runNoGui(filename=None):
 	print "Starting without Gui."
-	print ("Project file: " + str(filename))
 	
 	# Create settings dictionary object for machine and program settings.
 	programSettings = monkeyprintSettings.programSettings()
@@ -102,9 +101,40 @@ def runNoGui(filename=None):
 	# Pass program settings.
 	modelCollection = monkeyprintModelHandling.modelCollection(programSettings)
 	
+	
+	#TODO disable this...
+	modelCollection.jobSettings['Exposure time'].value = 0.1
+	print ("Exposure time: " + str(modelCollection.jobSettings['Exposure time'].value) + ".")
+	
+	
 	# Load project file.
 	# TODO: test if file is mkp.
 	modelCollection.loadProject(filename)
+	print ("Project file: " + str(filename) + " loaded successfully.")
+	print "Found the following models:"
+	for model in modelCollection:
+		if model != 'default':
+			print ("   " + model)
+	
+	# Start the slicer.
+	modelCollection.updateSliceStack()
+	print ("Starting slicer.")
+
+	# Wait for all slicer threads to finish.
+	while(modelCollection.slicerRunning()):
+		modelCollection.checkSlicerThreads()
+		time.sleep(.2)
+		sys.stdout.write('.')
+		sys.stdout.flush()
+	
+	# Start print process when slicers are done.
+	print "\nSlicer done. Starting print process."
+	
+	# Create the projector window.
+	gui = monkeyprintGui.noGui(programSettings, modelCollection)	
+	
+	
+	print "Print process done. Thank you for using Monkeyprint."
 	
 
 def usage():

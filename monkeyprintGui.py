@@ -75,23 +75,77 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 		
 		# Add thread listener functions to run every n ms.****
 		# Check if the slicer threads have finished.
-		slicerListenerId = gobject.timeout_add(100, self.modelCollection.checkSlicerThreads)
+#		slicerListenerId = gobject.timeout_add(100, self.modelCollection.checkSlicerThreads)
 		# Update the progress bar, projector image and 3d view. during prints.
 		printProcessUpdateId = gobject.timeout_add(10, self.updateSlicePrint)
-		
-### ### ### ### ### ### TODO	
 		
 		
 		# Create additional variables.*************************
 		# Flag to set during print process.
-		self.printFlag = False
+		self.printFlag = True
+		self.programSettings['runOnRaspberry'].value = True
 		
+		# Create the print window.
+#		self.windowPrint = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
+		
+		# Create the print process thread.
+		self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
+		
+		# Start the print process.
+		self.printProcess.start()
+		
+		# Start main loop.
+		self.main()
+	
+	def updateSlicePrint(self):
+		# If slice number queue has slice number...
+		if self.queueSlice.qsize():
+			sliceNumber = self.queueSlice.get()
+			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
+			#if self.windowPrint != None:
+			#	self.windowPrint.updateImage(sliceNumber)
+			self.updateImage(sliceNumber)
+		# If print info queue has info...
+		if self.queueStatus.qsize():
+			#self.progressBar.setText(self.queueStatus.get()) 
+			message = self.queueStatus.get()
+			if message == "destroy":
+				self.printFlag = False
+				del self.printProcess
+				gtk.main_quit()
+				self.destroy()
+				del self
+				return False
+			else:
+				return True
+		# Return true, otherwise function won't run again.
+		return True
+
+	
+	def on_closing(self, widget, event, data):
+		# Get all threads.
+		runningThreads = threading.enumerate()
+		# End kill threads. Main gui thread is the first...
+		for i in range(len(runningThreads)):
+			if i != 0:
+				runningThreads[-1].join(timeout=10000)	# Timeout in ms.
+				print "Slicer thread " + str(i) + " finished."
+				del runningThreads[-1]
+		# Save settings to file.
+		self.programSettings.saveFile()
+		# Terminate the gui.
+		gtk.main_quit()
+		return False # returning False makes "destroy-event" be signalled to the window
 		
 	# Gui main function. ######################################################
 	def main(self):
 		# All PyGTK applications must have a gtk.main(). Control ends here
 		# and waits for an event to occur (like a key press or mouse event).
 		gtk.main()	
+		
+		
+		
+		
 		
 
 ################################################################################

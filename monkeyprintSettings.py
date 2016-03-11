@@ -173,6 +173,8 @@ class programSettings(dict):
 		self['camTriggerAfterExposure'] = setting(value=False, default=False)
 		self['calibrationImagePath'] = setting(value="./calibrationImage", default="./calibrationImage")
 		self['calibrationImage'] = setting(value=False, default=False)
+		self['showVtkErrors'] = setting(value=False, default=False)
+		self['runOnRaspberry'] = setting(value=False, default=False)
 		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
 
 	# Load default settings.
