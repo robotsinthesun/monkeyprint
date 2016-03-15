@@ -1277,7 +1277,12 @@ void shutterClose (void)
 
 void shutterEnable(void)
 {
-	
+	TCCR4B |= (1 << CS43);
+}
+
+void shutterDisable(void)
+{
+	TCCR4B &= ~(1 << CS43 | 1 << CS42 | 1 << CS41 | 1 << CS40);
 }
 
 

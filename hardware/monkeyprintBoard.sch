@@ -17199,6 +17199,7 @@ DIN A3, landscape with extra doc field</description>
 <text x="50.8" y="30.48" size="1.778" layer="97">Reset circuit</text>
 <text x="-152.4" y="104.14" size="1.778" layer="91">LM2596</text>
 <text x="76.2" y="106.68" size="1.778" layer="97">Raspberry Pi GPIO connector</text>
+<text x="139.7" y="-88.9" size="1.778" layer="91">Version 0.92</text>
 </plain>
 <instances>
 <instance part="ARDUINO_PRO_MICRO" gate="G$1" x="-2.54" y="-2.54"/>
@@ -17241,7 +17242,7 @@ DIN A3, landscape with extra doc field</description>
 <instance part="R7" gate="G$1" x="73.66" y="-30.48"/>
 <instance part="GND10" gate="1" x="66.04" y="-45.72"/>
 <instance part="Q1" gate="G$1" x="86.36" y="-27.94"/>
-<instance part="GND11" gate="1" x="43.18" y="121.92"/>
+<instance part="GND11" gate="1" x="48.26" y="121.92"/>
 <instance part="GND12" gate="1" x="-50.8" y="121.92"/>
 <instance part="P+9" gate="VCC" x="30.48" y="129.54"/>
 <instance part="C6" gate="G$1" x="-154.94" y="-60.96" rot="R270"/>
@@ -17430,14 +17431,14 @@ DIN A3, landscape with extra doc field</description>
 <wire x1="-68.58" y1="134.62" x2="-68.58" y2="124.46" width="0.1524" layer="91"/>
 </segment>
 <segment>
-<pinref part="U$7" gate="G$1" pin="2"/>
 <pinref part="GND11" gate="1" pin="GND"/>
-<wire x1="43.18" y1="134.62" x2="43.18" y2="127" width="0.1524" layer="91"/>
 <pinref part="U$7" gate="G$1" pin="5"/>
-<wire x1="43.18" y1="127" x2="43.18" y2="124.46" width="0.1524" layer="91"/>
+<wire x1="48.26" y1="127" x2="48.26" y2="124.46" width="0.1524" layer="91"/>
 <wire x1="60.96" y1="134.62" x2="60.96" y2="127" width="0.1524" layer="91"/>
-<wire x1="60.96" y1="127" x2="43.18" y2="127" width="0.1524" layer="91"/>
-<junction x="43.18" y="127"/>
+<wire x1="60.96" y1="127" x2="48.26" y2="127" width="0.1524" layer="91"/>
+<pinref part="U$7" gate="G$1" pin="3"/>
+<wire x1="48.26" y1="134.62" x2="48.26" y2="127" width="0.1524" layer="91"/>
+<junction x="48.26" y="127"/>
 </segment>
 <segment>
 <pinref part="GND18" gate="1" pin="GND"/>
@@ -17544,11 +17545,11 @@ DIN A3, landscape with extra doc field</description>
 <wire x1="-124.46" y1="109.22" x2="-129.54" y2="109.22" width="0.1524" layer="91"/>
 </segment>
 <segment>
-<wire x1="48.26" y1="124.46" x2="30.48" y2="124.46" width="0.1524" layer="91"/>
+<wire x1="43.18" y1="124.46" x2="30.48" y2="124.46" width="0.1524" layer="91"/>
 <wire x1="30.48" y1="124.46" x2="30.48" y2="127" width="0.1524" layer="91"/>
 <pinref part="P+9" gate="VCC" pin="VCC"/>
-<pinref part="U$7" gate="G$1" pin="3"/>
-<wire x1="48.26" y1="124.46" x2="48.26" y2="134.62" width="0.1524" layer="91"/>
+<pinref part="U$7" gate="G$1" pin="2"/>
+<wire x1="43.18" y1="124.46" x2="43.18" y2="134.62" width="0.1524" layer="91"/>
 </segment>
 <segment>
 <pinref part="U$1" gate="G$1" pin="VCC2"/>
