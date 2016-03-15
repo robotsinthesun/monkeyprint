@@ -78,6 +78,26 @@ void processCommandInput( void )
 		//lcd_gotoxy(0,3);
 		//lcd_puts("check");
 	}
+	else if (!(strcmp(inputString, "shutterOpen")))
+	{
+		shutterOpen();
+		sendStringUSB("shutterOpen\n");	// Important: don't forget newline character.
+	}
+	else if (!(strcmp(inputString, "shutterClose")))
+	{
+		shutterClose();
+		sendStringUSB("shutterClose\n");	// Important: don't forget newline character.
+	}
+	else if (!(strcmp(inputString, "shutterEnable")))
+	{
+		shutterEnable();
+		sendStringUSB("shutterEnable\n");	// Important: don't forget newline character.
+	}
+	else if (!(strcmp(inputString, "shutterDisable")))
+	{
+		shutterDisable();
+		sendStringUSB("shutterDisable\n");	// Important: don't forget newline character.
+	}
 	else if (!(strcmp(inputString, "triggerCam")))
 	{
 		triggerCamera();
@@ -203,6 +223,26 @@ void processCommandInput( void )
 //				lcd_gotoxy(0,3);
 //				lcd_puti(stringValue);
 			sendStringUSB("nSlices\n");
+		}
+		else if (!(strcmp(firstString, "shttrOpnPs")))
+		{
+			// Retrieve layer value.
+			stringValue = atoi(secondString);
+			// Adjust value according to input.
+			shutterSetOpenPos(stringValue);
+//				lcd_gotoxy(0,3);
+//				lcd_puti(stringValue);
+			sendStringUSB("shttrOpnPs\n");
+		}
+		else if (!(strcmp(firstString, "shttrClsPs")))
+		{
+			// Retrieve layer value.
+			stringValue = atoi(secondString);
+			// Adjust value according to input.
+			shutterSetClosePos(stringValue);
+//				lcd_gotoxy(0,3);
+//				lcd_puti(stringValue);
+			sendStringUSB("shttrClsPs\n");
 		}
 	}
 }

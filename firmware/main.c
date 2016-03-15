@@ -23,6 +23,9 @@
 // Variable declarations. ******************************************************
 // *****************************************************************************
 
+// Misc.
+uint8_t foo = 0;
+
 // Lcd and menu stuff. *********************************************************
 uint8_t menuButton = 0;
 int8_t menuMove = 0;
@@ -66,8 +69,6 @@ int main(void)
 		ledGreenToggle();
 		_delay_ms(100);
 	}
-	ledYellowOff();
-	ledGreenOff();
 	
 //	lcd_gotoxy(6,1);
 //	lcd_puts("Bob says");
@@ -79,11 +80,15 @@ int main(void)
 
 //	menuChanged();
 
+	
 	// Enable interrupts. *****************************************************
 	sei();
 	
 	// Initialise printer. ****************************************************
 	printerInit();
+	
+	ledYellowOff();
+	ledGreenOff();
 
 
 
@@ -134,12 +139,13 @@ int main(void)
 
 
 
+		
+		
 		// Do things in intervals of timerMilliSeconds. ****************
 		if (timerFlag)
 		{	
 			// Reset timer flag.
 			timerFlag = 0;
-			
 			
 			// Update LCD if stepper is running.
 			if (TCCR3B & (1 << CS30) || TCCR1B & (1 << CS10))
@@ -248,10 +254,30 @@ ISR (TIMER3_COMPA_vect)
 
 
 // Tilt stepper CTC timer. *****************************************************
-ISR (TIMER4_COMPA_vect)
+// Note: we have to reset the timer manually.
+ISR (TIMER4_COMPD_vect)
 {
-	// Toggle output pin.
-//	TILTCLOCKPORT ^= (1 << TILTCLOCKPIN);
+	SERVOPORT &= ~(1 << SERVOPIN);
+//	ledYellowToggle();
+//	_delay_ms(50);
+	// Toggle servo output pin.
+/*	if (SERVOPORT & (1 << SERVOPIN))
+	{
+	//	OCR4D = 40323-servo;
+		SERVOPORT &= ~(1 << SERVOPIN);
+	}
+	else
+	{
+	//	OCR4D = servo;
+		SERVOPORT |= (1 << SERVOPIN);
+	}
+*/
+}
+
+ISR (TIMER4_OVF_vect)
+{
+//	ledGreenToggle();
+	servoControl();
 }
 
 

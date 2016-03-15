@@ -53,9 +53,9 @@
 
 // Servo output. ***************************************************************
 // Clock.
-#define SERVOCLOCKDDR DDRD
-#define SERVOCLOCKPORT PORTD
-#define SERVOCLOCKPIN PIN7
+#define SERVODDR DDRD
+#define SERVOPORT PORTD
+#define SERVOPIN PIN7
 
 
 

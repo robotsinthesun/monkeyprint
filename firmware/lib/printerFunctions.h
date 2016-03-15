@@ -134,6 +134,11 @@ void beamerControl(void);
 void disableSteppers(void);
 uint8_t printerReady(void);
 
+void servoControl(void);
+void servoSetPosition(uint8_t);
+void shutterEnable(void);
+void shutterDisable(void);
+
 void triggerCamera (void);
 
 uint16_t numberOfSlices;

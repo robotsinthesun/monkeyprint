@@ -5,12 +5,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <util/delay.h>
-//#define F_CPU 1000000 		// CPU clock frequency. Set in makefile.
-//#define BAUD 9600			// Baud rate for UART.
-//#include <util/setbaud.h>	// Calculates UART interval from baud rate and clock frequency.
 
-// Include the updated version of Peter Fleurys UART lib.
-#include "lib/uart.h"
+#include "hardware.h"
+#include "lib/uart.h"	// Include the updated version of Peter Fleurys UART lib.
+
 //Set F_CPU as well if not set in makefile. Needed for baud calculation.
 #ifndef F_CPU
 	#define F_CPU	16000000
@@ -18,7 +16,7 @@
 // Define baut rate.
 #define UART_BAUD_RATE	9600  
 		
-#include "hardware.h"
+
 
 // *****************************************************************************
 // Function: configure hardware. ***********************************************
@@ -67,9 +65,9 @@ void setupHardware(void)
 	TILTCLOCKDDR |= (1 << TILTCLOCKPIN);
 	TILTCLOCKPORT &= ~(1 << TILTCLOCKPIN);		// Low...
 	
-	// Servo port.
-	SERVOCLOCKDDR |= (1 << SERVOCLOCKPIN);
-	SERVOCLOCKPORT |= (1 << SERVOCLOCKPIN);
+	// Configure servo port as output.
+	SERVODDR |= (1 << SERVOPIN);
+	//SERVOPORT |= (1 << SERVOPIN);
 	
 
 	// Configure inputs. ******************************************************
@@ -118,15 +116,32 @@ void setupHardware(void)
 	TIMSK3 |= (1 << OCIE3A);		// Enable channel A CTC interrupt. Datasheet p. 136.
 	
 	
-	// Stepper PWM for tilt. **************************************************
+/*		// Servo PWM. *************************************************************
+	// Configure timer3 for CTC with interrupt on compare match. Prescaler 8.
+	TCCR3B |= (1 << WGM32);		// CTC with OCR3AH/OCR3AL compare registers. Data sheet page 130.
+//	TCCR3B |= (1 << CS31);		// Set prescaler to 8. Datasheet page 133. Do this in main...
+	TIMSK3 |= (1<<OCIE3A);		// Enable channel A CTC interrupt. Datasheet p. 136.
+	SERVODDR |= (1 << SERVOPIN);	// Set OC3A as output.
+*/	
+	
+	// Servo PWM for shutter. *************************************************
+	// Configure timer4 in 8 bit mode without CTC.
+//	TCCR4C |= (1 << COM4D1);				// Clear output on compare match. Datasheet p 167.
+	TCCR4B |= (1 << CS43);				// Prescaler 128. Datasheet p 166.
+	TIMSK4 |= (1 << OCIE4D | 1 << TOIE4);	// Enable channel D compare match interrupt and counter overflow interrupt.
+	
+	
+	/*
 	// TIMER 4 IS A BITCH!
 	// SUPPOSEDLY ONLY OCR4C CAN SERVE AS TOP THAT RESETS ON COMPARE MATCH! Datasheet p 149 under Normal Mode.
-	// Thus, make sure to set OCR4A and OCR4B to the same value to use OC4A output pin.
-	// Configure timer4 in 8 bit mode for CTC with interrupt on compare match. Prescaler 64.
-//	TCCR4A |= (1 << COM4A0);				// Toggle OC4A on compare match. Datasheet p 162.
-//	TCCR4B |= (1 << CS42 | 1 << CS41 | 1 << CS40);		// Prescaler 64. Datasheet p 166. 			DISABLED! Enable in menu function.
-//	TIMSK4 |= (1 << OCIE4A);
-	
+	// Thus, make sure to set OCR4A slightly below OCR4C at the same time to use OC4A output pin.
+	// This will fire an interrupt on OCR4A and reset the counter on OCR4C compare match.
+	// TODO: why not simply reset the counter manually on OCR4A?
+	// Configure timer4 in 8 bit mode for CTC with interrupt on compare match.
+	TCCR4A |= (1 << COM4A0);				// Toggle OC4A on compare match. Datasheet p 162.
+	TCCR4B |= (1 << CS42);				// Prescaler 8. Datasheet p 166.
+	TIMSK4 |= (1 << OCIE4A);
+	*/
 	
 	
 	// Initialise UART using uart.c function.
@@ -191,8 +206,9 @@ void timer4SetCompareValue( uint8_t input )
 //	// Disable interrupts.
 //	cli();
 //	//Set TCNTn to input.
-	OCR4A = input-5;
-	OCR4C = input;
+	//OCR4A = input-5;
+	//OCR4C = input;
+	OCR4D = input;
 //	// Restore global interrupt flag.
 //	SREG = sreg;	// Makes sei() unneccessary.
 }
