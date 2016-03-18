@@ -206,7 +206,7 @@ class printerStandalone():
 		returnValue = True
 		# Process command.
 		if len(command) < 4:
-			raise ValueError('Command has to contain four values.')
+			raise ValueError('Serial command has to contain four values.')
 		string = command[0]
 		value = command[1]
 		retry = command[2]

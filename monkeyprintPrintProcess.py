@@ -131,6 +131,8 @@ class printProcess(threading.Thread):
 			self.serialPrinter.send(['buildMinMove', self.buildMinimumMove, True, None])
 			self.serialPrinter.send(['tiltRes', self.tiltStepsPerTurn, True, None])
 			self.serialPrinter.send(['tiltAngle', self.tiltAngle, True, None])
+			self.serialPrinter.send(['shttrOpnPs', self.settings['Shutter position open'].value, True, None])
+			self.serialPrinter.send(['shttrClsPs', self.settings['Shutter position closed'].value, True, None])
 		elif not self.stopThread.isSet():
 			self.queueConsole.put("Debug: number of slices: " + str(self.numberOfSlices))
 			self.queueConsole.put("Debug: build steps per mm: " + str(self.buildStepsPerMm))
@@ -162,6 +164,13 @@ class printProcess(threading.Thread):
 			self.queueStatus.put("Activating projector.")
 			# Send projector command.
 			self.serialProjector.activate()
+		
+		
+		# Activate shutter servo.
+		if not debug and self.settings['Enable shutter servo'].value:
+			self.serialPrinter.send(["shutterEnable", None, True, None])
+		else:
+			self.serialPrinter.send(["shutterDisable", None, True, None])
 		
 		
 		# Homing build platform.
@@ -225,6 +234,12 @@ class printProcess(threading.Thread):
 	#			if not debug:
 	#				self.serialPrinter.send(["tiltSpeed", self.settings['Tilt speed'].value, True, None])
 				self.queueConsole.put("   Switched to fast tilting.")
+				
+			# Open shutter.
+			if not debug and self.settings['Enable shutter servo'].value:
+				self.queueConsole.put("   Opening shutter.")
+				self.serialPrinter.send(["shutterOpen", None, True, None])
+			
 			# Start exposure by writing slice number to queue.
 			self.queueSliceSend(self.slice)
 			self.queueConsole.put("   Exposing with " + str(self.exposureTime) + " seconds.")
@@ -234,6 +249,11 @@ class printProcess(threading.Thread):
 				
 			# Stop exposure by writing -1 to queue.
 			self.queueSliceSend(-1)
+			
+			# Close shutter.
+			if not debug and self.settings['Enable shutter servo'].value:
+				self.queueConsole.put("   Closing shutter.")
+				self.serialPrinter.send(["shutterClose", None, True, None])
 			
 			# Fire the camera after exposure if desired.
 			if not debug and self.settings['camTriggerAfterExposure'].value:
@@ -265,6 +285,10 @@ class printProcess(threading.Thread):
 		
 		# Display black.
 		self.queueSliceSend(-1)
+		
+		# Disable shutter.
+		if not debug and self.settings['Enable shutter servo'].value:
+			self.serialPrinter.send(["shutterDisable", None, True, None])
 
 		
 		if not debug:

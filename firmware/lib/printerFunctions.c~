@@ -1400,7 +1400,7 @@ uint8_t printerReady(void)
 {
 	// Just finished condition:
 	// Tilt off, beamer platform off, build platform off?
-	if( !(TCCR4B & (1 << CS43)) && !(TCCR1B & (1 << CS10)) && !(TCCR3B & (1 << CS30)) )
+	if( !(TCCR1B & (1 << CS10)) && !(TCCR3B & (1 << CS30)) )
 	{
 		// Just finished: printerOperatingFlag is still 1.
 		if (printerOperatingFlag)

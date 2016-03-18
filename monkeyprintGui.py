@@ -241,7 +241,8 @@ class gui(gtk.Window):
 		
 		
 		# Add print job load function to be called once on startup.
-		printjobLoadFunctionId = gobject.idle_add(self.loadPrintjob, filename)
+		if filename != None:
+			printjobLoadFunctionId = gobject.idle_add(self.loadPrintjob, filename)
 		
 		
 		
@@ -2080,6 +2081,10 @@ class dialogSettings(gtk.Window):
 		self.frameTiltStepper.add(self.boxTilt)
 		self.boxTilt.show()
 		# Entries.
+		# Enable?
+		self.checkbuttonTilt = monkeyprintGuiHelper.toggleButton(string="Enable tilt", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive])
+		self.boxTilt.pack_start(self.checkbuttonTilt, expand=False, fill=False)
+		self.checkbuttonTilt.show()
 		# Resolution.
 		self.entryTiltStepAngle = monkeyprintGuiHelper.entry('Tilt step angle', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltStepAngle, expand=False, fill=False)
@@ -2095,10 +2100,9 @@ class dialogSettings(gtk.Window):
 		self.boxTilt.pack_start(self.entryTiltAngle, expand=False, fill=False)
 		self.entryTiltAngle.show()
 		self.entryTiltAngle.set_sensitive(self.settings['Enable tilt'].value)
-		# Enable?
-		self.checkbuttonTilt = monkeyprintGuiHelper.toggleButton(string="Enable tilt", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive])
-		self.boxTilt.pack_end(self.checkbuttonTilt, expand=False, fill=False)
-		self.checkbuttonTilt.show()
+		# Set entry sensitivities.
+		self.setTiltSensitive()
+		
 		# Tilt speed.
 #		self.entryTiltSpeed = monkeyprintGuiHelper.entry('Tilt speed', self.settings, width=15)
 #		self.boxTilt.pack_start(self.entryTiltSpeed, expand=False, fill=False)
@@ -2132,6 +2136,29 @@ class dialogSettings(gtk.Window):
 		self.entryBuildSpeed = monkeyprintGuiHelper.entry('Build platform speed', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildSpeed, expand=False, fill=False)
 		self.entryBuildSpeed.show()
+		
+		# Frame for shutter servo.
+		self.frameShutterServo = gtk.Frame('Shutter servo')
+		boxMotionSettings.pack_start(self.frameShutterServo, expand=False, fill=False, padding=5)
+		self.frameShutterServo.show()
+		self.boxShutterServo = gtk.VBox()
+		self.frameShutterServo.add(self.boxShutterServo)
+		self.boxShutterServo.show()
+		# Entries.
+		# Enable?
+		self.checkbuttonShutter = monkeyprintGuiHelper.toggleButton(string="Enable shutter servo", settings=self.settings, modelCollection=None, customFunctions=[self.setShutterSensitive])
+		self.boxShutterServo.pack_start(self.checkbuttonShutter, expand=False, fill=False)
+		self.checkbuttonShutter.show()
+		# Open position.
+		self.entryShutterPositionOpen = monkeyprintGuiHelper.entry('Shutter position open', self.settings, width=15)
+		self.boxShutterServo.pack_start(self.entryShutterPositionOpen, expand=False, fill=False)
+		self.entryShutterPositionOpen.show()
+		# Closed position.
+		self.entryShutterPositionClosed = monkeyprintGuiHelper.entry('Shutter position closed', self.settings, width=15)
+		self.boxShutterServo.pack_start(self.entryShutterPositionClosed, expand=False, fill=False)
+		self.entryShutterPositionClosed.show()
+		# Set sensitivities.
+		self.setShutterSensitive()
 		
 		boxMotionSettings.show()
 		return boxMotionSettings
@@ -2196,6 +2223,10 @@ class dialogSettings(gtk.Window):
 		self.entryTiltStepAngle.set_sensitive(self.settings['Enable tilt'].value)
 		self.entryTiltMicrostepping.set_sensitive(self.settings['Enable tilt'].value)
 		self.entryTiltAngle.set_sensitive(self.settings['Enable tilt'].value)
+	
+	def setShutterSensitive(self):
+		self.entryShutterPositionOpen.set_sensitive(self.settings['Enable shutter servo'].value)
+		self.entryShutterPositionClosed.set_sensitive(self.settings['Enable shutter servo'].value)
 
 	
 	# Serial connect function.
