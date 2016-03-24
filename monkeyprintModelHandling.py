@@ -424,7 +424,7 @@ class modelCollection(dict):
 				rowData.append(dat)
 			listStoreList.append(rowData)
 		# Combine model settings with job settings.
-		data = [self.jobSettings, modelSettings, listStoreList]
+		data = [self.jobSettings, modelSettings, listStoreList, self]#TODO
 		# Create gzip file handler.
 		file = gzip.GzipFile(filename, 'wb')
 		# Dump the data.
