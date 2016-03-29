@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 // LEDs. ***********************************************************************
+// Additional LEDs.
+
 // Orange.
 #define LED2DDR DDRF
 #define LED2PORT PORTF
@@ -13,6 +15,16 @@
 #define LED1DDR DDRF
 #define LED1PORT PORTF
 #define LED1PIN PIN5
+
+// Onboard LEDs.
+// Yellow.
+#define LED1ONBOARDDDR DDRB
+#define LED1ONBOARDPORT PORTB
+#define LED1ONBOARDPIN PIN0
+// Green.
+#define LED2ONBOARDDDR DDRD
+#define LED2ONBOARDPORT PORTD
+#define LED2ONBOARDPIN PIN5
 
 // Camera trigger pin. *********************************************************
 # define CAMDDR DDRB

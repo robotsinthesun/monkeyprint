@@ -6,6 +6,7 @@
 #include "virtualSerial.h"
 #include "hardware.h"
 
+
 /** LUFA CDC Class driver interface configuration and state information. This structure is
  *  passed to all CDC Class driver functions, so that multiple instances of the same class
  *  within a device can be differentiated from one another.
@@ -51,23 +52,23 @@ uint8_t sendStringUSB(char* dataString)
 	if (errorCode == ENDPOINT_RWSTREAM_Timeout)
 	{
 		// Blink if hardware exists.
-		#if defined LEDPORT
-		LEDPORT &= ~(1 << LEDPIN);
+		#if defined LED1ONBOARDPORT
+		ledYellowToggle();
+		_delay_us(20);
+		ledYellowToggle();
 		_delay_us(10);
-		LEDPORT |= (1 << LEDPIN);
-		_delay_us(10);
-		LEDPORT &= ~(1 << LEDPIN);
-		_delay_us(10);
-		LEDPORT |= (1 << LEDPIN);
+		ledYellowToggle();
+		_delay_us(20);
+		ledYellowToggle();
 		#endif
 	}
 	else if (errorCode == ENDPOINT_RWSTREAM_NoError)
 	{
 		// Blink if hardware exists.
-		#if defined LEDPORT
-		LEDPORT &= ~(1 << LEDPIN);
-		_delay_us(10);
-		LEDPORT |= (1 << LEDPIN);
+		#if defined LED2ONBOARDPORT
+		ledGreenToggle();
+		_delay_us(20);
+		ledGreenToggle();
 		#endif
 	}
 	return errorCode;
@@ -86,23 +87,23 @@ void sendByteAsStringUSB(uint16_t dataByte)
 	if (errorCode == ENDPOINT_READYWAIT_Timeout)
 	{
 		// Blink if hardware exists.
-		#if defined LED1PORT
-		LED1PORT ^= (1 << LED1PIN);
+		#if defined LED1ONBOARDPORT
+		ledYellowToggle();
+		_delay_us(20);
+		ledYellowToggle();
 		_delay_us(10);
-		LED1PORT ^= (1 << LED1PIN);
-		_delay_us(10);
-		LED1PORT ^= (1 << LED1PIN);
-		_delay_us(10);
-		LED1PORT ^= (1 << LED1PIN);
+		ledYellowToggle();
+		_delay_us(20);
+		ledYellowToggle();
 		#endif
 	}
 	else if (errorCode == ENDPOINT_READYWAIT_NoError)
 	{
 		// Blink if hardware exists.
-		#if defined LED2PORT
-		LED2PORT ^= (1 << LED2PIN);
-		_delay_us(10);
-		LED2PORT ^= (1 << LED2PIN);
+		#if defined LED2ONBOARDPORT
+		ledGreenToggle();
+		_delay_us(20);
+		ledGreenToggle();
 		#endif
 	}
 	//CDC_Device_Flush(&VirtualSerial_CDC_Interface);
@@ -119,23 +120,23 @@ void sendByteUSB(uint8_t dataByte)
 	if (errorCode == ENDPOINT_READYWAIT_Timeout)
 	{
 		// Blink if hardware exists.
-		#if defined LED1PORT
-		LED1PORT ^= (1 << LED1PIN);
+		#if defined LED1ONBOARDPORT
+		ledYellowToggle();
+		_delay_us(20);
+		ledYellowToggle();
 		_delay_us(10);
-		LED1PORT ^= (1 << LED1PIN);
-		_delay_us(10);
-		LED1PORT ^= (1 << LED1PIN);
-		_delay_us(10);
-		LED1PORT ^= (1 << LED1PIN);
+		ledYellowToggle();
+		_delay_us(20);
+		ledYellowToggle();
 		#endif
 	}
 	else if (errorCode == ENDPOINT_READYWAIT_NoError)
 	{
 		// Blink if hardware exists.
-		#if defined LED2PORT
-		LED2PORT ^= (1 << LED2PIN);
-		_delay_us(10);
-		LED2PORT ^= (1 << LED2PIN);
+		#if defined LED2ONBOARDPORT
+		ledGreenToggle();
+		_delay_us(20);
+		ledGreenToggle();
 		#endif
 	}
 	//CDC_Device_Flush(&VirtualSerial_CDC_Interface);

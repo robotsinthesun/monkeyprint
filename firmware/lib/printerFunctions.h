@@ -44,7 +44,7 @@ void tiltStepperSetForward ( void );
 void tiltStepperSetBackward ( void );
 uint8_t tiltStepperGetDirection(void);
 void tilt(uint8_t tiltAngle, uint8_t tiltSpeed);
-void controlTilt(void);
+void tiltControl(void);
 void tiltDisableStepper(void);
 void stopTiltStepper(void);
 void tiltSetSpeed(uint8_t input);
@@ -69,7 +69,7 @@ volatile uint16_t buildPlatformTargetPosition;			// Target position in standard 
 volatile uint8_t buildPlatformHomingFlag;
 volatile uint8_t stopFlag;
 volatile int16_t buildTimerCompareValue;
-void buildPlatformControl(void);
+
 
 // Build platform functions. ***************************************************
 void buildPlatformAdjustSpeed (uint8_t input);
@@ -87,7 +87,10 @@ void buildPlatformTop (void);						// Move build platform to top position using 
 void buildPlatformMove (int16_t);					// Move by specific number of steps.
 //void buildPlatformSetTarget(int16_t input);				// Set build platform target position.
 void buildPlatformComparePosition(uint8_t buildPlatformSpeed);		// Compare current and target position, start stepper if mismatch.
-void buildDisableStepper(void);						// Disable stepper.
+
+void buildPlatformControl(void);
+void buildPlatformDisableStepper(void);						// Disable stepper.
+void buildPlatformStopStepper(void);
 
 void buildPlatformLayerUp(void);
 void buildPlatformBaseLayerUp(void);
@@ -138,6 +141,10 @@ void servoControl(void);
 void servoSetPosition(uint8_t);
 void shutterEnable(void);
 void shutterDisable(void);
+void shutterSetOpenPos (uint8_t input);
+void shutterSetClosePos (uint8_t input);
+void shutterOpen (void);
+void shutterClose (void);
 
 void triggerCamera (void);
 

@@ -44,6 +44,11 @@ void processCommandInput( void )
 	//	0 in case of match
 	//	<0 if str1 is lexicographically smaller than str2 (str1 will appear before str2 in a dictionary)
 	//	>0 if str1 is lexicographically larger than str2 
+	if (!(strcmp(inputString, "foo")))
+	{
+		sendStringUSB("bar\n");
+		//pingFlag = 1;
+	}
 	if (!(strcmp(inputString, "ping")))
 	{
 		sendStringUSB("ping\n");

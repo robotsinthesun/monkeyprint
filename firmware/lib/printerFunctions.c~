@@ -258,7 +258,7 @@ void tiltAdjustAngle (uint8_t input)
 		if (--tiltAngle < TILT_ANGLE_MIN) tiltAngle = TILT_ANGLE_MIN;
 	}
 	menuValueSet(tiltAngle,13);
-	eeprom_update_byte (&tiltAngleEep, tiltAngle);
+//	eeprom_update_byte (&tiltAngleEep, tiltAngle);
 }
 
 // Adjust tilt speed. **********************************************************
@@ -1242,17 +1242,20 @@ void servoControl (void)
 // Set servo position between 0 and 10.
 void servoSetPosition(uint8_t input)
 {
-	// Full timer run from 0 to 255 takes 0.00204 seconds.
-	// We need an interval from 0.001 to 0.002 seconds.
-	// One step takes 0.000008 seconds.
-	// 0.002 / 0.000008 = 250.
-	// 0.001 / 0.000008 = 125.
-	// Convert 0--10 to 125--250:
-	// 	Timer value = 12.5 * input + 125.
-	uint16_t tempVal = 125 * input + 1250;
-//	tempVal /= 10;
-	uint8_t timerVal = tempVal / 10;
-	timer4SetCompareValue(timerVal);
+	if (input <= 10 && input > 0)
+	{
+		// Full timer run from 0 to 255 takes 0.00204 seconds.
+		// We need an interval from 0.001 to 0.002 seconds.
+		// One step takes 0.000008 seconds.
+		// 0.002 / 0.000008 = 250.
+		// 0.001 / 0.000008 = 125.
+		// Convert 0--10 to 125--250:
+		// 	Timer value = 12.5 * input + 125.
+		uint16_t tempVal = 125 * input + 1250;
+	//	tempVal /= 10;
+		uint8_t timerVal = tempVal / 10;
+		timer4SetCompareValue(timerVal);
+	}
 }
 
 void shutterSetOpenPos (uint8_t input)

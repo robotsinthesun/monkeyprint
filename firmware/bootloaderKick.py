@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import serial, sys
+import time
 
-# This will just open the serial port shortly with BAUD 1200 to activate the serial port.
+# This will just open the serial port shortly with BAUD 1200 to activate the boot loader.
 serialPort = sys.argv[1]
 ser = serial.Serial(
     port=serialPort,
@@ -10,6 +11,7 @@ ser = serial.Serial(
     stopbits=serial.STOPBITS_ONE,
     bytesize=serial.EIGHTBITS
 )
-ser.isOpen()
+ser.open()
+time.sleep(0.1)
 ser.close() # always close port
 

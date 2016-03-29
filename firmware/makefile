@@ -51,7 +51,7 @@ AVRDUDE = avrdude
 
 # Programming hardware.
 #AVRDUDE_PROGRAMMER = avrisp2
-AVRDUDE_PROGRAMMER = avr109 -D
+AVRDUDE_PROGRAMMER = avr109 -D -b57600
 # Note: D option prevents erase in order to save bootloader from being overwritten.
 
 # Programmer port.
@@ -59,7 +59,7 @@ AVRDUDE_PROGRAMMER = avr109 -D
 AVRDUDE_PORT = /dev/ttyACM0
 
 # Programming target.
-AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
+AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex:i
 #AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(TARGET).eep
 
 # Increase verbosity level.

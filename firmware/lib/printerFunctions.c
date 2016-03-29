@@ -258,7 +258,7 @@ void tiltAdjustAngle (uint8_t input)
 		if (--tiltAngle < TILT_ANGLE_MIN) tiltAngle = TILT_ANGLE_MIN;
 	}
 	menuValueSet(tiltAngle,13);
-	eeprom_update_byte (&tiltAngleEep, tiltAngle);
+//	eeprom_update_byte (&tiltAngleEep, tiltAngle);
 }
 
 // Adjust tilt speed. **********************************************************
@@ -297,7 +297,7 @@ void tiltSetAngle (uint16_t input)
 	}
 //	sendByteAsStringUSB(input);
 	menuValueSet(tiltAngle,13);
-	eeprom_update_byte (&tiltAngleEep, tiltAngle);
+//	eeprom_update_byte (&tiltAngleEep, tiltAngle);
 }
 
 

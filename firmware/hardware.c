@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <util/delay.h>
 
+
+#include <LUFA/Drivers/USB/USB.h>
+#include <LUFA/Platform/Platform.h>
+
 #include "hardware.h"
 #include "lib/uart.h"	// Include the updated version of Peter Fleurys UART lib.
 
@@ -31,6 +35,7 @@ void setupHardware(void)
 	// Configure outputs. *****************************************************
 	
 	// Configure LEDs. Active high.
+	// Additional LEDs.
 	// Orange.
 	LED1DDR |= (1 << LED1PIN);
 	LED1PORT &= ~(1 << LED1PIN);	//OFF
@@ -38,6 +43,13 @@ void setupHardware(void)
 	LED2DDR |= (1 << LED2PIN);
 	LED2PORT &= ~(1 << LED2PIN);	//OFF
 	
+	// Onboard LEDs.
+	// Orange.
+	LED1ONBOARDDDR |= (1 << LED1ONBOARDPIN);
+	LED1ONBOARDPORT |= (1 << LED1ONBOARDPIN);	//OFF
+	// Green.
+	LED2ONBOARDDDR |= (1 << LED2ONBOARDPIN);
+	LED2ONBOARDPORT |= (1 << LED2ONBOARDPIN);	//OFF
 	
 	// Configure camera trigger pin. Active high.
 	CAMDDR |= (1 << CAMPIN);
@@ -151,6 +163,10 @@ void setupHardware(void)
 	
 	
 	// Inititalise USB using LUFA function. ***********************************
+	// Disable the VUSB pad to mend an issue with the Caterina bootloader not
+	// exiting USB connection correctly.
+	// See here: http://www.avrfreaks.net/forum/running-lufa-projects-leonardo
+	USBCON &= ~(1 << OTGPADE);
 	USB_Init();
 	
 	// Initialise LCD. ********************************************************
@@ -214,31 +230,37 @@ void timer4SetCompareValue( uint8_t input )
 
 void ledYellowOn( void )
 {
+	LED1ONBOARDPORT &= ~(1 << LED1ONBOARDPIN);
 	LED1PORT |= (1 << LED1PIN);
 }
 
 void ledYellowOff( void )
 {
+	LED1ONBOARDPORT |= (1 << LED1ONBOARDPIN);
 	LED1PORT &= ~(1 << LED1PIN);
 }
 
 void ledYellowToggle( void )
 {
+	LED1ONBOARDPORT ^= (1 << LED1ONBOARDPIN);
 	LED1PORT ^= (1 << LED1PIN);
 }
 
 void ledGreenOn( void )
 {
+	LED2ONBOARDPORT &= ~(1 << LED2ONBOARDPIN);
 	LED2PORT |= (1 << LED2PIN);
 }
 
 void ledGreenOff( void )
 {
+	LED2ONBOARDPORT |= (1 << LED2ONBOARDPIN);
 	LED2PORT &= ~(1 << LED2PIN);
 }
 
 void ledGreenToggle( void )
 {
+	LED2ONBOARDPORT ^= (1 << LED2ONBOARDPIN);
 	LED2PORT ^= (1 << LED2PIN);
 }
 

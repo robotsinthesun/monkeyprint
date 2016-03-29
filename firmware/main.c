@@ -54,21 +54,14 @@ volatile uint16_t timerMilliSeconds = 100;	// ms
 int main(void)
 {	
 
+	LED1DDR |= (1 << LED1PIN);
+	LED1PORT |= (1 << LED1PIN);	//OFF
+
+
 	// Initialise port configurations, timers, etc. ***************************
 	setupHardware();
 
 
-	// Show splash screen. ****************************************************
-//	lcd_clrscr();
-	ledYellowOn();
-	ledGreenOff();
-	int startup;
-	for (startup=0; startup<5; startup++)
-	{
-		ledYellowToggle();
-		ledGreenToggle();
-		_delay_ms(100);
-	}
 	
 //	lcd_gotoxy(6,1);
 //	lcd_puts("Bob says");
@@ -80,12 +73,30 @@ int main(void)
 
 //	menuChanged();
 
-	
 	// Enable interrupts. *****************************************************
 	sei();
+
 	
 	// Initialise printer. ****************************************************
 	printerInit();
+
+
+	_delay_ms(1000);
+	sendStringUSB("foo");
+
+	// Show splash screen. ****************************************************
+//	lcd_clrscr();
+	ledYellowOn();
+	ledGreenOff();
+	//int startup;
+	for (uint8_t startup=0; startup<5; startup++)
+	{
+		ledYellowToggle();
+		ledGreenToggle();
+		_delay_ms(100);
+	}
+
+
 	
 	ledYellowOff();
 	ledGreenOff();
@@ -105,7 +116,6 @@ int main(void)
 		// Use echo -n "command" > /dev/ttyACM0	to send commands. -n option is important to suppress newline char at end of string.
 		processCommandInput();
 				
-		
 		//**************************************************************
 		//************* Update menu. ***********************************
 		//**************************************************************
@@ -152,7 +162,6 @@ int main(void)
 			{
 //				menuChanged();
 			}
-
 
 			// Disable steppers if idle for more than 100 seconds or print has ended.
 			if ( !( (TCCR1B & (1 << CS10)) || (TCCR3B & (1 << CS30)) || (TCCR4B & (1 << CS43 | 1 << CS40)) ) )
