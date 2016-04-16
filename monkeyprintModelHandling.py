@@ -19,6 +19,7 @@
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import shutil
 import vtk
 from vtk.util import numpy_support	# Functions to convert between numpy and vtk
 import math
@@ -465,6 +466,8 @@ class modelCollection(dict):
 	def loadProject(self, filename):
 		# Create temporary working directory.
 		tmpPath = os.getcwd()+'/tmp'
+		# Delete the tmp directory, just in case it is there already.
+		shutil.rmtree(tmpPath, ignore_errors=True)
 		# Extract project files to tmp directory.
 		with tarfile.open(filename, 'r:gz') as mkpFile:
 			mkpFile.extractall(path=tmpPath)
@@ -494,6 +497,8 @@ class modelCollection(dict):
 		for row in modelListData:
 			if row[0] != "default":
 				self.modelList.append(row)
+		# Delete the tmp directory.
+		shutil.rmtree(tmpPath)
 		
 		
 	
