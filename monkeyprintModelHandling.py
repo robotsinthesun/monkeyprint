@@ -463,14 +463,17 @@ class modelCollection(dict):
 	
 	# Load a compressed model collection from disk.
 	def loadProject(self, filename):
-#		with tarfile.open(filename, 'r:gz') as mkpFile:
-			
-		# Create the file handler.
-		file = gzip.GzipFile(filename, 'rb')
-		# Load the data.
-		data = cPickle.load(file)
-		# Close the file handler.
-		file.close()
+		# Create temporary working directory.
+		tmpPath = os.getcwd()+'/tmp'
+		# Extract project files to tmp directory.
+		with tarfile.open(filename, 'r:gz') as mkpFile:
+			mkpFile.extractall(path=tmpPath)
+		# Read the pickled settings file.
+		data=None
+		with open(tmpPath+'/pickle.bin', 'rb') as pickleFile:
+			# Dump the data.
+			data = cPickle.load(pickleFile)
+		
 		# Clear all models from current model collection.
 		self.removeAll()
 		# Get the relevant parts from the object.
@@ -480,6 +483,9 @@ class modelCollection(dict):
 		# Import the model settings from the file into the model collection.
 		for model in settingsList:
 			if model != "default":
+				# Make the model file path point to the tmp directory.
+				modelFilename = settingsList[model]['filename'].value.split('/')[-1]
+				settingsList[model]['filename'].value = tmpPath+'/'+modelFilename
 				# Create a new model from the modelId and settings.
 				self.add(model, settingsList[model])
 				self.getCurrentModel().hideBox()
