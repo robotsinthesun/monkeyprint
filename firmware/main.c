@@ -81,23 +81,15 @@ int main(void)
 	printerInit();
 
 
-	_delay_ms(1000);
-	sendStringUSB("foo");
-
 	// Show splash screen. ****************************************************
-//	lcd_clrscr();
 	ledYellowOn();
 	ledGreenOff();
-	//int startup;
-	for (uint8_t startup=0; startup<5; startup++)
+	for (uint8_t startup=0; startup<8; startup++)
 	{
 		ledYellowToggle();
 		ledGreenToggle();
 		_delay_ms(100);
 	}
-
-
-	
 	ledYellowOff();
 	ledGreenOff();
 
@@ -147,9 +139,6 @@ int main(void)
 		buildPlatformComparePosition(buildPlatformSpeed);
 //		beamerComparePosition(beamerSpeed);
 
-
-
-		
 		
 		// Do things in intervals of timerMilliSeconds. ****************
 		if (timerFlag)
@@ -263,29 +252,16 @@ ISR (TIMER3_COMPA_vect)
 
 
 // Tilt stepper CTC timer. *****************************************************
-// Note: we have to reset the timer manually.
+// Compare match interrupt.
 ISR (TIMER4_COMPD_vect)
 {
+	// Reset servo signal pin on compare match.
 	SERVOPORT &= ~(1 << SERVOPIN);
-//	ledYellowToggle();
-//	_delay_ms(50);
-	// Toggle servo output pin.
-/*	if (SERVOPORT & (1 << SERVOPIN))
-	{
-	//	OCR4D = 40323-servo;
-		SERVOPORT &= ~(1 << SERVOPIN);
-	}
-	else
-	{
-	//	OCR4D = servo;
-		SERVOPORT |= (1 << SERVOPIN);
-	}
-*/
 }
-
+// Timer overflow interrupt.
 ISR (TIMER4_OVF_vect)
 {
-//	ledGreenToggle();
+	// Skip a couple of timer cycles and then set servo pin high.
 	servoControl();
 }
 

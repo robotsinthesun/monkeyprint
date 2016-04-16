@@ -32,6 +32,7 @@ import monkeyprintImageHandling as imageHandling
 import gtk
 import cPickle	# Save modelCollection to file.
 import gzip
+import tarfile
 
 import monkeyprintSettings
 
@@ -406,7 +407,7 @@ class modelCollection(dict):
 		
 
 	# Save model collection to compressed disk file. Works well with huge objects.
-	def saveProject(self, filename, protocol = -1):
+	def saveProject(self, filename, protocol = -1, fileSearchFnc=None):
 		# Gather the relevant data.
 		# Model settings.
 		modelSettings = {}
@@ -425,15 +426,45 @@ class modelCollection(dict):
 			listStoreList.append(rowData)
 		# Combine model settings with job settings.
 		data = [self.jobSettings, modelSettings, listStoreList]#TODO
-		# Create gzip file handler.
-		file = gzip.GzipFile(filename, 'wb')
-		# Dump the data.
-		cPickle.dump(data, file, protocol)
-		# Close the file handler.
-		file.close()
+		# Write the data into a pickled binary file.
+		picklePath = os.getcwd() + '/pickle.bin'
+		with open(picklePath, 'wb') as pickleFile:
+			# Dump the data.
+			cPickle.dump(data, pickleFile, protocol)
+
+		
+		# Add all relevant stl files.
+		# First, create a list of the model file paths.
+		modelPathList = []
+		for model in self:
+			if model != "default":
+				# Get the model file path.
+				modelPath = self[model].settings['filename'].value
+				# Append if not in list already.
+				if modelPath not in modelPathList:
+					modelPathList.append(modelPath)
+		print modelPathList
+		
+		# Create a tar archive with gzip compression. This will be the mkp file.
+		with tarfile.open(filename, 'w:gz') as mkpFile:
+			# Add the pickled settings file.
+			mkpFile.add(picklePath, arcname='pickle.bin', recursive=False)
+			
+			# Add the stl files. Use file name without path as name.
+			for path in modelPathList:
+				print path.split('/')[-1]
+				try:
+					mkpFile.add(path, arcname=path.split('/')[-1])
+				except IOError, OSError:
+					print "Stl file not found..."
+# TODO: Handle file not found error in GUI.
+# TODO: Maybe copy stls into temporary dir upon load?
+# This would be consisten with loading an mkp file and saving stls to tmp dir.
 	
 	# Load a compressed model collection from disk.
 	def loadProject(self, filename):
+#		with tarfile.open(filename, 'r:gz') as mkpFile:
+			
 		# Create the file handler.
 		file = gzip.GzipFile(filename, 'rb')
 		# Load the data.
