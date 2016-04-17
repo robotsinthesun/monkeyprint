@@ -169,8 +169,6 @@ class printProcess(threading.Thread):
 		# Activate shutter servo.
 		if not debug and self.settings['Enable shutter servo'].value:
 			self.serialPrinter.send(["shutterEnable", None, True, None])
-		else:
-			self.serialPrinter.send(["shutterDisable", None, True, None])
 		
 		
 		# Homing build platform.

@@ -37,64 +37,94 @@ def main(argv):
 		# -f: specify mkp file to open on startup.
 		# -p, --print: run print process without gui. You have to pass the file name of an mkp file to print.
 		try:
-			opts, args = getopt.getopt(argv,"hf:p:",["file=", "print="])
+			opts, args = getopt.getopt(argv,"hdf:p:",["file=", "print="])
 		except getopt.GetoptError:
 			usage()
 			sys.exit(2)
 
 		# Act according to commandline options.
 		if len(opts) != 0:
+		
+			# Check if debug option was given.
+			debugOption = False
 			for opt, arg in opts:
-				if (opt=="-h"):
-					# Display help.
-					usage()
-					sys.exit(2)
-				elif (opt in ("-f", "--file")):
-					# Run Gui with project file.
-					runGui(arg)
-				elif (opt in ("-p", "--print")):
-					# Run non gui with project file and start print.
-					runNoGui(arg)
+				if (opt=="-d"):
+					debugOption = True
+					
+			# If debug flag was the only option...
+			if len(opts) == 1 and debugOption:
+				# ...start with debug flag.
+				runGui(debug=debugOption)
+			# If there are more options...
+			else:
+				# ...evaluate them.
+				for opt, arg in opts:
+					if (opt=="-h"):
+						# Display help.
+						usage()
+						sys.exit(2)
+					elif (opt in ("-f", "--file")):
+						# Run Gui with project file.
+						runGui(filename=arg, debug=debugOption)
+					elif (opt in ("-p", "--print")):
+						# Run non gui with project file and start print.
+						runNoGui(filename=arg, debug=debugOption)
+					
+		# If no options present, just run with GUI.
 		else:
 			runGui()
 	
 
-def runGui(filename=None):
+def runGui(filename=None, debug=False):
 
-		# Create a debug console text buffer.
-		console = monkeyprintGuiHelper.consoleText()
+	print "Starting Monkeyprint with GUI."
+	# Create a debug console text buffer.
+	console = monkeyprintGuiHelper.consoleText()
 
-		# Create settings dictionary object for machine and program settings.
-		programSettings = monkeyprintSettings.programSettings(console)
-
-		# Create version message.
-		console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value))
-
-		# Update settings from file.	
-		programSettings.readFile()
-
-		# Create model collection object.
-		# This object contains model data and settings data for each model.
-		# Pass program settings.
-		modelCollection = monkeyprintModelHandling.modelCollection(programSettings, console)
-
-		# Create gui.
-		gui = monkeyprintGui.gui(modelCollection, programSettings, console, filename)
-
-		# Start the gui main loop.
-		gui.main()
-
-
-
-def runNoGui(filename=None):
-	print "Starting without Gui."
+	# Create settings dictionary object for machine and program settings.
+	programSettings = monkeyprintSettings.programSettings(console)
 	
+	# Create version message.
+	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value))
+
+	# Update settings from file.	
+	programSettings.readFile()
+	
+	# Set debug mode if specified.
+	if debug:
+		print "Debug mode active."
+		programSettings['Debug'].value = True
+	else:
+		programSettings['Debug'].value = False
+
+	# Create model collection object.
+	# This object contains model data and settings data for each model.
+	# Pass program settings.
+	modelCollection = monkeyprintModelHandling.modelCollection(programSettings, console)
+
+	# Create gui.
+	gui = monkeyprintGui.gui(modelCollection, programSettings, console, filename)
+
+	# Start the gui main loop.
+	gui.main()
+
+
+
+def runNoGui(filename=None, debug=False):
+
+	print "Starting without Gui."
 	# Create settings dictionary object for machine and program settings.
 	programSettings = monkeyprintSettings.programSettings()
 	
 	# Update settings from file.	
 	programSettings.readFile()
-	
+
+	# Set debug mode if specified.
+	if debug==True:
+		programSettings['Debug'].value = debug
+		print "Debug mode active."
+	else:
+		programSettings['Debug'].value = False
 	
 	# Create model collection object.
 	# This object contains model data and settings data for each model.
@@ -145,6 +175,9 @@ def usage():
 	print "-h:                              Show this help text."
 	print "-f / --file <filename.mkp>:      Start GUI and load project file."
 	print "-p / --print <filename.mkp>:     Start without GUI and run a print job."
+	print "-d:                              Run in debug mode without stepper motion"
+	print "                                 and shutter servo. This will overwrite"
+	print "                                 the debug option in the settings menu."
 
 
 main(sys.argv[1:])
