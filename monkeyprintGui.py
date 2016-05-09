@@ -144,9 +144,9 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 		gtk.main()	
 		
 		
-		
-		
-		
+
+
+
 
 ################################################################################
 # Define a class for the main GUI. #############################################
@@ -154,7 +154,8 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 class gui(gtk.Window):
 
 	# Override init function. #################################################
-	def __init__(self, modelCollection, programSettings, console=None, filename=None, *args, **kwargs):
+	def __init__(self, modelCollection, programSettings, console=None, filename=None, *args, **kwargs):		
+		
 		
 		# Initialise base class gtk window.********************
 		gtk.Window.__init__(self, *args, **kwargs)

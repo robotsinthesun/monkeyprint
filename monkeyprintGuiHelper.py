@@ -2,7 +2,9 @@
 
 import pygtk
 pygtk.require('2.0')
-import gtk
+import gtk, gobject
+import cairo
+from math import pi
 
 import sys
 import os.path
@@ -14,6 +16,50 @@ import inspect	# Provides methdos to check arguments of a function.
 import monkeyprintImageHandling as imageHandling
 import monkeyprintPrintProcess
 import Queue, threading, subprocess
+
+
+
+
+# A simple GTK splash window that destroys itself after a given period.
+class splashWindow:
+	def __init__(self, imageFile, duration=1):
+		
+		
+		# Create pixbuf from file.
+		self.pixbuf = gtk.gdk.pixbuf_new_from_file(imageFile)
+		self.size = (self.pixbuf.get_width(), self.pixbuf.get_height())
+		print self.size
+		
+		self.splashWindow = gtk.Window()
+		
+		
+		
+		# Show splash screen.
+		self.splashWindow.set_decorated(False)
+		self.splashWindow.resize(self.size[0], self.size[1])
+		self.splashWindow.show()
+		self.splashWindow.set_position(gtk.WIN_POS_CENTER_ALWAYS)
+		
+		# Create image container.
+		self.splashImage = gtk.Image()
+		
+		self.splashImage.set_from_pixbuf(self.pixbuf)
+		self.splashWindow.add(self.splashImage)
+		self.splashImage.show()
+		
+		splashWindowTimer = gobject.timeout_add(duration*1000, self.destroy)
+		
+		gtk.main()
+			
+	
+	def destroy(self):
+		gtk.mainquit()
+		self.splashWindow.destroy()
+
+
+
+
+
 
 # Extended gtk notebook that handles sensitivity of its tabs.
 # This is done by setting the tab labels' sensitivity and

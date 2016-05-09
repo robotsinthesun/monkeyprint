@@ -102,6 +102,9 @@ def runGui(filename=None, debug=False):
 	# Pass program settings.
 	modelCollection = monkeyprintModelHandling.modelCollection(programSettings, console)
 
+
+	# Create splash screen for given interval.
+	splash = monkeyprintGuiHelper.splashWindow(imageFile='./logo.png', duration=4)
 	# Create gui.
 	gui = monkeyprintGui.gui(modelCollection, programSettings, console, filename)
 
