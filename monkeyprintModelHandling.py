@@ -437,6 +437,7 @@ class modelCollection(dict):
 		# Add all relevant stl files.
 		# First, create a list of the model file paths.
 		modelPathList = []
+		self.console.addLine("Packing the following stl files: ")
 		for model in self:
 			if model != "default":
 				# Get the model file path.
@@ -444,7 +445,8 @@ class modelCollection(dict):
 				# Append if not in list already.
 				if modelPath not in modelPathList:
 					modelPathList.append(modelPath)
-		print modelPathList
+					self.console.addLine("   " + modelPath.split('/')[-1])
+		
 		
 		# Create a tar archive with gzip compression. This will be the mkp file.
 		with tarfile.open(filename, 'w:gz') as mkpFile:
@@ -460,7 +462,7 @@ class modelCollection(dict):
 					print "Stl file not found..."
 # TODO: Handle file not found error in GUI.
 # TODO: Maybe copy stls into temporary dir upon load?
-# This would be consisten with loading an mkp file and saving stls to tmp dir.
+# This would be consistent with loading an mkp file and saving stls to tmp dir.
 	
 	# Load a compressed model collection from disk.
 	def loadProject(self, filename):
@@ -498,7 +500,7 @@ class modelCollection(dict):
 			if row[0] != "default":
 				self.modelList.append(row)
 		# Delete the tmp directory.
-		shutil.rmtree(tmpPath)
+	#	shutil.rmtree(tmpPath)
 		
 		
 	

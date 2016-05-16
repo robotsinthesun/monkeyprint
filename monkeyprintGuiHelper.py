@@ -22,7 +22,7 @@ import Queue, threading, subprocess
 
 # A simple GTK splash window that destroys itself after a given period.
 class splashWindow:
-	def __init__(self, imageFile, duration=1):
+	def __init__(self, imageFile, duration=1, infoString=None):
 		
 		
 		# Create pixbuf from file.
@@ -30,28 +30,43 @@ class splashWindow:
 		self.size = (self.pixbuf.get_width(), self.pixbuf.get_height())
 		print self.size
 		
+		# Create window.
 		self.splashWindow = gtk.Window()
-		
-		
-		
-		# Show splash screen.
 		self.splashWindow.set_decorated(False)
 		self.splashWindow.resize(self.size[0], self.size[1])
 		self.splashWindow.show()
 		self.splashWindow.set_position(gtk.WIN_POS_CENTER_ALWAYS)
 		
-		# Create image container.
-		self.splashImage = gtk.Image()
+		# Create a horizontal and a vertical box.
+		self.splashBoxH = gtk.HBox()
+		self.splashWindow.add(self.splashBoxH)
+		self.splashBoxH.show()
 		
+		self.splashBox = gtk.VBox()
+		self.splashBoxH.pack_start(self.splashBox, fill=True, expand=True, padding=5)
+		self.splashBox.show()
+		
+		# Create image container and set pixbuf.
+		self.splashImage = gtk.Image()
 		self.splashImage.set_from_pixbuf(self.pixbuf)
-		self.splashWindow.add(self.splashImage)
+		self.splashBox.pack_start(self.splashImage, expand=True, fill=True, padding=5)
 		self.splashImage.show()
 		
+		# Create info string label.
+		if infoString != None:
+			self.info = gtk.Label(infoString)
+			self.splashBox.pack_start(self.info, expand=True, fill=True, padding=5)
+			self.info.show()
+			self.info.set_justify(gtk.JUSTIFY_LEFT)
+		
+		# Register a gtk timeout function that terminates the splash screen.	
 		splashWindowTimer = gobject.timeout_add(duration*1000, self.destroy)
 		
+		# Start gtk main loop.
 		gtk.main()
 			
 	
+	# Timeout callback to terminate the splash screen.
 	def destroy(self):
 		gtk.mainquit()
 		self.splashWindow.destroy()

@@ -121,8 +121,8 @@ class programSettings(dict):
 		# Create objects for all the settings and put them into dictionary.
 		self['currentFolder'] = setting(value='./models')
 		self['versionMajor'] = setting(value=0)
-		self['versionMinor'] = setting(value=9)	
-		self['revision'] = setting(value=0)
+		self['versionMinor'] = setting(value=10)	
+		self['revision'] = setting(value=3)
 		self['Projector size X'] = setting(value=1024, default=1024)
 		self['Projector size Y'] = setting(value=768, default=768)
 		self['Projector position X'] = setting(value=1920, default=1920)
