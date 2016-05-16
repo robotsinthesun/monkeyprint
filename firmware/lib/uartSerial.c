@@ -12,6 +12,15 @@ void sendStringUART (char* string)
 	// TODO: check out the type error warning...
 }
 
+
+void sendByteAsStringUART(uint16_t dataByte)
+{
+	char dataString[10];
+	itoa( dataByte, dataString, 10 );
+	strcat(dataString,"\n");
+	uart1_puts(dataString);
+}
+
 // Get a string from the ring buffer.
 // If bytes are in the buffer, the receive function will run as long
 // as the buffer is not empty.

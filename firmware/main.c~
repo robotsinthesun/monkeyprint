@@ -146,6 +146,9 @@ int main(void)
 			// Reset timer flag.
 			timerFlag = 0;
 			
+			// Send uart test string.
+			//sendStringUART("foo\n");
+			
 			// Update LCD if stepper is running.
 			if (TCCR3B & (1 << CS30) || TCCR1B & (1 << CS10))
 			{

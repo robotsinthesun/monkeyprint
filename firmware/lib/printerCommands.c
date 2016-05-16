@@ -12,6 +12,7 @@ char inputString[30];
 char* firstString;
 char* secondString;
 int16_t stringValue;
+uint8_t uartFlag = 0;
 
 
 // *****************************************************************************
@@ -22,8 +23,8 @@ int16_t stringValue;
 // Maybe the USB virtual serial input buffer is set to 16 byte?
 void processCommandInput( void )
 {
-	//sendStringUART("tilt");
-	//_delay_ms(100);
+
+	_delay_ms(100);
 	
 	// Receive a string from USB virtual serial.
 	// This will write the received string to the input variable "inputString".
@@ -36,6 +37,15 @@ void processCommandInput( void )
 	if (strlen(inputString)<1)
 	{
 		receiveStringUART(inputString, 30);
+		//sendStringUART(inputString);
+		//uint8_t stringLength = strlen(inputString);
+		//sendByteAsStringUSB(stringLength);
+		uartFlag = 1;
+	}
+	else
+	{
+		uartFlag = 0;
+		//sendStringUART(strlen(inputString));
 	}
 
 
@@ -46,12 +56,15 @@ void processCommandInput( void )
 	//	>0 if str1 is lexicographically larger than str2 
 	if (!(strcmp(inputString, "foo")))
 	{
-		sendStringUSB("bar\n");
+		if (!uartFlag)	sendStringUSB("bar\n");
+		else	sendStringUART("bar\n");
 		//pingFlag = 1;
 	}
 	if (!(strcmp(inputString, "ping")))
 	{
-		sendStringUSB("ping\n");
+		if (!uartFlag)	sendStringUSB("ping\n");
+		else	sendStringUART("ping\n");
+		
 		//pingFlag = 1;
 	}
 	if (!(strcmp(inputString, "tilt")))
