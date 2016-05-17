@@ -498,13 +498,14 @@ class entry(gtk.HBox):
 		
 		# Make label.
 		self.label = gtk.Label(string+self.settings[string].unit)
-		self.label.set_justify(gtk.JUSTIFY_LEFT)
-		self.pack_start(self.label, expand=True, fill=True)
+		self.label.set_alignment(xalign=0, yalign=0.5)
+		self.pack_start(self.label, expand=True, fill=True, padding=5)
 		self.label.show()
+		
 		
 		# Make text entry.
 		self.entry = gtk.Entry()
-		self.pack_start(self.entry, expand=False, fill=False)
+		self.pack_start(self.entry, expand=False, fill=False, padding=5)
 		self.entry.show()
 		if width == None:
 			self.entry.set_width_chars(7)

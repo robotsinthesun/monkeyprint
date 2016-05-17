@@ -1837,6 +1837,9 @@ class dialogSettings(gtk.Window):
 		# Save settings in case of cancelling.
 		#self.settingsBackup = settings
 		
+		# Tooltips object.
+		self.tooltips = gtk.Tooltips()
+
 		# Vertical box for settings and bottom buttons.
 		self.boxMain = gtk.VBox()
 		self.add(self.boxMain)
@@ -1892,11 +1895,34 @@ class dialogSettings(gtk.Window):
 	# Main settings tab.
 	def createMainSettingsTab(self):
 		
-		boxMainSettings = gtk.HBox()
+		boxMainSettings = gtk.VBox()
 		
+		# Frame for Raspberry setting.
+		self.frameRaspberry = gtk.Frame('Hardware setup')
+		boxMainSettings.pack_start(self.frameRaspberry, expand=False, fill=False, padding=5)
+		self.frameRaspberry.show()
+		self.boxRaspberry = gtk.VBox()
+		self.frameRaspberry.add(self.boxRaspberry)
+		self.boxRaspberry.show()
+		# Add entries.
+		self.radioButtonRaspiOff = gtk.RadioButton(group=None, label="Print from PC")
+		self.radioButtonRaspiOff.connect("toggled", self.callbackRaspiToggle, "standalone")
+		self.radioButtonRaspiOff.set_active(not self.settings['Print from Raspberry Pi?'].value)
+		self.boxRaspberry.pack_start(self.radioButtonRaspiOff, expand=True, fill=True)
+		self.radioButtonRaspiOff.show()
+		self.tooltips.set_tip(self.radioButtonRaspiOff, "Use this option if you want print jobs to run directly from your PC. Your PC has to remain connected to the printer during prints.")
+		self.radioButtonRaspiOn = gtk.RadioButton(group=self.radioButtonRaspiOff, label="Print from Raspberry Pi")
+		self.radioButtonRaspiOn.set_active(self.settings['Print from Raspberry Pi?'].value)
+		self.radioButtonRaspiOn.connect("toggled", self.callbackRaspiToggle, "raspberry")
+		self.boxRaspberry.pack_start(self.radioButtonRaspiOn, expand=True, fill=True)
+		self.radioButtonRaspiOn.show()
+		self.tooltips.set_tip(self.radioButtonRaspiOn, "Use this option if you want print jobs to run from a Raspberry Pi. You can remove your PC during prints.")
+		#self.checkboxRaspberry = monkeyprintGuiHelper.toggleButton("Print from Raspberry Pi?", settings=self.settings, customFunctions=self.toggleRaspberrySettings)
+		#self.boxRaspberry.pack_start(self.checkboxRaspberry, expand=True, fill=True)
+		#self.checkboxRaspberry.show()
 		# Frame for build volume settings.
 		self.frameBuildVolume = gtk.Frame('Build volume')
-		boxMainSettings.pack_start(self.frameBuildVolume, padding=5)
+		boxMainSettings.pack_start(self.frameBuildVolume, expand=False, fill=False, padding=5)
 		self.frameBuildVolume.show()
 		self.boxBuildVolume = gtk.VBox()
 		self.frameBuildVolume.add(self.boxBuildVolume)
@@ -1914,21 +1940,25 @@ class dialogSettings(gtk.Window):
 		
 		# Frame for build volume settings.
 		self.frameDebug = gtk.Frame('Debug')
-		boxMainSettings.pack_start(self.frameDebug, padding=5)
+		boxMainSettings.pack_start(self.frameDebug, expand=False, fill=False, padding=5)
 		self.frameDebug.show()
 		self.boxDebug = gtk.HBox()
 		self.frameDebug.add(self.boxDebug)
 		self.boxDebug.show()
 		# Add entry.
+		self.checkbuttonDebug = monkeyprintGuiHelper.toggleButton('Debug', settings=self.settings)
+		self.boxDebug.pack_start(self.checkbuttonDebug, expand=False, fill=False, padding=5)
+		self.checkbuttonDebug.show()
+		'''
 		self.labelDebug = gtk.Label('Debug')
-		self.boxDebug.pack_start(self.labelDebug, expand=False, fill=False)
+		self.boxDebug.pack_start(self.labelDebug, expand=False, fill=False, padding=5)
 		self.labelDebug.show()
 		self.checkboxDebug = gtk.CheckButton()
-		self.boxDebug.pack_start(self.checkboxDebug, expand=False, fill=False)
+		self.boxDebug.pack_start(self.checkboxDebug, expand=False, fill=False, padding=5)
 		self.checkboxDebug.set_active(self.settings['Debug'].value)
 		self.checkboxDebug.show()
 		self.checkboxDebug.connect('toggled', self.callbackDebug)
-		
+		'''
 		
 		boxMainSettings.show()
 		
@@ -1938,7 +1968,7 @@ class dialogSettings(gtk.Window):
 	def createCommunicationTab(self):
 		
 		# Communication settings box.
-		boxCommunication = gtk.HBox()
+		boxCommunication = gtk.VBox()
 		
 		
 		# USB to serial frame.
@@ -2004,7 +2034,7 @@ class dialogSettings(gtk.Window):
 	
 	def createProjectorTab(self):
 		
-		boxProjectorSettings = gtk.HBox()
+		boxProjectorSettings = gtk.VBox()
 		
 		# Frame for projector resolution.
 		self.frameProjector = gtk.Frame('Resolution & Position')
@@ -2072,7 +2102,7 @@ class dialogSettings(gtk.Window):
 
 	def createMotionTab(self):
 	
-		boxMotionSettings = gtk.HBox()
+		boxMotionSettings = gtk.VBox()
 		
 		# Frame for Tilt stepper.
 		self.frameTiltStepper = gtk.Frame('Tilt stepper')
@@ -2164,7 +2194,9 @@ class dialogSettings(gtk.Window):
 		boxMotionSettings.show()
 		return boxMotionSettings
 		
-
+	def callbackRaspiToggle(self, widget, data=None):
+		self.settings['Print from Raspberry Pi?'].value = self.radioButtonRaspiOn.get_active()
+		print self.settings['Print from Raspberry Pi?'].value
 		
 		'''
 		# Horizontal box for columns.
