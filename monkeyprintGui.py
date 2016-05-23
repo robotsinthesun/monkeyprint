@@ -2081,6 +2081,12 @@ class dialogSettings(gtk.Window):
 		self.checkboxProjectorControl.show()
 		self.checkboxProjectorControl.connect('toggled', self.callbackProjectorControl)
 		# Entries.
+		self.entryProjectorOnCommand= monkeyprintGuiHelper.entry('Projector ON command', self.settings, width=15)
+		self.boxProjectorControl.pack_start(self.entryProjectorOnCommand, expand=False, fill=False)
+		self.entryProjectorOnCommand.show()
+		self.entryProjectorOffCommand= monkeyprintGuiHelper.entry('Projector OFF command', self.settings, width=15)
+		self.boxProjectorControl.pack_start(self.entryProjectorOffCommand, expand=False, fill=False)
+		self.entryProjectorOffCommand.show()
 		self.entryProjectorPort= monkeyprintGuiHelper.entry('Projector port', self.settings, width=15)
 		self.boxProjectorControl.pack_start(self.entryProjectorPort, expand=False, fill=False)
 		self.entryProjectorPort.show()

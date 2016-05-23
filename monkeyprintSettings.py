@@ -150,6 +150,8 @@ class programSettings(dict):
 		self['Projector port'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0')
 		self['Projector baud rate'] = setting(value='9600', default='9600')
 		self['Projector control'] = setting(value=False, default=False)
+		self['Projector ON command'] = setting(value='* 0 IR 001', default='* 0 IR 001')
+		self['Projector OFF command'] = setting(value='* 0 IR 002', default='* 0 IR 002')
 		self['Tilt step angle'] = setting(value=1.8, default=1.8, upper=3.6, lower=0.9, unit="°")
 		self['Tilt microsteps per step'] = setting(value=4, default=4, lower=1, upper=32)
 		self['Tilt angle'] = setting(value='14', default='14')

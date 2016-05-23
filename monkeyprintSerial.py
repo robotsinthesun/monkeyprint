@@ -528,10 +528,12 @@ class projector:
 		
 	
 	def activate(self):
-		self.serial.write("* 0 IR 001"+'\r')
+		command = self.settings['Projector ON command'].value
+		self.serial.write(command+'\r')
 
 	def deactivate(self):
-		self.serial.write("* 0 IR 002"+'\r')
+		command = self.settings['Projector OFF command'].value
+		self.serial.write(command+'\r')
 
 	def close(self):
 		if self.serial != None:
