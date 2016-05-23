@@ -24,6 +24,7 @@ import monkeyprintModelHandling
 import monkeyprintSettings
 import monkeyprintGui
 import monkeyprintGuiHelper
+import monkeyprintPiServer
 
 
 
@@ -37,7 +38,7 @@ def main(argv):
 		# -f: specify mkp file to open on startup.
 		# -p, --print: run print process without gui. You have to pass the file name of an mkp file to print.
 		try:
-			opts, args = getopt.getopt(argv,"hdf:p:",["file=", "print="])
+			opts, args = getopt.getopt(argv,"hdsf:p:",["file=", "print="])
 		except getopt.GetoptError:
 			usage()
 			sys.exit(2)
@@ -69,6 +70,9 @@ def main(argv):
 					elif (opt in ("-p", "--print")):
 						# Run non gui with project file and start print.
 						runNoGui(filename=arg, debug=debugOption)
+					elif (opt in ("-s", "--server")):
+						# Start server that listens for commands via socket.
+						runServerNoGui(debug=debugOption)
 					
 		# If no options present, just run with GUI.
 		else:
@@ -170,6 +174,10 @@ def runNoGui(filename=None, debug=False):
 	
 	
 	print "Print process done. Thank you for using Monkeyprint."
+
+
+def runServerNoGui(port=5553, debug=False):
+	printerServer = monkeyprintPiServer.monkeyprintPiServer(port, debug)
 	
 
 def usage():
@@ -178,8 +186,9 @@ def usage():
 
 	print "<no option>:                     Start GUI."
 	print "-h:                              Show this help text."
-	print "-f / --file <filename.mkp>:      Start GUI and load project file."
-	print "-p / --print <filename.mkp>:     Start without GUI and run a print job."
+	print "-f or --file <filename.mkp>:     Start GUI and load project file."
+	print "-p or --print <filename.mkp>:    Start without GUI and run a print job."
+	print "-s or --server				Start a monkeyprint server that prints incoming files."
 	print "-d:                              Run in debug mode without stepper motion"
 	print "                                 and shutter servo. This will overwrite"
 	print "                                 the debug option in the settings menu."

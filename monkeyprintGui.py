@@ -1859,6 +1859,7 @@ class dialogSettings(gtk.Window):
 		self.notebookSettings.append_page(self.tabCommunicationSettings, gtk.Label('Communication'))
 		self.tabCommunicationSettings.show()
 		
+		
 		self.tabProjectorSettings = self.createProjectorTab()
 		self.notebookSettings.append_page(self.tabProjectorSettings, gtk.Label('Projector'))
 		self.tabProjectorSettings.show()
@@ -1866,6 +1867,9 @@ class dialogSettings(gtk.Window):
 		self.tabMotionSettings = self.createMotionTab()
 		self.notebookSettings.append_page(self.tabMotionSettings, gtk.Label('Motion'))
 		self.tabMotionSettings.show()
+		
+		# Set sensitivities according to toggle buttons in main settings tab.
+		self.callbackRaspiToggle(None, None)
 		
 		# Create bottom buttons.
 		# Horizontal box for buttons.
@@ -1973,7 +1977,7 @@ class dialogSettings(gtk.Window):
 		
 		# USB to serial frame.
 		self.frameSerialUsb = gtk.Frame('USB serial connection')
-		boxCommunication.pack_start(self.frameSerialUsb, padding=5)
+		boxCommunication.pack_start(self.frameSerialUsb, expand=False, fill=False, padding=5)
 		self.frameSerialUsb.show()
 		self.boxSerialUsb = gtk.VBox()
 		self.frameSerialUsb.add(self.boxSerialUsb)
@@ -1990,7 +1994,7 @@ class dialogSettings(gtk.Window):
 		
 		# Raspberry Pi serial frame.
 		self.frameSerialPi = gtk.Frame('RasPi serial connection')
-		boxCommunication.pack_start(self.frameSerialPi, padding=5)
+		boxCommunication.pack_start(self.frameSerialPi, expand=False, fill=False, padding=5)
 		self.frameSerialPi.show()
 		self.boxSerialPi = gtk.VBox()
 		self.frameSerialPi.add(self.boxSerialPi)
@@ -2007,7 +2011,7 @@ class dialogSettings(gtk.Window):
 		
 		# Raspberry Pi network frame.
 		self.frameNetworkPi = gtk.Frame('RasPi network connection')
-		boxCommunication.pack_start(self.frameNetworkPi, padding=5)
+		boxCommunication.pack_start(self.frameNetworkPi, expand=False, fill=False, padding=5)
 		self.frameNetworkPi.show()
 		self.boxNetworkPi = gtk.VBox()
 		self.frameNetworkPi.add(self.boxNetworkPi)
@@ -2196,7 +2200,14 @@ class dialogSettings(gtk.Window):
 		
 	def callbackRaspiToggle(self, widget, data=None):
 		self.settings['Print from Raspberry Pi?'].value = self.radioButtonRaspiOn.get_active()
-		print self.settings['Print from Raspberry Pi?'].value
+		if self.settings['Print from Raspberry Pi?'].value == True:
+			self.boxSerialUsb.set_sensitive(False)
+			self.boxSerialPi.set_sensitive(True)
+			self.boxNetworkPi.set_sensitive(True)
+		else:
+			self.boxSerialUsb.set_sensitive(True)
+			self.boxSerialPi.set_sensitive(False)
+			self.boxNetworkPi.set_sensitive(False)
 		
 		'''
 		# Horizontal box for columns.
