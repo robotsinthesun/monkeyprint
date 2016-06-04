@@ -16,7 +16,7 @@ case "$1" in
   start)
     echo "Starting Monkeyprint in server mode."
     # run application you want to start
-    startx /usr/bin/python $HOME/monkeyprint/monkeyprint.py --server
+    sudo startx /usr/bin/python $HOME/monkeyprint/monkeyprint.py --server
     ;;
   stop)
     echo "Stopping Monkeyprint."
