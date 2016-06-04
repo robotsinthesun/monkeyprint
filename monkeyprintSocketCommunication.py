@@ -47,7 +47,7 @@ class fileReceiver(threading.Thread):
 		# Create socket.
 		self.dealer = context.socket(zmq.DEALER)
 		self.socket_set_hwm(self.dealer, self.PIPELINE)
-		self.dealer.connect("tcp://"+ip+":"+port)
+		self.dealer.bind("tcp://"+ip+":"+port)
 		
 		# Thread stop event.
 		self.stopThread = threading.Event()

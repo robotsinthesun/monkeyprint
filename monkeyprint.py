@@ -176,7 +176,7 @@ def runNoGui(filename=None, debug=False):
 	print "Print process done. Thank you for using Monkeyprint."
 
 
-def runServerNoGui(port=5553, debug=False):
+def runServerNoGui(port="5553", debug=False):
 	printerServer = monkeyprintPiServer.monkeyprintPiServer(port, debug)
 	
 
@@ -192,6 +192,5 @@ def usage():
 	print "-d:                              Run in debug mode without stepper motion"
 	print "                                 and shutter servo. This will overwrite"
 	print "                                 the debug option in the settings menu."
-
 
 main(sys.argv[1:])

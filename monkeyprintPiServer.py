@@ -55,7 +55,7 @@ class monkeyprintPiServer:
 		# Create communication socket.
 		self.context = zmq.Context()
 		self.socket = self.context.socket(zmq.PAIR)	# Response type socket.
-		self.socket.bind("tcp://*:5553")
+		self.socket.bind("tcp://*:"+port)
 		
 		
 		# Add socket listener to GTK event loop.
@@ -66,7 +66,7 @@ class monkeyprintPiServer:
 		# Create file transfer socket.
 		self.queueFileTransferIn = Queue.Queue(maxsize=1)
 		self.queueFileTransferOut = Queue.Queue(maxsize=1)
-		self.fileReceiver = monkeyprintSocketCommunication.fileReceiver(ip="127.1.1.0", port="6000", queueFileTransferIn=self.queueFileTransferIn, queueFileTransferOut=self.queueFileTransferOut)
+		self.fileReceiver = monkeyprintSocketCommunication.fileReceiver(ip="*", port="6000", queueFileTransferIn=self.queueFileTransferIn, queueFileTransferOut=self.queueFileTransferOut)
 		self.fileReceiver.start()
 		
 		
@@ -148,7 +148,7 @@ class monkeyprintPiServer:
 
 		print "Preparing print."
 		
-		self.modelCollection.loadProject(filename)
+		self.modelCollection.loadProject(self.localPath)
 		print ("Project file: " + str(filename) + " loaded successfully.")
 		print "Found the following models:"
 		for model in self.modelCollection:
