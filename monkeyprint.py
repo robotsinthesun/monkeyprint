@@ -38,7 +38,7 @@ def main(argv):
 		# -f: specify mkp file to open on startup.
 		# -p, --print: run print process without gui. You have to pass the file name of an mkp file to print.
 		try:
-			opts, args = getopt.getopt(argv,"hdsf:p:",["file=", "print="])
+			opts, args = getopt.getopt(argv,"hdsf:p:",["server", "file=", "print="])
 		except getopt.GetoptError:
 			usage()
 			sys.exit(2)
