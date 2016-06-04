@@ -885,7 +885,6 @@ class imageView(gtk.Image):
 			self.pixbuf = gtk.gdk.pixbuf_new_from_array(self.imageBlack, gtk.gdk.COLORSPACE_RGB, 8)
 		# Set pixbuf.
 		self.set_from_pixbuf(self.pixbuf)
-		
 
 
 class projectorDisplay(gtk.Window):
@@ -899,12 +898,13 @@ class projectorDisplay(gtk.Window):
 		debugWidth = 200
 		
 		self.debug = self.settings['Debug'].value
+		self.printOnPi = self.settings['runOnRaspberry'].value
 		
 		# Customise window.
 		# No decorations.
 		self.set_decorated(False)#gtk.FALSE)
 		# Call resize before showing the window.
-		if self.debug:
+		if self.debug and not self.printOnPi:
 			aspect = float(self.settings['Projector size Y'].value) / float(self.settings['Projector size X'].value)
 			self.resize(debugWidth, int(debugWidth*aspect))
 		else:
@@ -912,8 +912,10 @@ class projectorDisplay(gtk.Window):
 		# Show the window.
 		self.show()
 		# Set position after showing the window.
-		if self.debug:
+		if self.debug and not self.printOnPi:
 			self.move(200,100)
+		elif self.printOnPi:
+			self.move(0,0)
 		else:
 			self.move(self.settings['Projector position X'].value, self.settings['Projector position Y'].value)
 
