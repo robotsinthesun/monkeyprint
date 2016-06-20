@@ -142,9 +142,11 @@ class programSettings(dict):
 		self['Firmware path'] = setting(value='./firmware/main.hex', default='./firmware/main.hex')
 		self['avrdudeSettings'] = setting(value=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'])
 		self['avrdudeSettingsDefault'] = setting(value=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'])
-		self['Port RasPi'] = setting(value='/dev/ttyS0', default='/dev/ttyS0')
-		self['Baud rate RasPi'] = setting(value='57600', default='57600')
-		self['IP RasPi'] = setting(value='192.168.2.111', default='192.168.2.111')
+		self['Port RasPi'] = setting(value='/dev/ttyAMA0', default='/dev/ttyAMA0')
+		self['Baud rate RasPi'] = setting(value='9600', default='9600')
+		self['IP address RasPi'] = setting(value='192.168.2.111', default='192.168.2.111')
+		self['Network port RasPi'] = setting(value='5553', default='5553')
+		self['File transmission port RasPi'] = setting(value='6000', default='6000')
 		self['SSH user name'] = setting(value='pi', default='pi')
 		self['SSH password'] = setting(value='raspberry', default='raspberry')
 		self['Projector port'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0')
@@ -212,10 +214,12 @@ class programSettings(dict):
 				f.write(self.setting2String(setting))
 	
 	# Read program settings from file.
-	def readFile(self):
+	def readFile(self, filename=None):
+		if filename==None:
+			filename = 'programSettings.txt'
 		try:
 			# Open file.
-			with open('programSettings.txt', 'r') as f:
+			with open(filename, 'r') as f:
 				# Loop through lines.
 				for line in f:
 					if line != "":

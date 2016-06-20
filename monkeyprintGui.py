@@ -27,11 +27,15 @@ import monkeyprintModelViewer
 import monkeyprintGuiHelper
 import monkeyprintSerial
 import monkeyprintPrintProcess
+import monkeyprintSocketCommunication
 import subprocess # Needed to call avrdude.
 import vtk
 import threading
 import Queue
 import time
+import signal
+import zmq
+import os
 
 boxSettingsWidth = 350
 
@@ -83,7 +87,7 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 		# Create additional variables.*************************
 		# Flag to set during print process.
 		self.printFlag = True
-		self.programSettings['runOnRaspberry'].value = True
+		self.programSettings['Print from Raspberry Pi?'].value = True
 		
 		# Create the print window.
 #		self.windowPrint = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
@@ -178,6 +182,9 @@ class gui(gtk.Window):
 		# Create queues for inter-thread communication.********
 		# Queue for setting print progess bar.
 		self.queueSlice = Queue.Queue(maxsize=1)
+		# Queues for controlling the file transmission thread.
+		self.queueFileTransferIn = Queue.Queue(maxsize=1)
+		self.queueFileTransferOut = Queue.Queue(maxsize=1)
 		# Queue for status infos displayed above the status bar.
 		self.queueStatus = Queue.Queue()
 		# Queue for console messages.
@@ -186,7 +193,22 @@ class gui(gtk.Window):
 		self.queues = [	self.queueSlice,
 						self.queueStatus		]
 		
-		# Allow background threads.****************************
+		
+		
+		
+		# Create communication socket. ***************************************
+		self.context = zmq.Context()
+		self.socket = self.context.socket(zmq.PAIR)	# Response type socket.
+		print ("tcp://"+str(self.programSettings['IP address RasPi'].value)+":"+str(self.programSettings['Network port RasPi'].value))
+		self.socket.connect("tcp://"+str(self.programSettings['IP address RasPi'].value)+":"+str(self.programSettings['Network port RasPi'].value))
+		
+		
+		# Add socket listener to GTK event loop.
+		self.zmq_fd = self.socket.getsockopt(zmq.FD)
+		gobject.io_add_watch(self.zmq_fd, gobject.IO_IN, self.zmq_callback, self.socket)
+		
+		
+		# Allow background threads. ******************************************
 		# Very important, otherwise threads will be
 		# blocked by gui main thread.
 		gtk.gdk.threads_init()
@@ -196,8 +218,17 @@ class gui(gtk.Window):
 		slicerListenerId = gobject.timeout_add(100, self.modelCollection.checkSlicerThreads)
 		# Update the progress bar, projector image and 3d view. during prints.
 		printProcessUpdateId = gobject.timeout_add(10, self.updateSlicePrint)
+		# Request status info from raspberry pi.
+		pollPrinterStatusId = gobject.timeout_add(300, self.pollPrinterStatus)
 		
-	
+		
+		# Run file transmission thread.
+		self.threadFileTransmission = None
+		if self.programSettings['Print from Raspberry Pi?'].value:
+			ipFileClient = self.programSettings['IP address RasPi'].value
+			portFileClient = self.programSettings['File transmission port RasPi'].value
+			self.threadFileTransmission = monkeyprintSocketCommunication.fileSender(ip=ipFileClient, port=portFileClient, queueStatusIn=self.queueFileTransferIn, queueStatusOut=self.queueFileTransferOut)
+			self.threadFileTransmission.start()
 		
 		
 		# Create additional variables.*************************
@@ -246,6 +277,30 @@ class gui(gtk.Window):
 			printjobLoadFunctionId = gobject.idle_add(self.loadPrintjob, filename)
 		
 		
+		# Handle sigterm to shut down gracefully.
+		signal.signal(signal.SIGTERM, self.on_closing)
+	
+	
+	def zmq_callback(self, fd, condition, zmq_socket):
+		while zmq_socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
+			msg = zmq_socket.recv_multipart()
+			command, parameter = msg
+			if command == "status":
+				self.queueStatus.put(parameter)
+			elif command == "error":
+				pass #TODO handle the errors...
+			elif command == "numberOfSlices":
+				# TODO: check if progressbar exists.
+				# Set progressbar limit according to number of slices.
+				print "foooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
+				print command, parameter
+				self.progressBar.setLimit(int(parameter))
+			elif command == "slice":
+				if not self.queueSlice.qsize():
+					self.queueSlice.put(int(parameter))
+				
+		# Return true, otherwise function will not be called again.				
+		return True	
 		
 	# Override the close function. ############################################
 	def on_closing(self, widget, event, data):
@@ -275,8 +330,8 @@ class gui(gtk.Window):
 				# End kill threads. Main gui thread is the first...
 				for i in range(len(runningThreads)):
 					if i != 0:
-						runningThreads[-1].join(timeout=10000)	# Timeout in ms.
-						print "Slicer thread " + str(i) + " finished."
+						runningThreads[-1].join(timeout=1000)	# Timeout in ms.
+						print "Background thread " + str(i) + " finished."
 						del runningThreads[-1]
 				# Save settings to file.
 				self.programSettings.saveFile()
@@ -601,7 +656,7 @@ class gui(gtk.Window):
 		self.on_closing(None, None, None)
 	
 	def callbackSettings(self, event):
-		dialogSettings(self.programSettings, parent=self)
+		dialogSettings(self.programSettings, parentWindow=self)
 		
 	def callbackFlash(self, event):
 		dialogFirmware(self.programSettings, parent=self)
@@ -1002,14 +1057,16 @@ class gui(gtk.Window):
 		response = self.dialogStart.run()
 		self.dialogStart.destroy()
 				
-		# If positive, create the projector window and start the print process
-		if response==True:
+		# If positive, check if we are running from PC or from Pi.
+		# If running from PC...
+		if response==True and not self.programSettings['Print from Raspberry Pi?'].value:
+			#... create the projector window and start the print process.
 			self.console.addLine("Starting print")
 			# Disable window close event.
 			self.printFlag = True
 			# Set progressbar limit according to number of slices.
 			self.progressBar.setLimit(self.modelCollection.getNumberOfSlices())
-			# Create the projector window.
+			# Create the projector window.2
 			self.windowPrint = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
 			# Start the print.
 			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
@@ -1017,6 +1074,18 @@ class gui(gtk.Window):
 			# Set button sensitivities.
 			self.buttonPrintStart.set_sensitive(False)
 			self.buttonPrintStop.set_sensitive(True)
+		# If running from Pi...
+		elif response==True and self.programSettings['Print from Raspberry Pi?'].value:
+			#... pack the data and send it to the Pi.
+			path = os.getcwd() + "/currentPrint.mkp"
+			# Console message.
+			self.console.addLine("Saving project to \"" + path.split('/')[-1] + "\".")
+			# Save the model collection to the given location.
+			self.modelCollection.saveProject(path)
+			command = "print"
+			self.socket.send_multipart([command, path])
+
+			
 
 	def callbackStopPrintProcess(self, data=None):
 		# Create a dialog window with yes/no buttons.
@@ -1036,14 +1105,28 @@ class gui(gtk.Window):
 			# Reset stop button to insensitive.
 			self.buttonPrintStop.set_sensitive(False)
 	
-
-
+	def pollPrinterStatus(self):
+		# If print runs on raspberry...
+		if self.programSettings['Print from Raspberry Pi?']:
+			# check status via the socket connection.
+			command = "status"
+			path = ""
+			self.socket.send_multipart([command, path])
+			
+			command = "slice"
+			path = ""
+			self.socket.send_multipart([command, path])
+			# The receive function is running elsewhere and
+			# will forward the status info into the status queue.
+		return True
 
 
 	# Gui update functions. ###################################################
 	# Update all relevant gui elements during a print.
 	# These are: 3d view, projector view and progress bar.
 	def updateSlicePrint(self):
+		
+		# Check the queues...
 		# If slice number queue has slice number...
 		if self.queueSlice.qsize():
 			sliceNumber = self.queueSlice.get()
@@ -1054,6 +1137,7 @@ class gui(gtk.Window):
 				self.modelCollection.updateAllSlices3d(sliceNumber)
 				self.renderView.render()
 			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
+			# Only if not printing from raspberry.
 			if self.windowPrint != None:
 				self.windowPrint.updateImage(sliceNumber)
 			# Update slice preview.
@@ -1821,18 +1905,21 @@ class dialogManualControl(gtk.Window):
 
 class dialogSettings(gtk.Window):
 	# Override init function.
-	def __init__(self, settings, parent):
+	def __init__(self, settings, parentWindow):
+
 		# Call super class init function.
 		gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
 		self.set_title("Monkeyprint settings")
 		self.set_modal(True)
-		self.set_transient_for(parent)
+		self.set_transient_for(parentWindow)
 		self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
 		self.show()
 
 		
 		# Internalise settings.
 		self.settings = settings
+		
+		self.parentWindow = parentWindow
 		
 		# Save settings in case of cancelling.
 		#self.settingsBackup = settings
@@ -1976,7 +2063,7 @@ class dialogSettings(gtk.Window):
 		
 		
 		# USB to serial frame.
-		self.frameSerialUsb = gtk.Frame('USB serial connection')
+		self.frameSerialUsb = gtk.Frame('PC serial connection')
 		boxCommunication.pack_start(self.frameSerialUsb, expand=False, fill=False, padding=5)
 		self.frameSerialUsb.show()
 		self.boxSerialUsb = gtk.VBox()
@@ -1993,7 +2080,7 @@ class dialogSettings(gtk.Window):
 		self.entryBaud.show()
 		
 		# Raspberry Pi serial frame.
-		self.frameSerialPi = gtk.Frame('RasPi serial connection')
+		self.frameSerialPi = gtk.Frame('Raspberry Pi serial connection')
 		boxCommunication.pack_start(self.frameSerialPi, expand=False, fill=False, padding=5)
 		self.frameSerialPi.show()
 		self.boxSerialPi = gtk.VBox()
@@ -2001,16 +2088,16 @@ class dialogSettings(gtk.Window):
 		self.boxSerialPi.show()
 		# Add entries.
 		# Port.
-		self.entryPortPi = monkeyprintGuiHelper.entry('Port RasPi', self.settings, width=15)
+		self.entryPortPi = monkeyprintGuiHelper.entry('Port RasPi', self.settings, width=15, displayString='Port')
 		self.boxSerialPi.pack_start(self.entryPortPi, expand=False, fill=False)
 		self.entryPortPi.show()
 		# Baud rate.
-		self.entryBaudPi = monkeyprintGuiHelper.entry('Baud rate RasPi', self.settings, width=15)
+		self.entryBaudPi = monkeyprintGuiHelper.entry('Baud rate RasPi', self.settings, width=15, displayString="Baud rate")
 		self.boxSerialPi.pack_start(self.entryBaudPi, expand=False, fill=False)
 		self.entryBaudPi.show()
 		
 		# Raspberry Pi network frame.
-		self.frameNetworkPi = gtk.Frame('RasPi network connection')
+		self.frameNetworkPi = gtk.Frame('Raspberry Pi network connection')
 		boxCommunication.pack_start(self.frameNetworkPi, expand=False, fill=False, padding=5)
 		self.frameNetworkPi.show()
 		self.boxNetworkPi = gtk.VBox()
@@ -2018,9 +2105,18 @@ class dialogSettings(gtk.Window):
 		self.boxNetworkPi.show()
 		# Add entries.
 		# IP adress.
-		self.entryIpPi = monkeyprintGuiHelper.entry('IP RasPi', self.settings, width=15)
+		self.entryIpPi = monkeyprintGuiHelper.entry('IP address RasPi', self.settings, width=15, displayString="IP address")
 		self.boxNetworkPi.pack_start(self.entryIpPi, expand=False, fill=False)
 		self.entryIpPi.show()
+		# Communication port.
+		self.entryPortPi = monkeyprintGuiHelper.entry('Network port RasPi', self.settings, width=15, displayString="Communication port")
+		self.boxNetworkPi.pack_start(self.entryPortPi, expand=False, fill=False)
+		self.entryPortPi.show()
+		# File transfer port.
+		self.entryPortPiFiles = monkeyprintGuiHelper.entry('File transmission port RasPi', self.settings, width=15, displayString="File transfer port")
+		self.boxNetworkPi.pack_start(self.entryPortPiFiles, expand=False, fill=False)
+		self.entryPortPiFiles.show()
+		'''
 		# User name.
 		self.entrySshPi = monkeyprintGuiHelper.entry('SSH user name', self.settings, width=15)
 		self.boxNetworkPi.pack_start(self.entrySshPi, expand=False, fill=False)
@@ -2029,6 +2125,7 @@ class dialogSettings(gtk.Window):
 		self.entrySshPiPW = monkeyprintGuiHelper.entry('SSH password', self.settings, width=15)
 		self.boxNetworkPi.pack_start(self.entrySshPiPW, expand=False, fill=False)
 		self.entrySshPiPW.show()
+		'''
 		
 		# Console for serial test.
 		self.consoleSerial = monkeyprintGuiHelper.consoleText()
@@ -2069,17 +2166,20 @@ class dialogSettings(gtk.Window):
 		self.frameProjectorControl.add(self.boxProjectorControl)
 		self.boxProjectorControl.show()
 		# Check box for using projector control via serial.
-		self.boxProjectorControlCheckbox = gtk.HBox()
-		self.boxProjectorControl.pack_start(self.boxProjectorControlCheckbox, expand=True, fill=True)
-		self.boxProjectorControlCheckbox.show()
-		self.labelProjectorControl = gtk.Label('Projector control')
-		self.boxProjectorControlCheckbox.pack_start(self.labelProjectorControl, expand=True, fill=True)
-		self.labelProjectorControl.show()
-		self.checkboxProjectorControl = gtk.CheckButton()
-		self.boxProjectorControlCheckbox.pack_start(self.checkboxProjectorControl)
-		self.checkboxProjectorControl.set_active(self.settings['Projector control'].value)
-		self.checkboxProjectorControl.show()
-		self.checkboxProjectorControl.connect('toggled', self.callbackProjectorControl)
+		self.checkbuttonProjectorControl = monkeyprintGuiHelper.toggleButton(string="Projector control", settings=self.settings, modelCollection=None, customFunctions=[self.callbackProjectorControl])
+		self.boxProjectorControl.pack_start(self.checkbuttonProjectorControl, expand=True, fill=True, padding=5)
+		self.checkbuttonProjectorControl.show()
+		#self.boxProjectorControlCheckbox = gtk.HBox()
+		#self.boxProjectorControl.pack_start(self.boxProjectorControlCheckbox, expand=True, fill=True)
+		#self.boxProjectorControlCheckbox.show()
+		#self.labelProjectorControl = gtk.Label('Projector control')
+		#self.boxProjectorControlCheckbox.pack_start(self.labelProjectorControl, expand=True, fill=True)
+		#self.labelProjectorControl.show()
+		#self.checkboxProjectorControl = gtk.CheckButton()
+		#self.boxProjectorControlCheckbox.pack_start(self.checkboxProjectorControl)
+		#self.checkboxProjectorControl.set_active(self.settings['Projector control'].value)
+		#self.checkboxProjectorControl.show()
+		#self.checkboxProjectorControl.connect('toggled', self.callbackProjectorControl)
 		# Entries.
 		self.entryProjectorOnCommand= monkeyprintGuiHelper.entry('Projector ON command', self.settings, width=15)
 		self.boxProjectorControl.pack_start(self.entryProjectorOnCommand, expand=False, fill=False)
@@ -2087,12 +2187,14 @@ class dialogSettings(gtk.Window):
 		self.entryProjectorOffCommand= monkeyprintGuiHelper.entry('Projector OFF command', self.settings, width=15)
 		self.boxProjectorControl.pack_start(self.entryProjectorOffCommand, expand=False, fill=False)
 		self.entryProjectorOffCommand.show()
+		'''
 		self.entryProjectorPort= monkeyprintGuiHelper.entry('Projector port', self.settings, width=15)
 		self.boxProjectorControl.pack_start(self.entryProjectorPort, expand=False, fill=False)
 		self.entryProjectorPort.show()
 		self.entryProjectorBaud= monkeyprintGuiHelper.entry('Projector baud rate', self.settings, width=15)
 		self.boxProjectorControl.pack_start(self.entryProjectorBaud, expand=False, fill=False)
 		self.entryProjectorBaud.show()
+		'''
 		
 		
 		# Frame for projector calibration image.
@@ -2207,13 +2309,19 @@ class dialogSettings(gtk.Window):
 	def callbackRaspiToggle(self, widget, data=None):
 		self.settings['Print from Raspberry Pi?'].value = self.radioButtonRaspiOn.get_active()
 		if self.settings['Print from Raspberry Pi?'].value == True:
-			self.boxSerialUsb.set_sensitive(False)
-			self.boxSerialPi.set_sensitive(True)
-			self.boxNetworkPi.set_sensitive(True)
+			try:
+				self.boxSerialUsb.set_sensitive(False)
+				self.boxSerialPi.set_sensitive(True)
+				self.boxNetworkPi.set_sensitive(True)
+			except AttributeError:
+				pass
 		else:
-			self.boxSerialUsb.set_sensitive(True)
-			self.boxSerialPi.set_sensitive(False)
-			self.boxNetworkPi.set_sensitive(False)
+			try:
+				self.boxSerialUsb.set_sensitive(True)
+				self.boxSerialPi.set_sensitive(False)
+				self.boxNetworkPi.set_sensitive(False)
+			except AttributeError:
+				pass
 		
 		'''
 		# Horizontal box for columns.
@@ -2326,8 +2434,12 @@ class dialogSettings(gtk.Window):
 	def callbackDebug(self, widget, data=None):
 		self.settings['Debug'].value = str(self.checkboxDebug.get_active())
 	
-	def callbackProjectorControl(self, widget, data=None):
-		self.settings['Projector control'].value = self.checkboxProjectorControl.get_active()
+	def callbackProjectorControl(self, data=None):
+		self.settings['Projector control'].value = self.checkbuttonProjectorControl.get_active()
+		self.entryProjectorOnCommand.set_sensitive(self.settings['Projector control'].value)
+		self.entryProjectorOffCommand.set_sensitive(self.settings['Projector control'].value)
+	#	self.entryProjectorPort.set_sensitive(self.settings['Projector control'].value)
+	#	self.entryProjectorBaud.set_sensitive(self.settings['Projector control'].value)
 	
 	# Defaults function.
 	def callbackDefaults(self, widget, data=None):
@@ -2349,7 +2461,15 @@ class dialogSettings(gtk.Window):
 	# Destroy function.
 	def callbackClose(self, widget, data=None):
 		# Delete the calibration image in case it was just added.
-		if (self.settings['calibrationImage'].value == False): self.imageContainer.deleteImageFile()
+		if (self.settings['calibrationImage'].value == False):
+			self.imageContainer.deleteImageFile()
+		# Restart the file transmission thread.
+		if self.settings['Print from Raspberry Pi?'].value:
+			self.parentWindow.threadFileTransmission.join(100)
+			ip = self.settings['IP address RasPi'].value
+			port = self.settings['File transmission port RasPi'].value
+			self.parentWindow.threadFileTransmission.reset(ip, port)
+			self.parentWindow.threadFileTransmission.run()
 		# Close.
 		self.destroy()
 	'''

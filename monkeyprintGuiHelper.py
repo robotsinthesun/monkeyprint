@@ -478,7 +478,7 @@ class toggleButton(gtk.CheckButton):
 class entry(gtk.HBox):
 	# Override init function.
 #	def __init__(self, string, settings, function=None):
-	def __init__(self, string, settings=None, modelCollection=None, customFunctions=None, width=None):
+	def __init__(self, string, settings=None, modelCollection=None, customFunctions=None, width=None, displayString=None):
 		# Call super class init function.
 		gtk.HBox.__init__(self)
 		self.show()
@@ -497,7 +497,10 @@ class entry(gtk.HBox):
 		self.customFunctions = customFunctions
 		
 		# Make label.
-		self.label = gtk.Label(string+self.settings[string].unit)
+		if displayString != None:
+			self.label = gtk.Label(displayString+self.settings[string].unit)
+		else:
+			self.label = gtk.Label(string+self.settings[string].unit)
 		self.label.set_alignment(xalign=0, yalign=0.5)
 		self.pack_start(self.label, expand=True, fill=True, padding=5)
 		self.label.show()
@@ -711,6 +714,7 @@ class printProgressBar(gtk.ProgressBar):
 		
 	def setLimit(self, limit):
 		self.limit = float(limit)
+		print "Limit: ", limit
 	
 	def setText(self, text):
 		self.set_text(text)

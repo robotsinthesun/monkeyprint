@@ -30,6 +30,8 @@ import monkeyprintModelHandling
 import monkeyprintPrintProcess
 import monkeyprintGuiHelper
 import monkeyprintSettings
+import os
+
 
 class monkeyprintPiServer:
 	def __init__(self, port, debug):
@@ -39,11 +41,21 @@ class monkeyprintPiServer:
 		
 		
 		# Printer messages.
-		self.status = "Idle"
+		# Status can be: Idle, Slicing, Printing, Done
+		self.status = "Idle..."
+		self.sliceNumber = 0
+		
 		self.printFlag = False
 		
 		# Local file path.
-		self.localPath = "currentPrint.mkp"
+		self.localPath = os.getcwd() + "/tmpServerFiles"
+		self.localFilename = "/currentPrint.mkp"
+		
+		# Create the working directory.
+		if not os.path.isdir(self.localPath):
+			os.mkdir(self.localPath)
+		
+		self.printProcess = None
 
 
 		# Allow background threads.****************************
@@ -113,11 +125,13 @@ class monkeyprintPiServer:
 	
 	
 	def startPrint(self, filename):
+		self.status = "Transferring files to printer"
+		self.sliceNumber = 0
 		print ("Starting print job from file " + filename + ".")
 		
 		# Request settings file from PC.
 		print "Loading settings file from master."
-		self.queueFileTransferIn.put(("get", "./programSettings.txt"))
+		self.queueFileTransferIn.put(("get", "./programSettings.txt"+":"+self.localPath+"/programSettings.txt"))
 		# Wait until transmission is complete.
 		while not self.queueFileTransferOut.qsize():
 			time.sleep(0.1)
@@ -130,14 +144,14 @@ class monkeyprintPiServer:
 		self.programSettings.readFile()
 		
 		# Set rasperry pi setting.
-		self.programSettings['runOnRaspberry'].value = True
+		self.programSettings['Print from Raspberry Pi?'].value = True
 		self.programSettings['Debug'].value = True
 		
 		
 		
 		# Get the mkp file.
 		print "Loading project file from master."
-		self.queueFileTransferIn.put(("get", filename))
+		self.queueFileTransferIn.put(("get", filename + ":"+self.localPath+self.localFilename))
 		# Wait until transmission is complete.
 		while not self.queueFileTransferOut.qsize():
 			time.sleep(0.1)
@@ -146,9 +160,10 @@ class monkeyprintPiServer:
 			print "Transmission failed. Cancelling."
 			return
 
+		self.status = "Loading print file"
 		print "Preparing print."
-		
-		self.modelCollection.loadProject(self.localPath)
+		print self.localPath + self.localFilename
+		self.modelCollection.loadProject(self.localPath + self.localFilename)
 		print ("Project file: " + str(filename) + " loaded successfully.")
 		print "Found the following models:"
 		for model in self.modelCollection:
@@ -156,8 +171,14 @@ class monkeyprintPiServer:
 				print ("   " + model)
 		
 		
+		# Send number of slices to gui.
+		self.socket.send_multipart(["numberOfSlices", str(self.modelCollection.getNumberOfSlices())])
+		
+		
 		# Start the slicer.
+		self.status = "Slicing"
 		self.modelCollection.updateSliceStack()
+					# TODO: get current slice number to show on progress bar.
 		print ("Starting slicer.")
 
 		# Wait for all slicer threads to finish.
@@ -169,7 +190,7 @@ class monkeyprintPiServer:
 	
 		# Start print process when slicers are done.
 		print "\nSlicer done. Starting print process."
-		
+
 		
 		# Create the projector window.
 		# Initialise base class gtk window.********************
@@ -191,12 +212,15 @@ class monkeyprintPiServer:
 		
 		# Start the print process.
 		self.printProcess.start()
+		self.status = "Preparing printer"		
 		
+	#	printStatusCheckerId = gobject.timeout_add(100, self.pollPrinterStatus)
 		
 	def updateSlicePrint(self):
 		# If slice number queue has slice number...
 		if self.queueSlice.qsize():
 			sliceNumber = self.queueSlice.get()
+			self.sliceNumber = sliceNumber
 			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
 			#if self.windowPrint != None:
 			#	self.windowPrint.updateImage(sliceNumber)
@@ -207,41 +231,63 @@ class monkeyprintPiServer:
 			message = self.queueStatus.get()
 			if message == "destroy":
 				print "Print process finished! Idling..."
+				self.status = "Print process finished! Idling..."
 				self.printFlag = False
 				del self.printProcess
 				#gtk.main_quit()
 				self.projectorDisplay.destroy()
 				del self.projectorDisplay
+				# Remove print file.
+				if os.path.isfile(self.localPath + localFilename):
+					os.remove(self.localPath + localFilename)
 				return False	# Remove funktion from GTK timeout queue.
 			else:
+				self.status = message
 				return True	# Keep funktion in GTK timeout queue.
 		# Return true, otherwise function won't run again.
 		return True	
 		
-		
-		
 	
+	"""
+	def pollPrinterStatus(self):
+		# If the print is running, get status and slice number from the print process.
+		if self.printProcss != None and self.printFlag:
+			
+			# Get status from queue.
+			if self.queueStatus.qsize():
+				self.status = self.queueStatus.get()			
+			return True
+		
+		else:
+			return False
+	"""		
+		
+	# React to commands received from master PC via socket connection.
 	def zmq_callback(self, fd, condition, zmq_socket):
 		while zmq_socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
 			msg = zmq_socket.recv_multipart()
 			command, parameter = msg
-			if parameter != "":
-				print ("Received command \"" + command + "\" with parameter \"" + parameter + "\".")
-			else:
-				print ("Received command \"" + command + "\".")
-				
+			#if parameter != "":
+			#	print ("Received command \"" + command + "\" with parameter \"" + parameter + "\".")
+			#else:
+			#	print ("Received command \"" + command + "\".")
+			print time.time()
+			print command	
 			
 			if command == "print":
+				time.sleep(10)
 				if self.printFlag:
 					zmq_socket.send_multipart(["error", "Print running already."])
 				else:
 					zmq_socket.send_multipart(["status", "Starting print"])
-					self.status = "Printing"
 					self.startPrint(parameter)
 				
 				
 			elif command == "status":
-				zmq_socket.send_multipart(["status", status])
+				zmq_socket.send_multipart(["status", self.status])
+			
+			elif command == "slice":
+				zmq_socket.send_multipart(["slice", str(self.sliceNumber)])
 
 				
 		return True
@@ -262,5 +308,8 @@ class monkeyprintPiServer:
 		gtk.main_quit()
 		return False # returning False makes "destroy-event" be signalled to the window
 
-
+	
+	def exit(self):
+		pass
+		# TODO
 	
