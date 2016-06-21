@@ -37,7 +37,6 @@ import signal
 import zmq
 import os
 
-boxSettingsWidth = 350
 
 
 ################################################################################
@@ -63,13 +62,14 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 		
 		# Create queues for inter-thread communication.********
 		# Queue for setting print progess bar.
-		self.queueSlice = Queue.Queue(maxsize=1)
+		self.queueSliceOut  = Queue.Queue(maxsize=1)
+		self.queueSliceIn = Queue.Queue(maxsize=1)
 		# Queue for status infos displayed above the status bar.
 		self.queueStatus = Queue.Queue()
 		# Queue for console messages.
 		self.queueConsole = Queue.Queue()
 		# Queue list.
-		self.queues = [	self.queueSlice,
+		self.queues = [	self.queueSliceOut,
 						self.queueStatus		]
 		
 		# Allow background threads.****************************
@@ -93,7 +93,7 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 #		self.windowPrint = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
 		
 		# Create the print process thread.
-		self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
+		self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSliceOut, self.queueSliceIn, self.queueStatus, self.queueConsole)
 		
 		# Start the print process.
 		self.printProcess.start()
@@ -103,12 +103,14 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 	
 	def updateSlicePrint(self):
 		# If slice number queue has slice number...
-		if self.queueSlice.qsize():
-			sliceNumber = self.queueSlice.get()
+		if self.queueSliceOut.qsize():
+			sliceNumber = self.queueSliceOut.get()
 			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
 			#if self.windowPrint != None:
 			#	self.windowPrint.updateImage(sliceNumber)
 			self.updateImage(sliceNumber)
+			# Set slice in queue to true as a signal to print process thread that it can start waiting.
+			self.queueSliceIn.put(True)
 		# If print info queue has info...
 		if self.queueStatus.qsize():
 			#self.progressBar.setText(self.queueStatus.get()) 
@@ -181,7 +183,8 @@ class gui(gtk.Window):
 		
 		# Create queues for inter-thread communication.********
 		# Queue for setting print progess bar.
-		self.queueSlice = Queue.Queue(maxsize=1)
+		self.queueSliceOut  = Queue.Queue(maxsize=1)
+		self.queueSliceIn = Queue.Queue(maxsize=1)
 		# Queues for controlling the file transmission thread.
 		self.queueFileTransferIn = Queue.Queue(maxsize=1)
 		self.queueFileTransferOut = Queue.Queue(maxsize=1)
@@ -190,7 +193,7 @@ class gui(gtk.Window):
 		# Queue for console messages.
 		self.queueConsole = Queue.Queue()
 		# Queue list.
-		self.queues = [	self.queueSlice,
+		self.queues = [	self.queueSliceOut ,
 						self.queueStatus		]
 		
 		
@@ -268,7 +271,7 @@ class gui(gtk.Window):
 		self.windowPrint = None
 
 		# Set print progress values.
-		self.queueSlice.put(0)
+		self.queueSliceOut.put(0)
 		self.queueStatus.put("Idle...")
 		
 		
@@ -296,8 +299,8 @@ class gui(gtk.Window):
 				print command, parameter
 				self.progressBar.setLimit(int(parameter))
 			elif command == "slice":
-				if not self.queueSlice.qsize():
-					self.queueSlice.put(int(parameter))
+				if not self.queueSliceOut.qsize():
+					self.queueSliceOut.put(int(parameter))
 				
 		# Return true, otherwise function will not be called again.				
 		return True	
@@ -747,7 +750,7 @@ class gui(gtk.Window):
 		
 		# Create model modification frame.
 		self.frameModifications = gtk.Frame(label="Model modifications")
-		self.modelTab.pack_start(self.frameModifications, expand=True, fill=True)
+		self.modelTab.pack_start(self.frameModifications, expand=True, fill=True, padding=5)
 		self.frameModifications.show()
 		self.boxModelModifications = gtk.VBox()
 		self.frameModifications.add(self.boxModelModifications)
@@ -775,7 +778,7 @@ class gui(gtk.Window):
 		
 		# Create support pattern frame.
 		self.frameSupportPattern = gtk.Frame(label="Support pattern")
-		self.supportsTab.pack_start(self.frameSupportPattern, expand=False, fill=False)
+		self.supportsTab.pack_start(self.frameSupportPattern, expand=False, fill=False, padding=5)
 		self.frameSupportPattern.show()
 		self.boxSupportPattern = gtk.VBox()
 		self.frameSupportPattern.add(self.boxSupportPattern)
@@ -791,7 +794,7 @@ class gui(gtk.Window):
 		
 		# Create support geometry frame.
 		self.frameSupportGeometry = gtk.Frame(label="Support geometry")
-		self.supportsTab.pack_start(self.frameSupportGeometry, expand=False, fill=False)
+		self.supportsTab.pack_start(self.frameSupportGeometry, expand=False, fill=False, padding=5)
 		self.frameSupportGeometry.show()
 		self.boxSupportGeometry = gtk.VBox()
 		self.frameSupportGeometry.add(self.boxSupportGeometry)
@@ -805,7 +808,7 @@ class gui(gtk.Window):
 
 		# Create bottom plate frame.
 		self.frameBottomPlate = gtk.Frame(label="Bottom plate")
-		self.supportsTab.pack_start(self.frameBottomPlate, expand=False, fill=False)
+		self.supportsTab.pack_start(self.frameBottomPlate, expand=False, fill=False, padding=5)
 		self.frameBottomPlate.show()
 		self.boxBottomPlate = gtk.VBox()
 		self.frameBottomPlate.add(self.boxBottomPlate)
@@ -861,7 +864,7 @@ class gui(gtk.Window):
 		self.boxPreview = gtk.HBox()
 		self.framePreview.add(self.boxPreview)
 		self.boxPreview.show()
-		self.sliceSlider = monkeyprintGuiHelper.imageSlider(self.modelCollection, self.programSettings, self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
+		self.sliceSlider = monkeyprintGuiHelper.imageSlider(modelCollection=self.modelCollection, programSettings=self.programSettings, width = 200, console=self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
 		self.boxPreview.pack_start(self.sliceSlider, expand=True, fill=True, padding=5)
 		self.sliceSlider.show()
 		# Register slice image update function to GUI main loop.
@@ -896,10 +899,13 @@ class gui(gtk.Window):
 		self.boxResinVolume = gtk.HBox()
 		self.frameResinVolume.add(self.boxResinVolume)
 		self.boxResinVolume.show()
+		self.boxResinVolumeV = gtk.VBox()
+		self.boxResinVolume.pack_start(self.boxResinVolumeV, expand=False, fill=False, padding=5)
+		self.boxResinVolumeV.show()
 		
 		# Resin volume label.
 		self.resinVolumeLabel = gtk.Label("Volume: ")
-		self.boxResinVolume.pack_start(self.resinVolumeLabel, expand=False, fill=False)
+		self.boxResinVolumeV.pack_start(self.resinVolumeLabel, expand=False, fill=False, padding=5)
 		self.resinVolumeLabel.show()
 		
 		# Create camera trigger frame.
@@ -965,7 +971,7 @@ class gui(gtk.Window):
 		self.boxPreviewPrint.show()
 		
 		# Create slice image.
-		self.sliceView = monkeyprintGuiHelper.imageView(self.programSettings, self.modelCollection, width = 250)
+		self.sliceView = monkeyprintGuiHelper.imageView(settings=self.programSettings, modelCollection=self.modelCollection, width=200)
 		self.boxPreviewPrint.pack_start(self.sliceView, expand=True, fill=True)
 		self.sliceView.show()
 
@@ -1060,6 +1066,7 @@ class gui(gtk.Window):
 		# If positive, check if we are running from PC or from Pi.
 		# If running from PC...
 		if response==True and not self.programSettings['Print from Raspberry Pi?'].value:
+		#	print "foo"
 			#... create the projector window and start the print process.
 			self.console.addLine("Starting print")
 			# Disable window close event.
@@ -1068,12 +1075,15 @@ class gui(gtk.Window):
 			self.progressBar.setLimit(self.modelCollection.getNumberOfSlices())
 			# Create the projector window.2
 			self.windowPrint = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
+		#	print "bar"
 			# Start the print.
-			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
+			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSliceOut, self.queueSliceIn, self.queueStatus, self.queueConsole)
 			self.printProcess.start()
+		#	print "hoo"
 			# Set button sensitivities.
 			self.buttonPrintStart.set_sensitive(False)
 			self.buttonPrintStop.set_sensitive(True)
+		#	print "har"
 		# If running from Pi...
 		elif response==True and self.programSettings['Print from Raspberry Pi?'].value:
 			#... pack the data and send it to the Pi.
@@ -1128,8 +1138,9 @@ class gui(gtk.Window):
 		
 		# Check the queues...
 		# If slice number queue has slice number...
-		if self.queueSlice.qsize():
-			sliceNumber = self.queueSlice.get()
+		if self.queueSliceOut.qsize():
+	#		print "2: Received slice at " + str(time.time()) + "."
+			sliceNumber = self.queueSliceOut.get()
 			if sliceNumber >=0:
 				# ... get slice number and set progress bar.
 				self.progressBar.updateValue(sliceNumber) 
@@ -1140,8 +1151,16 @@ class gui(gtk.Window):
 			# Only if not printing from raspberry.
 			if self.windowPrint != None:
 				self.windowPrint.updateImage(sliceNumber)
+	#		print "5: Returned from image update function at " + str(time.time()) + "."
 			# Update slice preview.
 			self.sliceView.updateImage(sliceNumber)
+			# Set slice in queue to true as a signal to print process thread that it can start waiting.
+	#		print "6: Setting OK at " + str(time.time()) + "."
+			if self.queueSliceIn.empty():
+	#			print "7: Set OK at " + str(time.time()) + "."
+				self.queueSliceIn.put(True)
+	#		else:
+	#			print "ERROR: Was OK already."
 		# If print info queue has info...
 		if self.queueStatus.qsize():
 			#self.progressBar.setText(self.queueStatus.get()) 

@@ -7,6 +7,7 @@ import cairo
 from math import pi
 
 import sys
+import time
 import os.path
 import shutil
 import numpy
@@ -292,7 +293,7 @@ class imageFromFile(gtk.VBox):
 
 # Slider that takes image which has to be update externally.
 class imageSlider(gtk.VBox):
-	def __init__(self, modelCollection, programSettings, console=None, customFunctions=None):
+	def __init__(self, modelCollection, programSettings, width=250, console=None, customFunctions=None):
 		# Call super class init function.
 		gtk.VBox.__init__(self)
 		
@@ -306,7 +307,7 @@ class imageSlider(gtk.VBox):
 		
 		# Get parent width and set height according to projector aspect ratio.
 		aspect = float(programSettings['Projector size Y'].value) / float(programSettings['Projector size X'].value)
-		self.width = 250
+		self.width = width#250
 		self.height = int(self.width * aspect)
 		
 		
@@ -941,6 +942,7 @@ class projectorDisplay(gtk.Window):
 	
 	# Check if a new slice number is in the queue.
 	def updateImage(self, sliceNumber):
+#		print "3: Started image update at " + str(time.time()) + "."
 		if sliceNumber != -1:
 			image = self.modelCollection.updateSliceImage(sliceNumber)
 			# Get the image from the slice buffer and convert it to 3 channels.
@@ -954,4 +956,5 @@ class projectorDisplay(gtk.Window):
 			# Create pixbuf from numpy.
 			self.pixbuf = gtk.gdk.pixbuf_new_from_array(self.imageBlack, gtk.gdk.COLORSPACE_RGB, 8)
 		# Set pixbuf.
-		self.imageView.set_from_pixbuf(self.pixbuf)		
+		self.imageView.set_from_pixbuf(self.pixbuf)
+#		print "4: Finished image update at " + str(time.time()) + "."

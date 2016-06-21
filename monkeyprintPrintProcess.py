@@ -27,12 +27,13 @@ import time
 class printProcess(threading.Thread):
 
 	# Init function.
-	def __init__(self, modelCollection, settings, queueSlice, queueStatus, queueConsole, queueCarryOn=None):
+	def __init__(self, modelCollection, settings, queueSliceOut, queueSliceIn, queueStatus, queueConsole, queueCarryOn=None):
 	# TODO: implement hold until carry on communication with gui.
 	# TODO: merge all queues into one, send tuple with [infoType, info]
 		# Internalise settings.
 		self.settings = settings
-		self.queueSlice = queueSlice
+		self.queueSliceOut = queueSliceOut
+		self.queueSliceIn = queueSliceIn
 		self.queueStatus = queueStatus
 		self.queueConsole = queueConsole
 		# Get other relevant values.
@@ -61,9 +62,31 @@ class printProcess(threading.Thread):
 		self.stopThread.set()
 	
 	def queueSliceSend(self, sliceNumber):
-		while not self.queueSlice.empty():
+		# Empty the response queue.
+		if not self.queueSliceIn.empty():
+			self.queueSliceIn.get();
+		# Send the new slice number.
+		while not self.queueSliceOut.empty():
 			time.sleep(0.1)
-		self.queueSlice.put(sliceNumber)
+		self.queueSliceOut.put(sliceNumber)
+	
+	def queueSliceRecv(self):
+		while not self.queueSliceIn.qsize():
+			time.sleep(0.1)
+		result = self.queueSliceIn.get()
+		return result
+	
+	def setGuiSlice(self, sliceNumber):
+		# Set slice number to queue.
+		self.queueSliceSend(sliceNumber)
+		
+		# Wait until gui acks that slice is set.
+		# self.queueSliceRecv blocks until slice is set in gui.
+		if self.queueSliceRecv() and self.debug:
+			if sliceNumber >=0:
+				print "Set slice " + str(sliceNumber) + "."
+			else:
+				print "Set black."
 	
 	# Non blocking wait function.
 	def wait(self, timeInterval, trigger=False):
@@ -155,8 +178,14 @@ class printProcess(threading.Thread):
 				self.queueStatus.put("Projector started.")
 		
 		# Display black.
+		self.setGuiSlice(-1)
+		'''
 		self.queueSliceSend(-1)
 		
+		# Wait a bit to give GUI a chance...
+		if self.queueSliceRecv():
+			print "Set black."
+		'''
 		# Activate projector.
 		if not debug and projectorControl and not self.stopThread.isSet():
 			# Send info to gui.
@@ -238,15 +267,35 @@ class printProcess(threading.Thread):
 				self.queueConsole.put("   Opening shutter.")
 				self.serialPrinter.send(["shutterOpen", None, True, None])
 			
-			# Start exposure by writing slice number to queue.
-			self.queueSliceSend(self.slice)
-			self.queueConsole.put("   Exposing with " + str(self.exposureTime) + " seconds.")
 			
+			# Start exposure by writing slice number to queue.
+			self.setGuiSlice(self.slice)
+			'''
+			print "1: Sending slice " + str(self.slice) + " at " + str(time.time()) + "."
+			self.queueSliceSend(self.slice)
+			
+
+			# Wait for response from print window that slice image has been set.
+			if self.queueSliceRecv():
+				print "8: Received OK at " + str(time.time()) + "."
+				self.queueConsole.put("   Exposing with " + str(self.exposureTime) + " seconds.")
+			print "9: Continuing print process at "+ str(time.time()) + "."
+			'''
 			# Wait during exposure. Wait function also fires camera trigger if necessary.
 			self.wait(self.exposureTime, trigger=(not self.debug and self.settings['camTriggerWithExposure'].value))
 				
+			#print "10: Ended exposure at " + str(time.time()) + "."
+			
+			
 			# Stop exposure by writing -1 to queue.
+			self.setGuiSlice(-1)
+			'''
 			self.queueSliceSend(-1)
+			
+			# Wait a bit to give GUI a chance...
+			if self.queueSliceRecv():
+				print "Set black."
+			'''
 			
 			# Close shutter.
 			if not debug and self.settings['Enable shutter servo'].value:
