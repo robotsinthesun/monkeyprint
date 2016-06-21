@@ -146,7 +146,7 @@ class monkeyprintPiServer:
 		
 		# Set rasperry pi setting.
 		self.programSettings['Print from Raspberry Pi?'].value = True
-		self.programSettings['Debug'].value = True
+#		self.programSettings['Debug'].value = True
 		
 		
 		
