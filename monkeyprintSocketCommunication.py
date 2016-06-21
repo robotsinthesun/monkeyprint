@@ -120,7 +120,7 @@ class fileSender(threading.Thread):
 					# Cast offset and chunk size to integer.
 					offset = int(offset_str)
 					chunksz = int(chunksz_str)
-					time.sleep(0.001)
+					time.sleep(0.01)
 					file.seek(0,2)
 					filePackets = int(math.ceil(file.tell() / float(chunksz)))
 

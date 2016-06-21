@@ -84,7 +84,8 @@ class monkeyprintPiServer:
 		
 		# Create queues for inter-thread communication.********
 		# Queue for setting print progess bar.
-		self.queueSlice = Queue.Queue(maxsize=1)
+		self.queueSliceOut = Queue.Queue(maxsize=1)
+		self.queueSliceIn = Queue.Queue(maxsize=1)
 		# Queue for status infos displayed above the status bar.
 		self.queueStatus = Queue.Queue()
 		# Queue for console messages.
@@ -208,7 +209,7 @@ class monkeyprintPiServer:
 		
 		# Create the print process thread.
 		# TODO make queueConsole an optional argument to printProcess.__init__
-		self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSlice, self.queueStatus, self.queueConsole)
+		self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSliceOut, self.queueSliceIn, self.queueStatus, self.queueConsole)
 		
 		# Start the print process.
 		self.printProcess.start()
@@ -217,6 +218,17 @@ class monkeyprintPiServer:
 	#	printStatusCheckerId = gobject.timeout_add(100, self.pollPrinterStatus)
 		
 	def updateSlicePrint(self):
+		# Check the queues...
+		# If slice number queue has slice number...
+		if self.queueSliceOut.qsize():
+	#		print "2: Received slice at " + str(time.time()) + "."
+			sliceNumber = self.queueSliceOut.get()
+			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
+			self.projectorDisplay.updateImage(sliceNumber)
+			# Set slice in queue to true as a signal to print process thread that it can start waiting.
+			if self.queueSliceIn.empty():
+				self.queueSliceIn.put(True)
+		'''
 		# If slice number queue has slice number...
 		if self.queueSlice.qsize():
 			sliceNumber = self.queueSlice.get()
@@ -225,6 +237,7 @@ class monkeyprintPiServer:
 			#if self.windowPrint != None:
 			#	self.windowPrint.updateImage(sliceNumber)
 			self.projectorDisplay.updateImage(sliceNumber)
+		'''
 		# If print info queue has info...
 		if self.queueStatus.qsize():
 			#self.progressBar.setText(self.queueStatus.get()) 
