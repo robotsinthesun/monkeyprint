@@ -91,8 +91,8 @@ class monkeyprintPiServer:
 		# Queue for console messages.
 		self.queueConsole = Queue.Queue()
 		# Queue list.
-		self.queues = [	self.queueSlice,
-						self.queueStatus		]
+		#self.queues = [	self.queueSlice,
+		#				self.queueStatus		]
 		
 
 		# Create settings dictionary object for machine and program settings.
