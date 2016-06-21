@@ -251,8 +251,8 @@ class monkeyprintPiServer:
 				self.projectorDisplay.destroy()
 				del self.projectorDisplay
 				# Remove print file.
-				if os.path.isfile(self.localPath + localFilename):
-					os.remove(self.localPath + localFilename)
+				if os.path.isfile(self.localPath + self.localFilename):
+					os.remove(self.localPath + self.localFilename)
 				return False	# Remove funktion from GTK timeout queue.
 			else:
 				self.status = message
