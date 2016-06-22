@@ -183,6 +183,7 @@ class programSettings(dict):
 		self['Shutter position open'] = setting(value=4, default=4, lower=0, upper=10)
 		self['Shutter position closed'] = setting(value=6, default=6, lower=0, upper=10)
 		self['Enable shutter servo'] = setting(value=False, default=False)
+		self['localMkpPath'] = setting(value='./currentPrint.mkp', default='./currentPrint.mkp')
 		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
 
 	# Load default settings.
