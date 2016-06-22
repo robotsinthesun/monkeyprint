@@ -226,17 +226,22 @@ class gui(gtk.Window):
 		
 		
 		# Run file transmission thread.
-		self.threadFileTransmission = None
-		if self.programSettings['Print from Raspberry Pi?'].value:
-			ipFileClient = self.programSettings['IP address RasPi'].value
-			portFileClient = self.programSettings['File transmission port RasPi'].value
-			self.threadFileTransmission = monkeyprintSocketCommunication.fileSender(ip=ipFileClient, port=portFileClient, queueStatusIn=self.queueFileTransferIn, queueStatusOut=self.queueFileTransferOut)
-			self.threadFileTransmission.start()
+		#self.threadFileTransmission = None
+		#if self.programSettings['Print from Raspberry Pi?'].value:
+		ipFileClient = self.programSettings['IP address RasPi'].value
+		portFileClient = self.programSettings['File transmission port RasPi'].value
+		self.threadFileTransmission = monkeyprintSocketCommunication.fileSender(ip=ipFileClient, port=portFileClient, queueStatusIn=self.queueFileTransferIn, queueStatusOut=self.queueFileTransferOut)
+		self.threadFileTransmission.start()
 		
 		
 		# Create additional variables.*************************
 		# Flag to set during print process.
-		self.printFlag = False		
+		self.printFlag = False
+		
+		
+		# Get current working directory and set paths.
+		self.cwd = os.getcwd()
+		self.programSettings['localMkpPath'].value = self.cwd + "/currentPrint.mkp"
 		
 		
 		
@@ -336,6 +341,9 @@ class gui(gtk.Window):
 						runningThreads[-1].join(timeout=1000)	# Timeout in ms.
 						print "Background thread " + str(i) + " finished."
 						del runningThreads[-1]
+				# Clean up files.
+				if os.path.isfile(self.programSettings['localMkpPath'].value):
+					os.remove(self.programSettings['localMkpPath'].value)
 				# Save settings to file.
 				self.programSettings.saveFile()
 				# Terminate the gui.
@@ -1087,7 +1095,7 @@ class gui(gtk.Window):
 		# If running from Pi...
 		elif response==True and self.programSettings['Print from Raspberry Pi?'].value:
 			#... pack the data and send it to the Pi.
-			path = os.getcwd() + "/currentPrint.mkp"
+			path = self.programSettings['localMkpPath'].value		#os.getcwd() + "/currentPrint.mkp"
 			# Console message.
 			self.console.addLine("Saving project to \"" + path.split('/')[-1] + "\".")
 			# Save the model collection to the given location.
@@ -1135,32 +1143,28 @@ class gui(gtk.Window):
 	# Update all relevant gui elements during a print.
 	# These are: 3d view, projector view and progress bar.
 	def updateSlicePrint(self):
-		
 		# Check the queues...
 		# If slice number queue has slice number...
 		if self.queueSliceOut.qsize():
-	#		print "2: Received slice at " + str(time.time()) + "."
+			# ... get it from the queue.
 			sliceNumber = self.queueSliceOut.get()
+			# If it's an actual slice number...
 			if sliceNumber >=0:
-				# ... get slice number and set progress bar.
+				# ... set progress bar.
 				self.progressBar.updateValue(sliceNumber) 
 				# Set 3d view to given slice.
 				self.modelCollection.updateAllSlices3d(sliceNumber)
 				self.renderView.render()
 			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
-			# Only if not printing from raspberry.
+			# Only if not printing from raspberry. In this case the print window will not exist.
 			if self.windowPrint != None:
 				self.windowPrint.updateImage(sliceNumber)
-	#		print "5: Returned from image update function at " + str(time.time()) + "."
-			# Update slice preview.
+			# Update slice preview in the gui.
 			self.sliceView.updateImage(sliceNumber)
-			# Set slice in queue to true as a signal to print process thread that it can start waiting.
-	#		print "6: Setting OK at " + str(time.time()) + "."
+			# Signal to print process that slice image is set and exposure time can begin.
 			if self.queueSliceIn.empty():
-	#			print "7: Set OK at " + str(time.time()) + "."
 				self.queueSliceIn.put(True)
-	#		else:
-	#			print "ERROR: Was OK already."
+
 		# If print info queue has info...
 		if self.queueStatus.qsize():
 			#self.progressBar.setText(self.queueStatus.get()) 
@@ -2484,11 +2488,13 @@ class dialogSettings(gtk.Window):
 			self.imageContainer.deleteImageFile()
 		# Restart the file transmission thread.
 		if self.settings['Print from Raspberry Pi?'].value:
-			self.parentWindow.threadFileTransmission.join(100)
-			ip = self.settings['IP address RasPi'].value
-			port = self.settings['File transmission port RasPi'].value
-			self.parentWindow.threadFileTransmission.reset(ip, port)
-			self.parentWindow.threadFileTransmission.run()
+			ipFileClient = self.settings['IP address RasPi'].value
+			portFileClient = self.settings['File transmission port RasPi'].value
+			if self.parentWindow.threadFileTransmission != None:
+				self.parentWindow.threadFileTransmission.join(100)
+				self.parentWindow.threadFileTransmission.reset(ipFileClient, portFileClient)
+				self.parentWindow.threadFileTransmission.run()
+
 		# Close.
 		self.destroy()
 	'''
