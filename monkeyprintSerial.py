@@ -186,11 +186,19 @@ class printerStandalone():
 		# Internalise parameters.
 		self.settings = settings
 		
+		# Get serial parameters from settings.
+		if self.settings['Print from Raspberry Pi?'].value:
+			self.port=self.settings['Port RasPi'].value
+			self.baudrate=self.settings['Baud rate RasPi'].value
+		else:
+			self.port=self.settings['Port'].value
+			self.baudrate=self.settings['Baud rate'].value
+		
 		# Configure and open serial.
 		try:
 			self.serial = serial.Serial(
-				port=self.settings['Port'].value,
-				baudrate=self.settings['Baud rate'].value,
+				port=self.port,
+				baudrate=self.baudrate,
 				bytesize = serial.EIGHTBITS, #number of bits per bytes
 				parity = serial.PARITY_NONE, #set parity check: no parity
 				stopbits = serial.STOPBITS_ONE,
