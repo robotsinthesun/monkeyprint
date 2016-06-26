@@ -71,55 +71,65 @@ void processCommandInput( void )
 	{
 		tilt(tiltAngle,tiltSpeed);
 		_delay_ms(10);
-		sendStringUSB("tilt\n");	// Important: don't forget newline character.
+		if (!uartFlag)	sendStringUSB("tilt\n");	// Important: don't forget newline character.
+		else	sendStringUART("tilt\n");
 	}
 	else if (!(strcmp(inputString, "buildHome")))
 	{
 		buildPlatformHome();
 		_delay_ms(10);
-		sendStringUSB("buildHome\n");	// Important: don't forget newline character.
+		if (!uartFlag)	sendStringUSB("buildHome\n");	// Important: don't forget newline character.
+		else	sendStringUART("buildHome\n");
 	}
 	else if (!(strcmp(inputString, "buildTop")))
 	{
 		buildPlatformTop();
-		sendStringUSB("buildTop\n");	// Important: don't forget newline character.
+		if (!uartFlag)	sendStringUSB("buildTop\n");	// Important: don't forget newline character.
+		else	sendStringUART("buildTop\n");
 	}
 	else if (!(strcmp(inputString, "buildBaseUp")))
 	{
 		buildPlatformBaseLayerUp();
-		sendStringUSB("buildBaseUp\n");
+		if (!uartFlag)	sendStringUSB("buildBaseUp\n");
+		else	sendStringUART("buildBaseUp\n");
 	}
 	else if (!(strcmp(inputString, "buildUp")))
 	{
 		buildPlatformLayerUp();
-		sendStringUSB("buildUp\n");	// Important: don't forget newline character.
+		if (!uartFlag)	sendStringUSB("buildUp\n");	// Important: don't forget newline character.
+		else	sendStringUART("buildUp\n");
 		//lcd_gotoxy(0,3);
 		//lcd_puts("check");
 	}
 	else if (!(strcmp(inputString, "shutterOpen")))
 	{
 		shutterOpen();
-		sendStringUSB("shutterOpen\n");	// Important: don't forget newline character.
+		if (!uartFlag)	sendStringUSB("shutterOpen\n");	// Important: don't forget newline character.
+		else	sendStringUART("shutterOpen\n");
 	}
 	else if (!(strcmp(inputString, "shutterClose")))
 	{
 		shutterClose();
-		sendStringUSB("shutterClose\n");	// Important: don't forget newline character.
+		if (!uartFlag)	sendStringUSB("shutterClose\n");	// Important: don't forget newline character.
+		else	sendStringUART("shutterClose\n");
 	}
 	else if (!(strcmp(inputString, "shutterEnable")))
 	{
 		shutterEnable();
-		sendStringUSB("shutterEnable\n");	// Important: don't forget newline character.
+		if (!uartFlag)	sendStringUSB("shutterEnable\n");	// Important: don't forget newline character.
+		else	sendStringUART("shutterEnable\n");
 	}
 	else if (!(strcmp(inputString, "shutterDisable")))
 	{
 		shutterDisable();
-		sendStringUSB("shutterDisable\n");	// Important: don't forget newline character.
+		if (!uartFlag)	sendStringUSB("shutterDisable\n");	// Important: don't forget newline character.
+		else	sendStringUART("shutterDisable\n");
 	}
 	else if (!(strcmp(inputString, "triggerCam")))
 	{
 		triggerCamera();
-		sendStringUSB("triggerCam\n");	// Important: don't forget newline character.
+		if (!uartFlag)	sendStringUSB("triggerCam\n");	// Important: don't forget newline character.
+		else	sendStringUART("triggerCam\n");
 	}
 	else if (!(strcmp(inputString, "beamerHome")))
 	{
@@ -143,7 +153,8 @@ void processCommandInput( void )
 			stringValue = atoi(secondString);
 			// Adjust value according to input.
 			buildPlatformSetLayerHeight(stringValue);
-			sendStringUSB("buildLayer\n");
+			if (!uartFlag)	sendStringUSB("buildLayer\n");
+			else	sendStringUART("buildLayer\n");
 		}
 		else if (!(strcmp(firstString, "buildBaseLayer")))
 		{
@@ -151,7 +162,8 @@ void processCommandInput( void )
 			stringValue = atoi(secondString);
 			// Adjust value according to input.
 			buildPlatformSetBaseLayerHeight(stringValue);
-			sendStringUSB("buildBaseLayer\n");
+			if (!uartFlag)	sendStringUSB("buildBaseLayer\n");
+			else	sendStringUART("buildBaseLayer\n");
 		}
 		else if (!(strcmp(firstString, "tiltSpeed")))
 		{
@@ -159,7 +171,8 @@ void processCommandInput( void )
 			stringValue = atoi(secondString);
 			// Adjust value according to input.
 			tiltSetSpeed(stringValue);
-			sendStringUSB("tiltSpeed\n");
+			if (!uartFlag)	sendStringUSB("tiltSpeed\n");
+			else	sendStringUART("tiltSpeed\n");
 		}
 		else if (!(strcmp(firstString, "tiltAngle")))
 		{
@@ -167,7 +180,8 @@ void processCommandInput( void )
 			stringValue = atoi(secondString);
 			// Adjust value according to input.
 			tiltSetAngle(stringValue);
-			sendStringUSB("tiltAngle\n");
+			if (!uartFlag)	sendStringUSB("tiltAngle\n");
+			else	sendStringUART("tiltAngle\n");
 		}
 		else if (!(strcmp(firstString, "tiltRes")))
 		{
@@ -175,7 +189,8 @@ void processCommandInput( void )
 			stringValue = atoi(secondString);
 			// Adjust value according to input.
 			tiltSetAngleMax(stringValue);
-			sendStringUSB("tiltRes\n");
+			if (!uartFlag)	sendStringUSB("tiltRes\n");
+			else	sendStringUART("tiltRes\n");
 		}
 		else if (!(strcmp(firstString, "buildSpeed")))
 		{
@@ -183,7 +198,8 @@ void processCommandInput( void )
 			stringValue = atoi(secondString);
 			// Adjust value according to input.
 			buildPlatformSetSpeed(stringValue);
-			sendStringUSB("buildSpeed\n");
+			if (!uartFlag)	sendStringUSB("buildSpeed\n");
+			else	sendStringUART("buildSpeed\n");
 		}
 		else if (!(strcmp(firstString, "buildRes")))
 		{
@@ -191,7 +207,8 @@ void processCommandInput( void )
 			stringValue = atoi(secondString);
 			// Adjust value according to input.
 			buildPlatformSetResolution(stringValue);
-			sendStringUSB("buildRes\n");
+			if (!uartFlag)	sendStringUSB("buildRes\n");
+			else	sendStringUART("buildRes\n");
 		}
 		else if (!(strcmp(firstString, "buildMinMove")))
 		{
@@ -199,7 +216,8 @@ void processCommandInput( void )
 			stringValue = atoi(secondString);
 			// Adjust value according to input.
 			buildPlatformSetMinMove(stringValue);
-			sendStringUSB("buildMinMove\n");
+			if (!uartFlag)	sendStringUSB("buildMinMove\n");
+			else	sendStringUART("buildMinMove\n");
 		}
 		else if (!(strcmp(firstString, "buildMove")))
 		{
@@ -207,7 +225,8 @@ void processCommandInput( void )
 			stringValue = atoi(secondString);
 			// Adjust value according to input.
 			buildPlatformMove(stringValue);
-			sendStringUSB("buildMove\n");
+			if (!uartFlag)	sendStringUSB("buildMove\n");
+			else	sendStringUART("buildMove\n");
 		}
 		else if (!(strcmp(firstString, "printingFlag")))
 		{
@@ -220,7 +239,8 @@ void processCommandInput( void )
 				printerSetState(stringValue);
 //					menuGoInfoScreen();
 			}
-			sendStringUSB("printingFlag\n");
+			if (!uartFlag)	sendStringUSB("printingFlag\n");
+			else	sendStringUART("printingFlag\n");
 		}
 		else if (!(strcmp(firstString, "slice")))
 		{
@@ -229,7 +249,8 @@ void processCommandInput( void )
 			// Adjust value according to input.
 			printerSetSlice(stringValue);
 //				menuChanged()
-			sendStringUSB("slice\n");;
+			if (!uartFlag)	sendStringUSB("slice\n");
+			else	sendStringUART("slice\n");
 
 		}
 		else if (!(strcmp(firstString, "nSlices")))
@@ -240,7 +261,8 @@ void processCommandInput( void )
 			printerSetNumberOfSlices(stringValue);
 //				lcd_gotoxy(0,3);
 //				lcd_puti(stringValue);
-			sendStringUSB("nSlices\n");
+			if (!uartFlag)	sendStringUSB("nSlices\n");
+			else	sendStringUART("nSlices\n");
 		}
 		else if (!(strcmp(firstString, "shttrOpnPs")))
 		{
@@ -250,7 +272,8 @@ void processCommandInput( void )
 			shutterSetOpenPos(stringValue);
 //				lcd_gotoxy(0,3);
 //				lcd_puti(stringValue);
-			sendStringUSB("shttrOpnPs\n");
+			if (!uartFlag)	sendStringUSB("shttrOpnPs\n");
+			else	sendStringUART("shttrOpnPs\n");
 		}
 		else if (!(strcmp(firstString, "shttrClsPs")))
 		{
@@ -260,7 +283,8 @@ void processCommandInput( void )
 			shutterSetClosePos(stringValue);
 //				lcd_gotoxy(0,3);
 //				lcd_puti(stringValue);
-			sendStringUSB("shttrClsPs\n");
+			if (!uartFlag)	sendStringUSB("shttrClsPs\n");
+			else	sendStringUART("shttrClsPs\n");
 		}
 	}
 }
