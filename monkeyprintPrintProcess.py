@@ -202,7 +202,7 @@ class printProcess(threading.Thread):
 		
 		
 		# Activate shutter servo.
-		if not debug and self.settings['Enable shutter servo'].value:
+		if not debug and not self.stopThread.isSet() and self.settings['Enable shutter servo'].value:
 			self.serialPrinter.send(["shutterEnable", None, True, None])
 			print "Shutter enabled."
 		
@@ -352,7 +352,7 @@ class printProcess(threading.Thread):
 		self.queueSliceSend(-1)
 		
 		# Disable shutter.
-		if not debug and self.settings['Enable shutter servo'].value:
+		if not debug and not self.stopThread.isSet()  and self.settings['Enable shutter servo'].value:
 			self.serialPrinter.send(["shutterDisable", None, True, None])
 			print "Shutter disabled."
 
@@ -365,7 +365,7 @@ class printProcess(threading.Thread):
 			# Send printing stop flag to printer.
 			self.serialPrinter.send(["printingFlag", 0, True, None]) # Retry, wait 240 seconds.prin
 			# Deactivate projector.
-			if projectorControl:
+			if projectorControl and self.serialProjector != None:
 				self.serialProjector.deactivate()
 			# Close and delete communication ports.
 			self.serialPrinter.close()
