@@ -903,7 +903,7 @@ class projectorDisplay(gtk.Window):
 		debugWidth = 200
 		
 		self.debug = self.settings['Debug'].value
-		self.printOnPi = self.settings['runOnRaspberry'].value
+		self.printOnPi = self.settings['Print from Raspberry Pi?'].value
 		
 		# Customise window.
 		# No decorations.
