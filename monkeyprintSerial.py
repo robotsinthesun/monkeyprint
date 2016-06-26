@@ -218,6 +218,7 @@ class printerStandalone():
 		except serial.SerialException:
 			# ... define a dummy.
 			self.serial = None
+			print "Could not open serial on port " + str(self.port) + " with baud rate " + str(self.baudrate) + "."
 
 	def send(self, command):
 		# Create return value.
