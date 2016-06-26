@@ -284,11 +284,10 @@ class monkeyprintPiServer:
 			#	print ("Received command \"" + command + "\" with parameter \"" + parameter + "\".")
 			#else:
 			#	print ("Received command \"" + command + "\".")
-			print time.time()
-			print command	
+			#print time.time()
+			#print command	
 			
 			if command == "print":
-				time.sleep(10)
 				if self.printFlag:
 					zmq_socket.send_multipart(["error", "Print running already."])
 				else:

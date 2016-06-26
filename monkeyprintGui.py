@@ -222,7 +222,7 @@ class gui(gtk.Window):
 		# Update the progress bar, projector image and 3d view. during prints.
 		printProcessUpdateId = gobject.timeout_add(10, self.updateSlicePrint)
 		# Request status info from raspberry pi.
-		pollPrinterStatusId = gobject.timeout_add(300, self.pollPrinterStatus)
+		pollPrinterStatusId = gobject.timeout_add(500, self.pollPrinterStatus)
 		
 		
 		# Run file transmission thread.
