@@ -357,7 +357,7 @@ class printProcess(threading.Thread):
 			print "Shutter disabled."
 
 		
-		if not debug:
+		if not debug and not self.stopThread.isSet():
 			# TODO
 			# Move build platform to top.
 			print "Moving build platform to top."
