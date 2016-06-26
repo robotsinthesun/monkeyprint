@@ -272,6 +272,22 @@ class printProcess(threading.Thread):
 	#			if not debug:
 	#				self.serialPrinter.send(["tiltSpeed", self.settings['Tilt speed'].value, True, None])
 				self.queueConsole.put("   Switched to fast tilting.")
+			
+			
+			# Move build platform up by one layer.
+			if not debug:
+				self.queueConsole.put("   Moving build platform.")
+				print "Moving build platform."
+				if self.slice == 1:
+					self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
+				else:
+					self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
+
+			# Waiting for resin to settle.
+			if not debug and self.settings['Resin settle time'].value != 0.0:
+				self.queueConsole.put("   Waiting for resin to settle.")
+				print "Waiting for resin to settle."
+				self.wait(self.settings['Resin settle time'].value)
 				
 			# Open shutter.
 			if not debug and self.settings['Enable shutter servo'].value:
@@ -282,32 +298,11 @@ class printProcess(threading.Thread):
 			
 			# Start exposure by writing slice number to queue.
 			self.setGuiSlice(self.slice)
-			'''
-			print "1: Sending slice " + str(self.slice) + " at " + str(time.time()) + "."
-			self.queueSliceSend(self.slice)
-			
-
-			# Wait for response from print window that slice image has been set.
-			if self.queueSliceRecv():
-				print "8: Received OK at " + str(time.time()) + "."
-				self.queueConsole.put("   Exposing with " + str(self.exposureTime) + " seconds.")
-			print "9: Continuing print process at "+ str(time.time()) + "."
-			'''
 			# Wait during exposure. Wait function also fires camera trigger if necessary.
 			self.wait(self.exposureTime, trigger=(not self.debug and self.settings['camTriggerWithExposure'].value))
-				
-			#print "10: Ended exposure at " + str(time.time()) + "."
-			
-			
 			# Stop exposure by writing -1 to queue.
 			self.setGuiSlice(-1)
-			'''
-			self.queueSliceSend(-1)
-			
-			# Wait a bit to give GUI a chance...
-			if self.queueSliceRecv():
-				print "Set black."
-			'''
+
 			
 			# Close shutter.
 			if not debug and self.settings['Enable shutter servo'].value:
@@ -327,20 +322,8 @@ class printProcess(threading.Thread):
 				print "Tilting."
 				self.serialPrinter.send(['tilt', None, True, 20])
 
-			# Move build platform up by one layer.
-			if not debug:
-				self.queueConsole.put("   Moving build platform.")
-				print "Moving build platform."
-				if self.slice == 1:
-					self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
-				else:
-					self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
 			
-			# Waiting for resin to settle.
-			if not debug and self.settings['Resin settle time'].value != 0.0:
-				self.queueConsole.put("   Waiting for resin to settle.")
-				print "Waiting for resin to settle."
-				self.wait(self.settings['Resin settle time'].value)
+
 			
 			self.slice+=1
 		
