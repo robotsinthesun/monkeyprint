@@ -223,6 +223,8 @@ class gui(gtk.Window):
 		printProcessUpdateId = gobject.timeout_add(10, self.updateSlicePrint)
 		# Request status info from raspberry pi.
 		pollPrinterStatusId = gobject.timeout_add(500, self.pollPrinterStatus)
+		# Request status info from slicer.
+		pollSlicerStatusId = gobject.timeout_add(500, self.pollSlicerStatus)
 		
 		
 		# Run file transmission thread.
@@ -877,6 +879,19 @@ class gui(gtk.Window):
 		self.sliceSlider.show()
 		# Register slice image update function to GUI main loop.
 	#	listenerSliceSlider = gobject.timeout_add(100, self.sliceSlider.updateImage)
+		
+		# Create save image stack frame.
+		self.frameSaveSlices = gtk.Frame("Save slice images")
+		self.slicingTab.pack_start(self.frameSaveSlices, expand=True, fill=True, padding=5)
+		self.frameSaveSlices.show()
+		self.boxSaveSlices = gtk.HBox()
+		self.frameSaveSlices.add(self.boxSaveSlices)
+		self.boxSaveSlices.show()
+		self.buttonSaveSlices = gtk.Button("Save")
+		self.buttonSaveSlices.set_sensitive(False)
+		self.buttonSaveSlices.connect('clicked', self.callbackSaveSlices)
+		self.boxSaveSlices.pack_start(self.buttonSaveSlices, expand=True, fill=True, padding=5)
+		self.buttonSaveSlices.show()
 	
 	# Print page.
 	def createPrintTab(self):
@@ -1050,6 +1065,64 @@ class gui(gtk.Window):
 		self.modelCollection.getCurrentModel().settings['Fill'].setValue(widget.get_active())
 		self.updateCurrentModel()
 	
+	def callbackSaveSlices(self, widget, data=None):
+		# File open dialog to retrive file name and file path.
+		dialog = gtk.FileChooserDialog("Save slices", None, gtk.FILE_CHOOSER_ACTION_SAVE, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+		dialog.set_modal(True)
+		dialog.set_default_response(gtk.RESPONSE_OK)
+		dialog.set_current_folder(self.programSettings['currentFolder'].value)
+		# File filter for the dialog.
+		fileFilter = gtk.FileFilter()
+		fileFilter.set_name("Image files")
+		fileFilter.add_pattern("*.png")
+		dialog.add_filter(fileFilter)
+		# Run the dialog and return the file path.
+		response = dialog.run()
+		# Process response. If OK...
+		if response == gtk.RESPONSE_OK:
+			# ... get file name.
+			path = dialog.get_filename()
+			dialog.destroy()
+			#... add *.mkp file extension if necessary.
+			if len(path) < 4 or path[-4:] != ".png":
+				path += ".png"
+			# Console message.
+			self.console.addLine("Saving slice images to \"" + path.split('/')[-1] + "\".")
+			# Save path without project name for next use.
+			self.programSettings['currentFolder'].value = path[:-len(path.split('/')[-1])]
+			# Create info window with progress bar.
+			infoWindow = gtk.Window()
+			infoWindow.set_title("Saving slice images")
+			infoWindow.set_modal(True)
+			infoWindow.set_transient_for(self)
+			infoWindow.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
+			infoWindow.show()
+			infoBox = gtk.VBox()
+			infoWindow.add(infoBox)
+			infoBox.show()
+			infoLabel = gtk.Label("Saving slice images.")
+			infoBox.pack_start(infoLabel, expand=True, fill=True, padding=5)
+			infoLabel.show()
+			progressBar = monkeyprintGuiHelper.printProgressBar()
+			infoBox.pack_start(progressBar, padding=5)
+			progressBar.setLimit(self.modelCollection.getNumberOfSlices())
+			progressBar.show()
+			# Update the gui.
+			while gtk.events_pending():
+				gtk.main_iteration(False)			
+			# Save the model collection to the given location.
+			self.modelCollection.saveSliceStack(path=path, updateFunction=progressBar.updateValue)
+			#TODO: self.progressBar.setText(message)
+			# Close info window.
+			infoWindow.destroy()
+			self.console.addLine("Slice stack saved.")
+			
+			
+		# If cancel was pressed...
+		elif response == gtk.RESPONSE_CANCEL:
+			#... do nothing.
+			dialog.destroy()
+	
 	def callbackCheckButtonTrigger1(self, widget, data=None):
 		# Uncheck other option if both are true.
 		if self.checkboxCameraTrigger1.get_active() and self.checkboxCameraTrigger2.get_active():
@@ -1137,6 +1210,12 @@ class gui(gtk.Window):
 			# The receive function is running elsewhere and
 			# will forward the status info into the status queue.
 		return True
+	
+	def pollSlicerStatus(self):
+		if self.modelCollection != None:
+			self.buttonSaveSlices.set_sensitive(not self.modelCollection.slicerRunning())
+		return True
+				
 
 
 	# Gui update functions. ###################################################

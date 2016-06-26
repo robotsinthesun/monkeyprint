@@ -362,7 +362,7 @@ class modelCollection(dict):
 	def subtractCalibrationImage(self, inputImage):
 		# Get the image if it does not exist.
 		if self.calibrationImage == None and self.programSettings['calibrationImage'].value:
-			print "Loading calibration image."
+	#		print "Loading calibration image."
 			calibrationImage = None
 			try:
 				if os.path.isfile('./calibrationImage.png'):
@@ -405,6 +405,25 @@ class modelCollection(dict):
 		
 		return inputImage
 
+
+	# Save slice stack.
+	def saveSliceStack(self, path, updateFunction=None):
+		# Get number of slices.
+		nSlices = self.getNumberOfSlices()
+		digits = len(str(nSlices))
+		for i in range(nSlices):
+			# Update progress bar.
+			if updateFunction != None:
+				updateFunction(i)
+				while gtk.events_pending():
+					gtk.main_iteration(False)
+			# Format number string.
+			numberString = str(i).zfill(digits)
+			# Create image file string.
+			fileString = path[:-4] + numberString + path[-4:]
+			print "Saving image " + fileString + "."
+			image = Image.fromarray(self.updateSliceImage(i))
+			image.save(fileString)
 		
 
 	# Save model collection to compressed disk file. Works well with huge objects.
@@ -577,6 +596,8 @@ class modelCollection(dict):
 		for model in self:
 			self[model].updateSliceStack()
 	
+	
+	
 	# Create the projector frame from the model slice stacks.
 	def updateSliceImage(self, i):
 		# Make sure index is an integer.
@@ -584,11 +605,14 @@ class modelCollection(dict):
 		# Get slice images from all models and add to projector frame.
 		# Reset projector frame.
 		self.sliceImage = imageHandling.createImageGray(self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value, 0)
+	#	print "Projector dimensions: " + str(self.sliceImage.shape) + "."
 		# Get slice images from models.
+		# Append the slice image and its position on the projector frame.
 		imgList = []
 		for model in self:
 	#		self[model].updateSlice3d(sliceNumber)
 			if model != "default" and self[model].isActive() and i<len(self[model].model.sliceStack):
+	#			print "Image dimensions: " + str(self[model].model.sliceStack[i].shape) + "."
 				imgList.append((self[model].model.sliceStack[i], self[model].model.getSlicePosition()))
 		# Add list of slice images to projector frame.
 		for i in range(len(imgList)):
@@ -596,6 +620,8 @@ class modelCollection(dict):
 		# Subtract calibration image.
 		self.sliceImage = self.subtractCalibrationImage(self.sliceImage)
 		return self.sliceImage
+	
+	
 	
 	def viewState(self, state):
 		if state == 0:
@@ -2062,6 +2088,7 @@ class backgroundSlicer(threading.Thread):
 			# Get size of the model in mm.
 			bounds = [0 for i in range(6)]
 			inputModel[0].GetBounds(bounds)
+			print "Model bounds: " + str(bounds) + "."
 			# Get layer height in mm.
 			layerHeight = 	self.programSettings['Layer height'].value
 			# Calc number of layers.
@@ -2074,6 +2101,7 @@ class backgroundSlicer(threading.Thread):
 			# Get size in pixels. Add rim twice.
 			width = int(math.ceil((bounds[1]-bounds[0]) * self.programSettings['pxPerMm'].value) + rim*2)
 			height = int(math.ceil((bounds[3]-bounds[2]) * self.programSettings['pxPerMm'].value) + rim*2)
+			print "Width and height: " + str((width, height)) + "."
 			# Get pixel spacing from settings.
 			spacing = (1./self.programSettings['pxPerMm'].value,)*3
 			# Prepare images.
