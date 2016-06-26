@@ -142,7 +142,7 @@ class monkeyprintPiServer:
 			return
 		
 		# Update settings from file.	
-		self.programSettings.readFile()
+		self.programSettings.readFile(self.localPath+"/programSettings.txt")
 		
 		# Set rasperry pi setting.
 		self.programSettings['Print from Raspberry Pi?'].value = True
