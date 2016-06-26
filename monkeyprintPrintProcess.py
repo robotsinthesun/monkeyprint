@@ -54,6 +54,7 @@ class printProcess(threading.Thread):
 		super(printProcess, self).__init__()
 		
 		self.queueConsole.put("Print process initialised.")
+		print "Print process initialised."
 	
 	# Stop the thread.	
 	def stop(self):
@@ -121,6 +122,8 @@ class printProcess(threading.Thread):
 		
 		# Find out if this is a debug session without serial and projector.
 		debug = self.settings['Debug'].value
+		if debug: print "Debug mode enabled."
+		else: print "Debug mode disabled."
 		projectorControl = True
 		
 		
@@ -141,10 +144,13 @@ class printProcess(threading.Thread):
 			if self.serialPrinter.serial == None:
 				self.queueStatus.put("Serial port " + self.settings['Port'].value + " not found. Aborting.")
 				self.queueConsole.put("Serial port " + self.settings['Port'].value + " not found. Aborting.\nMake sure your board is plugged in and you have defined the correct serial port in the settings menu.")
+				print "Connection to printer not established. Aborting print process. Check your settings!"
+				self.stopThread.set()
 			else:
 				# Send ping to test connection.
 				if self.serialPrinter.send(["ping", None, True, None]) == True:
 					self.queueStatus.put("Connection to printer established.")
+					print "Connection to printer established."
 		
 		
 		# Send print parameters to printer.
@@ -198,6 +204,7 @@ class printProcess(threading.Thread):
 		# Activate shutter servo.
 		if not debug and self.settings['Enable shutter servo'].value:
 			self.serialPrinter.send(["shutterEnable", None, True, None])
+			print "Shutter enabled."
 		
 		
 		# Homing build platform.
@@ -205,6 +212,7 @@ class printProcess(threading.Thread):
 			# Send info to gui.
 			self.queueConsole.put("Homing build platform.")
 			self.queueStatus.put("Homing build platform.")
+			print "Homing build platform."
 			# Send printer command.
 			self.serialPrinter.send(["buildHome", None, True, 240]) # Retry, wait 240 seconds.
 		
@@ -214,8 +222,10 @@ class printProcess(threading.Thread):
 			# Send info to gui.
 			self.queueConsole.put("Tilting to get rid of bubbles.")
 			self.queueStatus.put("Removing bubbles.")
+			print "Tilting to get rid of bubbles."
 			# Tilt 5 times.
-			for tilts in range(5):
+			for tilts in range(3):
+				print "Tilting..."
 				self.serialPrinter.send(["tilt", None, True, 20])
 		
 		
@@ -224,6 +234,7 @@ class printProcess(threading.Thread):
 			# Send info to gui.
 			self.queueConsole.put("Waiting " + str(self.settings['Resin settle time'].value) + " seconds for resin to settle.")
 			self.queueStatus.put("Waiting " + str(self.settings['Resin settle time'].value) + " seconds for resin to settle.")
+			print "Waiting " + str(self.settings['Resin settle time'].value) + " seconds for resin to settle."
 			# Wait...
 			self.wait(self.settings['Resin settle time'].value)
 
@@ -265,6 +276,7 @@ class printProcess(threading.Thread):
 			# Open shutter.
 			if not debug and self.settings['Enable shutter servo'].value:
 				self.queueConsole.put("   Opening shutter.")
+				print "Opening shutter."
 				self.serialPrinter.send(["shutterOpen", None, True, None])
 			
 			
@@ -300,21 +312,25 @@ class printProcess(threading.Thread):
 			# Close shutter.
 			if not debug and self.settings['Enable shutter servo'].value:
 				self.queueConsole.put("   Closing shutter.")
+				print "Closing shutter."
 				self.serialPrinter.send(["shutterClose", None, True, None])
 			
 			# Fire the camera after exposure if desired.
 			if not debug and self.settings['camTriggerAfterExposure'].value:
 				self.queueConsole.put("   Triggering camera.")
+				print "Triggering camera."
 				self.serialPrinter.send(['triggerCam', None, False, None])
 			
 			# Tilt.
 			if not debug and self.settings['Enable tilt'].value:
 				self.queueConsole.put("   Tilting.")
+				print "Tilting."
 				self.serialPrinter.send(['tilt', None, True, 20])
 
 			# Move build platform up by one layer.
 			if not debug:
 				self.queueConsole.put("   Moving build platform.")
+				print "Moving build platform."
 				if self.slice == 1:
 					self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
 				else:
@@ -323,12 +339,14 @@ class printProcess(threading.Thread):
 			# Waiting for resin to settle.
 			if not debug and self.settings['Resin settle time'].value != 0.0:
 				self.queueConsole.put("   Waiting for resin to settle.")
+				print "Waiting for resin to settle."
 				self.wait(self.settings['Resin settle time'].value)
 			
 			self.slice+=1
 		
 		self.queueStatus.put("Stopping print.")
 		self.queueConsole.put("Stopping print.")
+		print "Stopping print."
 		
 		# Display black.
 		self.queueSliceSend(-1)
@@ -336,11 +354,13 @@ class printProcess(threading.Thread):
 		# Disable shutter.
 		if not debug and self.settings['Enable shutter servo'].value:
 			self.serialPrinter.send(["shutterDisable", None, True, None])
+			print "Shutter disabled."
 
 		
 		if not debug:
 			# TODO
 			# Move build platform to top.
+			print "Moving build platform to top."
 			self.serialPrinter.send(["buildTop", None, True, 240]) # Retry, wait 240 seconds.
 			# Send printing stop flag to printer.
 			self.serialPrinter.send(["printingFlag", 0, True, None]) # Retry, wait 240 seconds.prin
@@ -356,6 +376,7 @@ class printProcess(threading.Thread):
 
 		
 		self.queueStatus.put("Print stopped after " + str(self.slice) + " slices.")
+		print "Print stopped after " + str(self.slice) + " slices."
 		
 		time.sleep(3)
 		# TODO find a good way to destroy this object.
