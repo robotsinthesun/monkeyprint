@@ -58,7 +58,8 @@ class printProcess(threading.Thread):
 	
 	# Stop the thread.	
 	def stop(self):
-		self.queueStatus.put("Cancelled. Finishing current action.")
+		#self.queueStatus.put("Cancelled. Finishing current action.")
+		self.queueStatus.put("stopping::")
 		# Stop printer process by setting stop flag.
 		self.stopThread.set()
 	
@@ -128,7 +129,8 @@ class printProcess(threading.Thread):
 		
 		
 		# Initialise printer. ################################################
-		self.queueStatus.put("Initialising print process.")
+		#self.queueStatus.put("Initialising print process.")
+		self.queueStatus.put("preparing:nSlices:" + str(self.numberOfSlices))
 		self.queueConsole.put("Initialising print process.")
 
 
@@ -139,17 +141,19 @@ class printProcess(threading.Thread):
 
 		# Create printer serial port.
 		if not debug and not self.stopThread.isSet():
-			self.queueStatus.put("Connecting to printer...")
+			self.queueStatus.put("preparing:connecting:")
 			self.serialPrinter = monkeyprintSerial.printerStandalone(self.settings)
 			if self.serialPrinter.serial == None:
-				self.queueStatus.put("Serial port " + self.settings['Port'].value + " not found. Aborting.")
+				self.queueStatus.put("error:connectionFail:")
+				#self.queueStatus.put("Serial port " + self.settings['Port'].value + " not found. Aborting.")
 				self.queueConsole.put("Serial port " + self.settings['Port'].value + " not found. Aborting.\nMake sure your board is plugged in and you have defined the correct serial port in the settings menu.")
 				print "Connection to printer not established. Aborting print process. Check your settings!"
 				self.stopThread.set()
 			else:
 				# Send ping to test connection.
 				if self.serialPrinter.send(["ping", None, True, None]) == True:
-					self.queueStatus.put("Connection to printer established.")
+					self.queueStatus.put("preparing:connectionSuccess:")
+					#self.queueStatus.put("Connection to printer established.")
 					print "Connection to printer established."
 		
 		
@@ -174,35 +178,34 @@ class printProcess(threading.Thread):
 		
 		# Create projector serial port.
 		if not debug and not self.stopThread.isSet():
-			self.queueStatus.put("Connecting to projector...")
+			#self.queueStatus.put("Connecting to projector...")
+			self.queueStatus.put("preparing:startingProjector:")
 			self.serialProjector = monkeyprintSerial.projector(self.settings)
 			if self.serialProjector.serial == None:
-				self.queueStatus.put("Projector not found on port " + self.settings['Port'].value + ". Start manually.")
+				#self.queueStatus.put("Projector not found on port " + self.settings['Port'].value + ". Start manually.")
+				self.queueStatus.put("error:projectorNotFound:")
 				self.queueConsole.put("Projector not found on port " + self.settings['Port'].value + ". \nMake sure you have defined the correct serial port in the settings menu.")
 				projectorControl = False
 			else:
-				self.queueStatus.put("Projector started.")
+				#self.queueStatus.put("Projector started.")
+				self.queueStatus.put("preparing:projectorConnected:")
 		
 		# Display black.
 		self.setGuiSlice(-1)
-		'''
-		self.queueSliceSend(-1)
-		
-		# Wait a bit to give GUI a chance...
-		if self.queueSliceRecv():
-			print "Set black."
-		'''
+
 		# Activate projector.
 		if not debug and projectorControl and not self.stopThread.isSet():
 			# Send info to gui.
 			self.queueConsole.put("Activating projector.")
-			self.queueStatus.put("Activating projector.")
+			#self.queueStatus.put("Activating projector.")
+			self.queueStatus.put("preparing:startingProjector:")
 			# Send projector command.
 			self.serialProjector.activate()
 		
 		
 		# Activate shutter servo.
 		if not debug and not self.stopThread.isSet() and self.settings['Enable shutter servo'].value:
+			self.serialPrinter.send(["shutterClose", None, True, None])
 			self.serialPrinter.send(["shutterEnable", None, True, None])
 			print "Shutter enabled."
 		
@@ -211,7 +214,8 @@ class printProcess(threading.Thread):
 		if not debug and not self.stopThread.isSet():
 			# Send info to gui.
 			self.queueConsole.put("Homing build platform.")
-			self.queueStatus.put("Homing build platform.")
+			#self.queueStatus.put("Homing build platform.")
+			self.queueStatus.put("preparing:homing:")
 			print "Homing build platform."
 			# Send printer command.
 			self.serialPrinter.send(["buildHome", None, True, 240]) # Retry, wait 240 seconds.
@@ -221,7 +225,8 @@ class printProcess(threading.Thread):
 		if not debug and not self.stopThread.isSet() and self.settings['Enable tilt'].value:
 			# Send info to gui.
 			self.queueConsole.put("Tilting to get rid of bubbles.")
-			self.queueStatus.put("Removing bubbles.")
+			#self.queueStatus.put("Removing bubbles.")
+			self.queueStatus.put("preparing:bubbles:")
 			print "Tilting to get rid of bubbles."
 			# Tilt 5 times.
 			for tilts in range(3):
@@ -233,7 +238,8 @@ class printProcess(threading.Thread):
 		if not debug and not self.stopThread.isSet():
 			# Send info to gui.
 			self.queueConsole.put("Waiting " + str(self.settings['Resin settle time'].value) + " seconds for resin to settle.")
-			self.queueStatus.put("Waiting " + str(self.settings['Resin settle time'].value) + " seconds for resin to settle.")
+			#self.queueStatus.put("Waiting " + str(self.settings['Resin settle time'].value) + " seconds for resin to settle.")
+			self.queueStatus.put("preparing:resinSettle:" + str(self.settings['Resin settle time'].value))
 			print "Waiting " + str(self.settings['Resin settle time'].value) + " seconds for resin to settle."
 			# Wait...
 			self.wait(self.settings['Resin settle time'].value)
@@ -248,7 +254,8 @@ class printProcess(threading.Thread):
 		# Start the print loop.
 		while not self.stopThread.isSet() and self.slice < self.numberOfSlices+1:
 			self.queueConsole.put("Printing slice " + str(self.slice) + ".")
-			self.queueStatus.put("Printing slice " + str(self.slice) + " of " + str(self.numberOfSlices) + ".")
+			#self.queueStatus.put("Printing slice " + str(self.slice) + " of " + str(self.numberOfSlices) + ".")
+			self.queueStatus.put("printing:slice:" + str(self.slice))
 			if self.settings['runOnRaspberry'].value == True:
 				print ("Current slice " + str(self.slice) + " of " + str(self.numberOfSlices) + ".")
 			# Send slice number to printer.
@@ -266,7 +273,7 @@ class printProcess(threading.Thread):
 				self.queueConsole.put("   Set exposure time to " + str(self.settings['Exposure time base'].value) + " s.")
 			elif self.slice == 2:
 				self.exposureTime = self.settings['Exposure time'].value
-				self.queueConsole.put("   Set exposure time to " + str(self.settings['Exposure time base'].value) + " s.")
+				self.queueConsole.put("   Set exposure time to " + str(self.settings['Exposure time'].value) + " s.")
 			elif self.slice == 20:
 				#TODO: slow and fast tilting.
 	#			if not debug:
@@ -327,7 +334,8 @@ class printProcess(threading.Thread):
 			
 			self.slice+=1
 		
-		self.queueStatus.put("Stopping print.")
+		#self.queueStatus.put("Stopping print.")
+		self.queueStatus.put("preparing:stopping:")
 		self.queueConsole.put("Stopping print.")
 		print "Stopping print."
 		
@@ -358,11 +366,12 @@ class printProcess(threading.Thread):
 				del self.serialProjector
 
 		
-		self.queueStatus.put("Print stopped after " + str(self.slice) + " slices.")
+		#self.queueStatus.put("Print stopped after " + str(self.slice) + " slices.")
+		self.queueStatus.put("stopped:slice:"+ str(self.slice))
 		print "Print stopped after " + str(self.slice) + " slices."
 		
 		time.sleep(3)
 		# TODO find a good way to destroy this object.
-		self.queueStatus.put("Idle...")
+		self.queueStatus.put("idle::")
 	#	self.queueSliceSend(0)
 		self.queueStatus.put("destroy")

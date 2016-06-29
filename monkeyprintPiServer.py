@@ -36,13 +36,17 @@ import os
 class monkeyprintPiServer:
 	def __init__(self, port, debug):
 	
+		self.runningOnRaspberry = True
+
 		self.port = port
 		self.debug = debug
 		
 		
 		# Printer messages.
 		# Status can be: Idle, Slicing, Printing, Done
-		self.status = "Idle..."
+		self.status = "idle"
+		self.parameter = ""
+		self.value = "0"
 		self.sliceNumber = 0
 		
 		self.printFlag = False
@@ -62,6 +66,11 @@ class monkeyprintPiServer:
 		# Very important, otherwise threads will be
 		# blocked by gui main thread.
 		gtk.gdk.threads_init()
+		
+		
+		# Register timeout functions. *************************
+		pollPrintQueuesId = gobject.timeout_add(50, self.pollPrintQueues)
+	#	statusUpdateId = gobject.timeout_add(10, self.pollPrinterStatus)
 		
 		
 		# Create communication socket.
@@ -90,9 +99,7 @@ class monkeyprintPiServer:
 		self.queueStatus = Queue.Queue()
 		# Queue for console messages.
 		self.queueConsole = Queue.Queue()
-		# Queue list.
-		#self.queues = [	self.queueSlice,
-		#				self.queueStatus		]
+
 		
 
 		# Create settings dictionary object for machine and program settings.
@@ -126,7 +133,9 @@ class monkeyprintPiServer:
 	
 	
 	def startPrint(self, filename):
-		self.status = "Transferring files to printer"
+		self.status = "transferring"
+		self.parameter = ""
+		self.value = ""
 		self.sliceNumber = 0
 		print ("Starting print job from file " + filename + ".")
 		
@@ -173,11 +182,14 @@ class monkeyprintPiServer:
 		
 		
 		# Send number of slices to gui.
-		self.socket.send_multipart(["numberOfSlices", str(self.modelCollection.getNumberOfSlices())])
+		self.status = "slicing"
+		self.parameter = "nSlices"
+		self.value = str(self.modelCollection.getNumberOfSlices())
+		#self.socket.send_multipart(["status", ["slicing", "nSlices", str(self.modelCollection.getNumberOfSlices())]])
 		
 		
 		# Start the slicer.
-		self.status = "Slicing"
+		#self.status = "slicing"
 		self.modelCollection.updateSliceStack()
 					# TODO: get current slice number to show on progress bar.
 		print ("Starting slicer.")
@@ -204,7 +216,7 @@ class monkeyprintPiServer:
 		
 		# Register image update
 		# Update the progress bar, projector image and 3d view. during prints.
-		printProcessUpdateId = gobject.timeout_add(10, self.updateSlicePrint)
+	#	printProcessUpdateId = gobject.timeout_add(10, self.updateSlicePrint)
 		
 		
 		# Create the print process thread.
@@ -213,93 +225,89 @@ class monkeyprintPiServer:
 		
 		# Start the print process.
 		self.printProcess.start()
-		self.status = "Preparing printer"		
+		#self.status = "Preparing printer""	
 		
 	#	printStatusCheckerId = gobject.timeout_add(100, self.pollPrinterStatus)
 		
-	def updateSlicePrint(self):
-		# Check the queues...
+	def pollPrintQueues(self):
+
 		# If slice number queue has slice number...
 		if self.queueSliceOut.qsize():
-	#		print "2: Received slice at " + str(time.time()) + "."
+			# ... get the slice number.
 			sliceNumber = self.queueSliceOut.get()
 			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
 			self.projectorDisplay.updateImage(sliceNumber)
 			# Set slice in queue to true as a signal to print process thread that it can start waiting.
 			if self.queueSliceIn.empty():
 				self.queueSliceIn.put(True)
-		'''
-		# If slice number queue has slice number...
-		if self.queueSlice.qsize():
-			sliceNumber = self.queueSlice.get()
-			self.sliceNumber = sliceNumber
-			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
-			#if self.windowPrint != None:
-			#	self.windowPrint.updateImage(sliceNumber)
-			self.projectorDisplay.updateImage(sliceNumber)
-		'''
-		# If print info queue has info...
+
+
+		# If status queue has info...
 		if self.queueStatus.qsize():
-			#self.progressBar.setText(self.queueStatus.get()) 
+			# ... get the status.
 			message = self.queueStatus.get()
+			
+			# Check if this is the destroy message for terminating the print window.
 			if message == "destroy":
 				print "Print process finished! Idling..."
 				self.status = "Print process finished! Idling..."
 				self.printFlag = False
 				del self.printProcess
-				#gtk.main_quit()
 				self.projectorDisplay.destroy()
 				del self.projectorDisplay
 				# Remove print file.
 				if os.path.isfile(self.localPath + self.localFilename):
 					os.remove(self.localPath + self.localFilename)
-				return False	# Remove funktion from GTK timeout queue.
+	#			return False	# Remove funktion from GTK timeout queue.
 			else:
-				self.status = message
+				# Check if this is running on a Raspberry Pi.
+				# If yes...
+				if self.runningOnRaspberry:
+					# ... simply forward the message to the socket connection.
+					self.socket.send_multipart(["status", message])
+				# If not...
+				else:
+					# ... update the GUI.
+					self.processStatusMessage(message)
+			
 				return True	# Keep funktion in GTK timeout queue.
 		# Return true, otherwise function won't run again.
 		return True	
 		
-	
-	"""
-	def pollPrinterStatus(self):
-		# If the print is running, get status and slice number from the print process.
-		if self.printProcss != None and self.printFlag:
-			
-			# Get status from queue.
-			if self.queueStatus.qsize():
-				self.status = self.queueStatus.get()			
-			return True
-		
-		else:
-			return False
-	"""		
-		
+
+#	def processStatusMessage(self, message):
+#		pass
+
+
 	# React to commands received from master PC via socket connection.
 	def zmq_callback(self, fd, condition, zmq_socket):
 		while zmq_socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
+			# Read message from the socket.
 			msg = zmq_socket.recv_multipart()
 			command, parameter = msg
-			#if parameter != "":
-			#	print ("Received command \"" + command + "\" with parameter \"" + parameter + "\".")
-			#else:
-			#	print ("Received command \"" + command + "\".")
-			#print time.time()
-			#print command	
+
 			
 			if command == "print":
 				if self.printFlag:
 					zmq_socket.send_multipart(["error", "Print running already."])
 				else:
-					zmq_socket.send_multipart(["status", "Starting print"])
+					zmq_socket.send_multipart(["status", "preparing", "", ""])
 					self.startPrint(parameter)
+			
+			elif command == "stop":
+				if self.printFlag:
+					self.printProcess.stop()
 				
 				
 			elif command == "status":
-				zmq_socket.send_multipart(["status", self.status])
+				zmq_socket.send_multipart(["status", self.status, self.parameter, self.value])
+				'''
+				if self.status=="slicing":
+					zmq_socket.send_multipart(["status", self.status, "slice", str(self.sliceNumber)])
+				elif self.status=="preparing":
+					zmq_socket.send_multipart(["status", self.status, "homing", ""])
+				'''
 			
-			elif command == "slice":
-				zmq_socket.send_multipart(["slice", str(self.sliceNumber)])
 
 				
 		return True
