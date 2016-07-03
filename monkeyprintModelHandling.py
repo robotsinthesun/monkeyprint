@@ -878,10 +878,7 @@ class modelData:
 			self.stlPolyData = self.stlReader.GetOutput()
 			# Calculate normals.
 			self.stlPolyDataNormals = vtk.vtkPolyDataNormals()
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.stlPolyDataNormals.SetInput(self.stlPolyData)
-			else:
-				self.stlPolyDataNormals.SetInputConnection(self.stlPolyData)
+			self.stlPolyDataNormals.SetInput(self.stlPolyData)
 			self.stlPolyDataNormals.SplittingOff()	# Don't split sharp edges using feature angle.
 			self.stlPolyDataNormals.ComputePointNormalsOn()
 			self.stlPolyDataNormals.ComputeCellNormalsOff()
@@ -890,43 +887,28 @@ class modelData:
 			self.stlCenterTransform = vtk.vtkTransform() # Empty transformation matrix.
 			self.stlCenterFilter = vtk.vtkTransformFilter()
 			self.stlCenterFilter.SetTransform(self.stlCenterTransform)
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.stlCenterFilter.SetInput(self.stlPolyDataNormals.GetOutput())
-			else:
-				self.stlCenterFilter.SetInputConnection(self.stlPolyDataNormals.GetOutput())
+			self.stlCenterFilter.SetInput(self.stlPolyDataNormals.GetOutput())
 			# Scale filter. Input is scale filter.
 			self.stlScaleTransform = vtk.vtkTransform()	# Empty transformation matrix.
 			self.stlScaleFilter = vtk.vtkTransformFilter()
 			self.stlScaleFilter.SetTransform(self.stlScaleTransform)
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.stlScaleFilter.SetInput(self.stlCenterFilter.GetOutput())	# Note: stlPolyData is a data object, hence no GetOutput() method is needed.
-			else:
-				self.stlScaleFilter.SetInputConnection(self.stlCenterFilter.GetOutput())
+			self.stlScaleFilter.SetInput(self.stlCenterFilter.GetOutput())	# Note: stlPolyData is a data object, hence no GetOutput() method is needed.
 			# Rotate filter. Input is move filter.
 			self.stlRotateTransform = vtk.vtkTransform()	# Empty transformation matrix.
 			self.stlRotationFilter=vtk.vtkTransformPolyDataFilter()
 			self.stlRotationFilter.SetTransform(self.stlRotateTransform)
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.stlRotationFilter.SetInput(self.stlScaleFilter.GetOutputPort())
-			else:
-				self.stlRotationFilter.SetInputConnection(self.stlScaleFilter.GetOutputPort())
+			self.stlRotationFilter.SetInputConnection(self.stlScaleFilter.GetOutputPort())
 			# Move to position filter. Input is rotate filter.
 			self.stlPositionTransform = vtk.vtkTransform()	# Empty transformation matrix.
 			self.stlPositionFilter = vtk.vtkTransformFilter()
 			self.stlPositionFilter.SetTransform(self.stlPositionTransform)
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.stlPositionFilter.SetInput(self.stlRotationFilter.GetOutput())
-			else:
-				self.stlPositionFilter.SetInputConnection(self.stlRotationFilter.GetOutput())
+			self.stlPositionFilter.SetInput(self.stlRotationFilter.GetOutput())
 			# Create clipping filter. Use normals to clip stl.
 			self.overhangClipFilter = vtk.vtkClipPolyData()
 			self.overhangClipFilter.GenerateClipScalarsOff()
 			self.overhangClipFilter.SetInsideOut(1)
 			self.overhangClipFilter.GenerateClippedOutputOff()
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.overhangClipFilter.SetInput(self.stlPositionFilter.GetOutput())
-			else:
-				self.overhangClipFilter.SetInputConnection(self.stlPositionFilter.GetOutput())
+			self.overhangClipFilter.SetInput(self.stlPositionFilter.GetOutput())
 			# Define cell locator for intersections of support pattern and overhang model.
 			self.locator = vtk.vtkCellLocator()
 			self.locator.SetDataSet(self.overhangClipFilter.GetOutput())	#TODO: change to selected region input.
@@ -971,44 +953,26 @@ class modelData:
 			# Create cutting filter for model.
 			self.cuttingFilterModel = vtk.vtkCutter()
 			self.cuttingFilterModel.SetCutFunction(self.cuttingPlane)
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.cuttingFilterModel.SetInput(self.stlPositionFilter.GetOutput())
-			else:
-				self.cuttingFilterModel.SetInputConnection(self.stlPositionFilter.GetOutput())
+			self.cuttingFilterModel.SetInput(self.stlPositionFilter.GetOutput())
 			# Create cutting filter for supports.
 			self.cuttingFilterSupports = vtk.vtkCutter()
 			self.cuttingFilterSupports.SetCutFunction(self.cuttingPlane)
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.cuttingFilterSupports.SetInput(self.supports.GetOutput())
-			else:
-				self.cuttingFilterSupports.SetInputConnection(self.supports.GetOutput())
+			self.cuttingFilterSupports.SetInput(self.supports.GetOutput())
 			# Create cutting filter for bottom plate.
 			self.cuttingFilterBottomPlate = vtk.vtkCutter()
 			self.cuttingFilterBottomPlate.SetCutFunction(self.cuttingPlane)
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.cuttingFilterBottomPlate.SetInput(self.bottomPlate.GetOutput())
-			else:
-				self.cuttingFilterBottomPlate.SetInputConnection(self.bottomPlate.GetOutput())
+			self.cuttingFilterBottomPlate.SetInput(self.bottomPlate.GetOutput())
 			# Create polylines from cutter output for model.
 			self.sectionStripperModel = vtk.vtkStripper()
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.sectionStripperModel.SetInput(self.cuttingFilterModel.GetOutput())
-			else:
-				self.sectionStripperModel.SetInputConnection(self.cuttingFilterModel.GetOutput())
+			self.sectionStripperModel.SetInput(self.cuttingFilterModel.GetOutput())
 			#TODO: remove scalars so color is white.
 			#self.sectionStripperModel.GetOutput().GetPointData().RemoveArray('normalsZ')
 			# Create polylines from cutter output for supports.
 			self.sectionStripperSupports = vtk.vtkStripper()
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.sectionStripperSupports.SetInput(self.cuttingFilterSupports.GetOutput())
-			else:
-				self.sectionStripperSupports.SetInputConnection(self.cuttingFilterSupports.GetOutput())
+			self.sectionStripperSupports.SetInput(self.cuttingFilterSupports.GetOutput())
 			# Create polylines from cutter output for bottom plate.
 			self.sectionStripperBottomPlate = vtk.vtkStripper()
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
-			else:
-				self.sectionStripperBottomPlate.SetInputConnection(self.cuttingFilterBottomPlate.GetOutput())
+			self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
 			# Combine cut lines from model, supports and bottom plate. This is for display only.
 			self.combinedCutlines = vtk.vtkAppendPolyData()
 			self.combinedCutlines.AddObserver('ErrorEvent', self.errorObserver)
@@ -1147,22 +1111,13 @@ class modelData:
 		if self.filename != "":
 			self.volumeModel = vtk.vtkMassProperties()
 			self.volumeModel.AddObserver('WarningEvent', self.errorObserver)
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.volumeModel.SetInput(self.stlPositionFilter.GetOutput())
-			else:
-				self.volumeModel.SetInputConnection(self.stlPositionFilter.GetOutput())
+			self.volumeModel.SetInput(self.stlPositionFilter.GetOutput())
 			self.volumeSupports = vtk.vtkMassProperties()
 			self.volumeSupports.AddObserver('WarningEvent', self.errorObserver)
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.volumeSupports.SetInput(self.supports.GetOutput())
-			else:
-				self.volumeSupports.SetInputConnection(self.supports.GetOutput())
+			self.volumeSupports.SetInput(self.supports.GetOutput())
 			self.volumeBottomPlate = vtk.vtkMassProperties()
 			self.volumeBottomPlate.AddObserver('WarningEvent', self.errorObserver)
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.volumeBottomPlate.SetInput(self.bottomPlate.GetOutput())
-			else:
-				self.volumeBottomPlate.SetInputConnection(self.bottomPlate.GetOutput())
+			self.volumeBottomPlate.SetInput(self.bottomPlate.GetOutput())
 		
 
 		# Finally, update the pipeline.
@@ -1465,10 +1420,7 @@ class modelData:
 					
 						# Rotate the cone tip upwards.
 						coneRotation = vtk.vtkRotationFilter()
-						if vtk.VTK_MAJOR_VERSION <= 5:
-							coneRotation.SetInput(cone.GetOutput())
-						else:
-							coneRotation.SetInputConnection(cone.GetOutput())
+						coneRotation.SetInput(cone.GetOutput())
 						coneRotation.SetAxisToY()
 						coneRotation.SetCenter(pos)
 						coneRotation.SetAngle(-90)
@@ -1478,10 +1430,7 @@ class modelData:
 						# Use a geometry filter to convert rotation filter output
 						# from unstructuredGrid to polyData.
 						coneGeomFilter = vtk.vtkGeometryFilter()
-						if vtk.VTK_MAJOR_VERSION <= 5:
-							coneGeomFilter.SetInput(coneRotation.GetOutput())
-						else:
-							coneGeomFilter.SetInputConnection(coneRotation.GetOutput())
+						coneGeomFilter.SetInput(coneRotation.GetOutput())
 						coneGeomFilter.Update()
 					
 						# Create cylinder.
@@ -1498,10 +1447,7 @@ class modelData:
 		
 						# Rotate the cone tip upwards.
 						cylinderRotation = vtk.vtkRotationFilter()
-						if vtk.VTK_MAJOR_VERSION <= 5:
-							cylinderRotation.SetInput(cylinder.GetOutput())
-						else:
-							cylinderRotation.SetInputConnection(cylinder.GetOutput())
+						cylinderRotation.SetInput(cylinder.GetOutput())
 						cylinderRotation.SetAxisToX()
 						cylinderRotation.SetCenter(pos)
 						cylinderRotation.SetAngle(-90)
@@ -1511,10 +1457,7 @@ class modelData:
 						# Use a geometry filter to convert rotation filter output
 						# from unstructuredGrid to polyData.
 						cylinderGeomFilter = vtk.vtkGeometryFilter()
-						if vtk.VTK_MAJOR_VERSION <= 5:
-							cylinderGeomFilter.SetInput(cylinderRotation.GetOutput())
-						else:
-							cylinderGeomFilter.SetInputConnection(cylinderRotation.GetOutput())
+						cylinderGeomFilter.SetInput(cylinderRotation.GetOutput())
 						cylinderGeomFilter.Update()
 		
 						# Append the cone to the cones polydata.
@@ -2007,29 +1950,17 @@ class backgroundSlicer(threading.Thread):
 		self.cuttingFilterBottomPlate.SetCutFunction(self.cuttingPlane)
 		# Create polylines from cutter output for model.
 		self.sectionStripperModel = vtk.vtkStripper()
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.sectionStripperModel.SetInput(self.cuttingFilterModel.GetOutput())
-		else:
-			self.sectionStripperModel.SetInputConnection(self.cuttingFilterModel.GetOutput())
+		self.sectionStripperModel.SetInput(self.cuttingFilterModel.GetOutput())
 		# Create polylines from cutter output for supports.
 		self.sectionStripperSupports = vtk.vtkStripper()
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.sectionStripperSupports.SetInput(self.cuttingFilterSupports.GetOutput())
-		else:
-			self.sectionStripperSupports.SetInputConnection(self.cuttingFilterSupports.GetOutput())
+		self.sectionStripperSupports.SetInput(self.cuttingFilterSupports.GetOutput())
 		# Create polylines from cutter output for bottom plate.
 		self.sectionStripperBottomPlate = vtk.vtkStripper()
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
-		else:
-			self.sectionStripperBottomPlate.SetInputConnection(self.cuttingFilterBottomPlate.GetOutput())
+		self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
 		# Extrude cut polyline of model.
 		self.extruderModel = vtk.vtkLinearExtrusionFilter()
 		self.extruderModel.AddObserver('ErrorEvent', self.errorObserver)
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.extruderModel.SetInput(self.sectionStripperModel.GetOutput())
-		else:
-			self.extruderModel.SetInputConnection(self.sectionStripperModel.GetOutput())
+		self.extruderModel.SetInput(self.sectionStripperModel.GetOutput())
 		self.extruderModel.SetScaleFactor(1)
 		self.extruderModel.CappingOn()
 		self.extruderModel.SetExtrusionTypeToVectorExtrusion()
@@ -2037,10 +1968,7 @@ class backgroundSlicer(threading.Thread):
 		# Extrude cut polyline of supports.
 		self.extruderSupports = vtk.vtkLinearExtrusionFilter()
 		self.extruderSupports.AddObserver('ErrorEvent', self.errorObserver)
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.extruderSupports.SetInput(self.sectionStripperSupports.GetOutput())
-		else:
-			self.extruderSupports.SetInputConnection(self.sectionStripperSupports.GetOutput())
+		self.extruderSupports.SetInput(self.sectionStripperSupports.GetOutput())
 		self.extruderSupports.SetScaleFactor(1)
 		self.extruderSupports.CappingOn()
 		self.extruderSupports.SetExtrusionTypeToVectorExtrusion()
@@ -2048,10 +1976,7 @@ class backgroundSlicer(threading.Thread):
 		# Extrude cut polyline.
 		self.extruderBottomPlate = vtk.vtkLinearExtrusionFilter()
 		self.extruderBottomPlate.AddObserver('ErrorEvent', self.errorObserver)
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.extruderBottomPlate.SetInput(self.sectionStripperBottomPlate.GetOutput())
-		else:
-			self.extruderBottomPlate.SetInputConnection(self.sectionStripperBottomPlate.GetOutput())
+		self.extruderBottomPlate.SetInput(self.sectionStripperBottomPlate.GetOutput())
 		self.extruderBottomPlate.SetScaleFactor(1)
 		self.extruderBottomPlate.CappingOn()
 		self.extruderBottomPlate.SetExtrusionTypeToVectorExtrusion()
@@ -2063,48 +1988,30 @@ class backgroundSlicer(threading.Thread):
 		# Create image stencil from extruded polyline for model.
 		self.extruderStencilModel = vtk.vtkPolyDataToImageStencil()
 		self.extruderStencilModel.SetTolerance(0)
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.extruderStencilModel.SetInput(self.extruderModel.GetOutput())
-		else:
-			self.extruderStencilModel.SetInputConnection(self.extruderModel.GetOutput())
+		self.extruderStencilModel.SetInput(self.extruderModel.GetOutput())
 		# Create image stencil from extruded polyline for supports.
 		self.extruderStencilSupports = vtk.vtkPolyDataToImageStencil()
 		self.extruderStencilSupports.SetTolerance(0)
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.extruderStencilSupports.SetInput(self.extruderSupports.GetOutput())
-		else:
-			self.extruderStencilSupports.SetInputConnection(self.extruderSupports.GetOutput())
+		self.extruderStencilSupports.SetInput(self.extruderSupports.GetOutput())
 		# Create image stencil from extruded polyline for bottom plate.
 		self.extruderStencilBottomPlate = vtk.vtkPolyDataToImageStencil()
 		self.extruderStencilBottomPlate.SetTolerance(0)
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.extruderStencilBottomPlate.SetInput(self.extruderBottomPlate.GetOutput())
-		else:
-			self.extruderStencilBottomPlate.SetInputConnection(self.extruderBottomPlate.GetOutput())
+		self.extruderStencilBottomPlate.SetInput(self.extruderBottomPlate.GetOutput())
 		# Cut white image with stencil.
 		self.stencilModel = vtk.vtkImageStencil()
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.stencilModel.SetInput(self.image)
-		else:
-			self.stencilModel.SetInputConnection(self.image)
+		self.stencilModel.SetInput(self.image)
 		self.stencilModel.SetStencil(self.extruderStencilModel.GetOutput())
 		self.stencilModel.ReverseStencilOff()
 		self.stencilModel.SetBackgroundValue(0.0)
 		# Cut white image with stencil.
 		self.stencilSupports = vtk.vtkImageStencil()
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.stencilSupports.SetInput(self.image)
-		else:
-			self.stencilSupports.SetInputConnection(self.image)
+		self.stencilSupports.SetInput(self.image)
 		self.stencilSupports.SetStencil(self.extruderStencilSupports.GetOutput())
 		self.stencilSupports.ReverseStencilOff()
 		self.stencilSupports.SetBackgroundValue(0.0)
 		# Cut white image with stencil.
 		self.stencilBottomPlate = vtk.vtkImageStencil()
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.stencilBottomPlate.SetInput(self.image)
-		else:
-			self.stencilBottomPlate.SetInputConnection(self.image)
+		self.stencilBottomPlate.SetInput(self.image)
 		self.stencilBottomPlate.SetStencil(self.extruderStencilBottomPlate.GetOutput())
 		self.stencilBottomPlate.ReverseStencilOff()
 		self.stencilBottomPlate.SetBackgroundValue(0.0)
@@ -2172,19 +2079,10 @@ class backgroundSlicer(threading.Thread):
 			self.sliceStack = []
 			
 			# Set inputs.
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.cuttingFilterModel.SetInput(inputModel[0])
-			else:
-				self.cuttingFilterModel.SetInputConnection(inputModel[0])
+			self.cuttingFilterModel.SetInput(inputModel[0])
 			self.cuttingFilterModel.Update()
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.cuttingFilterSupports.SetInput(inputModel[1])
-			else:
-				self.cuttingFilterSupports.SetInputConnection(inputModel[1])
-			if vtk.VTK_MAJOR_VERSION <= 5:
-				self.cuttingFilterBottomPlate.SetInput(inputModel[2])
-			else:
-				self.cuttingFilterBottomPlate.SetInputConnection(inputModel[2])
+			self.cuttingFilterSupports.SetInput(inputModel[1])
+			self.cuttingFilterBottomPlate.SetInput(inputModel[2])
 			
 			# Calc slice stack parameters.
 			# Get size of the model in mm.
