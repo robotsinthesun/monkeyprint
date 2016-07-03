@@ -139,9 +139,8 @@ class monkeyprintPiServer:
 		print ("Starting print job from file " + filename + ".")
 		
 		
-		# Give main loop a chance...
-		while gtk.events_pending():
-				gtk.main_iteration(False)
+		# Make sure status messages get sent.
+		self.pollPrintQueues()
 				
 				
 		# Request settings file from PC.
@@ -155,9 +154,12 @@ class monkeyprintPiServer:
 			print "Transmission failed. Cancelling."
 			return
 			
-		# Give main loop a chance...
-		while gtk.events_pending():
-				gtk.main_iteration(False)
+			
+			
+		# Make sure status messages get sent.
+		self.pollPrintQueues()
+		
+		
 		
 		# Update settings from file.	
 		self.programSettings.readFile(self.localPath+"/programSettings.txt")
@@ -180,9 +182,10 @@ class monkeyprintPiServer:
 			return
 		
 		
-		# Give main loop a chance...
-		while gtk.events_pending():
-				gtk.main_iteration(False)
+		# Make sure status messages get sent.
+		self.pollPrintQueues()
+		
+		
 
 		self.queueStatus.put("preparing:loading:")
 		print "Preparing print."
@@ -197,9 +200,11 @@ class monkeyprintPiServer:
 		
 		# Send number of slices to gui.
 		self.queueStatus.put("slicing:nSlices:" + str(self.modelCollection.getNumberOfSlices()))
-		# Give main loop a chance...
-		while gtk.events_pending():
-				gtk.main_iteration(False)
+		
+		
+		# Make sure status messages get sent.
+		self.pollPrintQueues()
+		
 		
 		# Start the slicer.
 		#self.status = "slicing"
@@ -218,9 +223,10 @@ class monkeyprintPiServer:
 		print "\nSlicer done. Starting print process."
 		
 		
-		# Give main loop a chance...
-		while gtk.events_pending():
-				gtk.main_iteration(False)
+		# Make sure status messages get sent.
+		self.pollPrintQueues()
+		
+		
 		
 		# Create the projector window.
 		# Initialise base class gtk window.********************
@@ -231,9 +237,10 @@ class monkeyprintPiServer:
 		self.projectorDisplay.show()
 		
 		
-		# Give main loop a chance...
-		while gtk.events_pending():
-				gtk.main_iteration(False)
+		# Make sure status messages get sent.
+		self.pollPrintQueues()
+		
+		
 		
 		# Register image update
 		# Update the progress bar, projector image and 3d view. during prints.
