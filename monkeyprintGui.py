@@ -223,9 +223,9 @@ class gui(gtk.Window):
 		# ********************************************************************
 		# Create the socket and connect.
 		if self.runningOnRasPi:
-			self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['Network port RasPi'].value, ip=None, queueStatus=self.queueStatus)
+			self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['Network port RasPi'].value, ip=None, queueCommands=self.queueCommands)
 		else:
-			self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['Network port RasPi'].value, ip=self.programSettings['IP address RasPi'].value, queueCommands=self.queueCommands) 
+			self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['Network port RasPi'].value, ip=self.programSettings['IP address RasPi'].value, queueStatus=self.queueStatus) 
 
 		# Add socket listener and connection timeout methods to GTK event loop.
 		gobject.io_add_watch(self.socket.fileDescriptor, gobject.IO_IN, self.socket.callbackIOActivity, self.socket.socket)
@@ -402,7 +402,6 @@ class gui(gtk.Window):
 	# This runs every 100 ms as a gobject timeout function.
 	# Updates 3d view and projector view. Also forwards status info.
 	def pollPrintQueues(self):
-	#	print "polling print queues"
 		# Check the queues...
 		# If slice number queue has slice number...
 		if self.queueSliceOut.qsize():
@@ -427,6 +426,7 @@ class gui(gtk.Window):
 		if self.queueStatus.qsize():
 			# ... get the status.
 			message = self.queueStatus.get()
+			#print message
 			# Check if this is the destroy message for terminating the print window.
 			if message == "destroy":
 				# If running on Raspberry, destroy projector display and clean up files.
@@ -2717,23 +2717,7 @@ class dialogSettings(gtk.Window):
 			self.parentWindow.socket.reset(ipCommClient, portCommClient)
 		# Close.
 		self.destroy()
-	'''
-	# Override destroy function.
-	def destroy(self):
-		try:
-			self.serial.stop()
-		except AttributeError:
-			print "foo"
-		try:
-			self.serial.close()
-		except AttributeError:
-			print "foo"
-		try:
-			del self.serial
-		except AttributeError:
-			print "foo"
-	#	del self
-	'''
+
 
 
 

@@ -260,6 +260,7 @@ class printProcess(threading.Thread):
 		while not self.stopThread.isSet() and self.slice < self.numberOfSlices+1:
 			self.queueConsole.put("Printing slice " + str(self.slice) + ".")
 			#self.queueStatus.put("Printing slice " + str(self.slice) + " of " + str(self.numberOfSlices) + ".")
+			self.queueStatus.put("printing:nSlices:" + str(self.numberOfSlices))
 			self.queueStatus.put("printing:slice:" + str(self.slice))
 			if self.settings['runOnRaspberry'].value == True:
 				print ("Current slice " + str(self.slice) + " of " + str(self.numberOfSlices) + ".")

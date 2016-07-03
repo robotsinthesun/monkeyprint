@@ -349,7 +349,6 @@ class fileReceiver(threading.Thread):
 						b"%i" % offsetReq,
 						b"%i" % self.CHUNK_SIZE,
 					])
-			print "foo"
 			# Retrieve the file size from server.
 			# Blocking receive.
 			fileSize = self.dealer.recv()

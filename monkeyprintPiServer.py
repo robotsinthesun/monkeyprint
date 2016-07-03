@@ -254,6 +254,7 @@ class monkeyprintPiServer:
 
 		# If status queue has info...
 		if self.queueStatus.qsize():
+			print "Found status message: " + message + ""
 			# ... get the status.
 			message = self.queueStatus.get()
 			# Check if this is the destroy message for terminating the print window.
@@ -282,6 +283,7 @@ class monkeyprintPiServer:
 			else:
 				# If running on Raspberry forward the message to the socket connection.
 				if self.runningOnRasPi:
+					print "Sending: " + message
 					self.socket.sendMulti("status", message)
 				# If not, update the GUI.
 				else:
@@ -335,6 +337,7 @@ class monkeyprintPiServer:
 
 	
 	# React to commands received from master PC via socket connection.
+	'''
 	def zmq_callback(self, fd, condition, zmq_socket):
 		print "foo"
 		while zmq_socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
@@ -363,7 +366,7 @@ class monkeyprintPiServer:
 			#		zmq_socket.send_multipart(["status", self.status, "homing", ""])
 				
 		return True
-	
+	'''
 
 	def on_closing(self, widget, event, data):
 		# Get all threads.
