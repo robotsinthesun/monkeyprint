@@ -36,11 +36,12 @@ import os
 class monkeyprintPiServer:
 	def __init__(self, port, debug):
 	
-		self.runningOnRaspberry = True
+		self.runningOnRasPi = True
 
 		self.port = port
 		self.debug = debug
 		
+		self.console = None
 		
 		# Printer messages.
 		# Status can be: Idle, Slicing, Printing, Done
@@ -69,13 +70,6 @@ class monkeyprintPiServer:
 		# Register timeout functions. *************************
 		pollPrintQueuesId = gobject.timeout_add(50, self.pollPrintQueues)
 	#	statusUpdateId = gobject.timeout_add(10, self.pollPrinterStatus)
-		
-		
-		# Create communication socket.
-		self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['Network port RasPi'].value, ip=None, queueCommands=self.queueCommands)
-
-		# Add socket listener to GTK event loop.
-		gobject.io_add_watch(self.socket.fileDescriptor, gobject.IO_IN, self.socket.callbackIOActivity, self.socket.socket)
 
 
 		
@@ -106,6 +100,14 @@ class monkeyprintPiServer:
 		self.programSettings.readFile()
 		
 		
+		
+		# Create communication socket.
+		self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['Network port RasPi'].value, ip=None, queueCommands=self.queueCommands)
+		# Add socket listener to GTK event loop.
+		gobject.io_add_watch(self.socket.fileDescriptor, gobject.IO_IN, self.socket.callbackIOActivity, self.socket.socket)
+		#gobject.io_add_watch(self.socket.fileDescriptor, gobject.IO_IN, self.zmq_callback, self.socket.socket)
+		
+				
 
 		# Set debug mode if specified.
 		if self.debug==True:
@@ -234,16 +236,18 @@ class monkeyprintPiServer:
 			# ... get it from the queue.
 			sliceNumber = self.queueSliceOut.get()
 			# If it's an actual slice number...
-			if sliceNumber >=0:
-				# Set 3d view to given slice.
-				self.modelCollection.updateAllSlices3d(sliceNumber)
-				self.renderView.render()
+			if not self.runningOnRasPi:
+				# Update gui stuff.
+				if sliceNumber >=0:
+					# Set 3d view to given slice.
+					self.modelCollection.updateAllSlices3d(sliceNumber)
+					self.renderView.render()
+					# Update slice preview in the gui.
+					self.sliceView.updateImage(sliceNumber)
 			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
-			# Only if not printing from raspberry. In this case the projector display will not exist.
 			if self.projectorDisplay != None:
 				self.projectorDisplay.updateImage(sliceNumber)
-			# Update slice preview in the gui.
-			self.sliceView.updateImage(sliceNumber)
+			
 			# Signal to print process that slice image is set and exposure time can begin.
 			if self.queueSliceIn.empty():
 				self.queueSliceIn.put(True)
@@ -329,14 +333,15 @@ class monkeyprintPiServer:
 
 
 
-	'''
+	
 	# React to commands received from master PC via socket connection.
 	def zmq_callback(self, fd, condition, zmq_socket):
+		print "foo"
 		while zmq_socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
 			# Read message from the socket.
 			msg = zmq_socket.recv_multipart()
 			command, parameter = msg
-
+			print command
 			
 			if command == "print":
 				if self.printFlag:
@@ -358,7 +363,7 @@ class monkeyprintPiServer:
 			#		zmq_socket.send_multipart(["status", self.status, "homing", ""])
 				
 		return True
-	'''
+	
 
 	def on_closing(self, widget, event, data):
 		# Get all threads.
@@ -374,7 +379,7 @@ class monkeyprintPiServer:
 		# Terminate the gui.
 		gtk.main_quit()
 		return False # returning False makes "destroy-event" be signalled to the window
-
+	
 	
 	def exit(self):
 		pass

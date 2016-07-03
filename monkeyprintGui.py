@@ -492,7 +492,6 @@ class gui(gtk.Window):
 				else:
 					# Start the print. Parameter is the file path in case of running from Pi.
 					self.printProcessStart(parameter)
-					print "started print process"
 			elif command == "stop":
 				if self.printFlag:
 					self.printProcessStop()
@@ -1358,14 +1357,16 @@ class gui(gtk.Window):
 			self.buttonPrintStop.set_sensitive(True)
 		# If starting print process on Raspberry Pi...
 		elif self.programSettings['Print from Raspberry Pi?'].value:
+			print "Starting print from Raspberry Pi."
 			#... pack the data and send it to the Pi.
 			path = self.programSettings['localMkpPath'].value		#os.getcwd() + "/currentPrint.mkp"
 			# Console message.
 			self.console.addLine("Saving project to \"" + path.split('/')[-1] + "\".")
 			# Save the model collection to the given location.
 			self.modelCollection.saveProject(path)
-			command = "print"
-			self.socket.sendMulti(command, path)
+			#command = "print"
+			self.socket.sendMulti("command", "start:" + path)
+			print "Commands sent."
 
 			
 
@@ -2709,6 +2710,11 @@ class dialogSettings(gtk.Window):
 				self.parentWindow.threadFileTransmission.reset(ipFileClient, portFileClient)
 				self.parentWindow.threadFileTransmission.run()
 
+		# Restart the communication socket.
+		if self.settings['Print from Raspberry Pi?'].value:
+			ipCommClient = self.settings['IP address RasPi'].value
+			portCommClient = self.settings['Network port RasPi'].value
+			self.parentWindow.socket.reset(ipCommClient, portCommClient)
 		# Close.
 		self.destroy()
 	'''

@@ -20,33 +20,41 @@ class communicationSocket:
 		
 		# Create the context.
 		self.context = zmq.Context()
-		
 		# Create socket.
 		self.socket = self.context.socket(zmq.PAIR)
+		# Use * interface for server, ip for client!
 		if ip==None:
 			ip = "*"
-		self.socket.connect("tcp://"+str(ip)+":"+str(port))
-		
+			self.socket.bind("tcp://"+str(ip)+":"+str(port))
+		else:
+			self.socket.connect("tcp://"+str(ip)+":"+str(port))
+		print "Connected to communication socket on tcp://"+str(ip)+":"+str(port) + "."
 		# Get the sockets file descriptor for setting up a gtk IO watch.
 		self.fileDescriptor = self.socket.getsockopt(zmq.FD)
 		
+		
+	
+	def reset(self, ip, port):
+		del self.socket
+		self.socket = self.context.socket(zmq.PAIR)
+		self.socket.connect("tcp://"+str(ip)+":"+str(port))
 		print "Connecting to communication socket on tcp://"+str(ip)+":"+str(port) + "."
 	
 	
 	# Send function.
 	def sendMulti(self, command, string):
-		self.socket.send_multipart([command, string]                                                                                                                                           )
+		self.socket.send_multipart([command, string])  
+		print "Sent " + command + ", " + string + "."
 
 	
 
 	# Register this as a gobject IO watch that fires on changes of the file descriptor.
-	def callbackIOActivity(self, fd, condition, zmq_socket):
-		
+	def callbackIOActivity(self, fd, condition, socket):
 		# Keep running as long as something waits in the socket.
-		while zmq_socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
-		
+		while self.socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
+
 			# Retrieve the message from the socket.
-			msg = zmq_socket.recv_multipart()
+			msg = self.socket.recv_multipart()
 			
 			# Extract message type and message data.
 			messageType, message = msg
@@ -56,6 +64,7 @@ class communicationSocket:
 				# ... forward to command status queue.
 				if self.queueCommands != None:
 					self.queueCommands.put(message)
+					print "Command " + message + " put into queue."
 			# If message is status info...
 			if messageType == "status":
 				# ... forward it to the status queue.
