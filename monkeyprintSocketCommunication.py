@@ -6,21 +6,93 @@ import zmq
 
 
 
-class communicationSocket(threading.Thread):
+class communicationSocket:
 	
-	def __init__(self, port, ip=None):
+	def __init__(self, port, ip=None, queueCommands=None, queueStatus=None):
+		
+		# Internalise parameters.
+		self.queueCommands = queueCommands
+		self.queueStatus = queueStatus
+		
+		# Set up timeout variables.
+		self.rasPiConnected = True
+		self.rasPiConnectionTimeout  = 10
 		
 		# Create the context.
-		context = zmq.Context()
+		self.context = zmq.Context()
 		
 		# Create socket.
-		self.socket = context.socket(zmq.PAIR)
+		self.socket = self.context.socket(zmq.PAIR)
 		if ip==None:
 			ip = "*"
-		self.socket.connect("tcp://"+ip+":"+port)
+		self.socket.connect("tcp://"+str(ip)+":"+str(port))
 		
+		# Get the sockets file descriptor for setting up a gtk IO watch.
+		self.fileDescriptor = self.socket.getsockopt(zmq.FD)
 		
+		print "Connecting to communication socket on tcp://"+str(ip)+":"+str(port) + "."
+	
+	
+	# Send function.
+	def sendMulti(self, command, string):
+		self.socket.send_multipart([command, string]                                                                                                                                           )
+
+	
+
+	# Register this as a gobject IO watch that fires on changes of the file descriptor.
+	def callbackIOActivity(self, fd, condition, zmq_socket):
 		
+		# Keep running as long as something waits in the socket.
+		while zmq_socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
+		
+			# Retrieve the message from the socket.
+			msg = zmq_socket.recv_multipart()
+			
+			# Extract message type and message data.
+			messageType, message = msg
+
+			# If message is status info...
+			if messageType == "command":
+				# ... forward to command status queue.
+				if self.queueCommands != None:
+					self.queueCommands.put(message)
+			# If message is status info...
+			if messageType == "status":
+				# ... forward it to the status queue.
+				if self.queueStatus != None:
+					self.queueStatus.put(message)
+			# If message is error...
+			elif messageType == "error":
+				#TODO handle the errors...
+				pass
+			# If message is a returning ping...
+			elif messageType == "ping":
+				# ... set connected flag and reset the ping counter. 
+				self.rasPiConnected = True
+				self.rasPiConnectionTimeout  = 10
+
+		# Return true, otherwise function will be removed from IO watch.		
+		return True
+		
+	
+	# This should run every second as a gobject timeout function, but only from PC.
+	def countdownRasPiConnection(self):
+		if self.rasPiConnectionTimeout  > 0:
+			self.rasPiConnectionTimeout  -= 1
+		if self.rasPiConnectionTimeout  < 1:
+			self.rasPiConnected = False
+		return True
+	
+	
+	# This should run ever 500 ms as gobject timeout function, but only from PC.
+	def pollRasPiConnection(self):
+		# Send a ping.
+		command = "ping"
+		path = ""
+		self.socket.send_multipart([command, path])
+		# The receive function is running elsewhere and
+		# will reset the timeout counter on a returning ping.
+		return True
 		
 
 

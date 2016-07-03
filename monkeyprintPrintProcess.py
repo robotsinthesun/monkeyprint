@@ -79,8 +79,10 @@ class printProcess(threading.Thread):
 		return result
 	
 	def setGuiSlice(self, sliceNumber):
+		print "1"
 		# Set slice number to queue.
 		self.queueSliceSend(sliceNumber)
+		print "2"
 		
 		# Wait until gui acks that slice is set.
 		# self.queueSliceRecv blocks until slice is set in gui.
@@ -89,6 +91,7 @@ class printProcess(threading.Thread):
 				print "Set slice " + str(sliceNumber) + "."
 			else:
 				print "Set black."
+		print "3"
 	
 	# Non blocking wait function.
 	def wait(self, timeInterval, trigger=False):
@@ -132,8 +135,9 @@ class printProcess(threading.Thread):
 		#self.queueStatus.put("Initialising print process.")
 		self.queueStatus.put("preparing:nSlices:" + str(self.numberOfSlices))
 		self.queueConsole.put("Initialising print process.")
-
-
+		
+		
+		
 		# Reset print parameters.
 		self.slice = 1
 		self.exposureTime = 5.
@@ -191,8 +195,9 @@ class printProcess(threading.Thread):
 				self.queueStatus.put("preparing:projectorConnected:")
 		
 		# Display black.
+		print "setting slice"
 		self.setGuiSlice(-1)
-
+		print "slice set"
 		# Activate projector.
 		if not debug and projectorControl and not self.stopThread.isSet():
 			# Send info to gui.

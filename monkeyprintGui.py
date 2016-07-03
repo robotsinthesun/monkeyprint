@@ -194,13 +194,17 @@ class gui(gtk.Window):
 		# Queues for controlling the file transmission thread.
 		self.queueFileTransferIn = Queue.Queue(maxsize=1)
 		self.queueFileTransferOut = Queue.Queue(maxsize=1)
+		# Queue for print process commands.
+		
 		# Queue for status infos displayed above the status bar.
 		self.queueStatus = Queue.Queue()
+		# Queue for commands sent to print process.
+		self.queueCommands = Queue.Queue(maxsize=1)
 		# Queue for console messages.
 		self.queueConsole = Queue.Queue()
 		
 		# Is this running from Raspberry Pi or from PC?
-		self.runningOnRaspberry = False
+		self.runningOnRasPi = False
 		# TODO: Use this flag to combine this class and server class.
 		
 		# Flag to set during print process.
@@ -218,19 +222,18 @@ class gui(gtk.Window):
 		# Create communication socket to Raspberry Pi. ***********************
 		# ********************************************************************
 		# Create the socket and connect.
-		self.context = zmq.Context()
-		self.socket = self.context.socket(zmq.PAIR)	# Response type socket.
-		print ("tcp://"+str(self.programSettings['IP address RasPi'].value)+":"+str(self.programSettings['Network port RasPi'].value))
-		self.socket.connect("tcp://"+str(self.programSettings['IP address RasPi'].value)+":"+str(self.programSettings['Network port RasPi'].value))
-		
-		# Add socket listener to GTK event loop.
-		self.socketFileDescriptor = self.socket.getsockopt(zmq.FD)
-		gobject.io_add_watch(self.socketFileDescriptor, gobject.IO_IN, self.socketIOCallback, self.socket)
+		if self.runningOnRasPi:
+			self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['Network port RasPi'].value, ip=None, queueStatus=self.queueStatus)
+		else:
+			self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['Network port RasPi'].value, ip=self.programSettings['IP address RasPi'].value, queueCommands=self.queueCommands) 
 
-		# Add listener function for Raspberry Pi connection timeout.
-		self.rasPiConnectionTimeout  = 10
-		rasPiConnectionTimeoutListenerId = gobject.timeout_add(1000, self.countdownRasPiConnection)
-		
+		# Add socket listener and connection timeout methods to GTK event loop.
+		gobject.io_add_watch(self.socket.fileDescriptor, gobject.IO_IN, self.socket.callbackIOActivity, self.socket.socket)
+		if not self.runningOnRasPi:
+			# Connection poll.
+			gobject.timeout_add(500, self.socket.pollRasPiConnection)
+			# Connection timeout counter.
+			gobject.timeout_add(1000, self.socket.countdownRasPiConnection)
 		
 		
 		
@@ -252,7 +255,7 @@ class gui(gtk.Window):
 		# Update the progress bar, projector image and 3d view. during prints.
 		pollPrintQueuesId = gobject.timeout_add(50, self.pollPrintQueues)
 		# Request status info from raspberry pi.
-		pollRasPiConnectionId = gobject.timeout_add(500, self.pollRasPiConnection)
+	#	pollRasPiConnectionId = gobject.timeout_add(500, self.pollRasPiConnection)
 		# Request status info from slicer.
 		pollSlicerStatusId = gobject.timeout_add(100, self.pollSlicerStatus)
 		# TODO: combine this with slicerListener.
@@ -263,7 +266,8 @@ class gui(gtk.Window):
 		# ********************************************************************
 		# Create file transmission thread. ***********************************
 		# ********************************************************************
-		if not self.runningOnRaspberry:
+		# Only if this is not running on Raspberry Pi.
+		if not self.runningOnRasPi:
 			ipFileClient = self.programSettings['IP address RasPi'].value
 			portFileClient = self.programSettings['File transmission port RasPi'].value
 			self.threadFileTransmission = monkeyprintSocketCommunication.fileSender(ip=ipFileClient, port=portFileClient, queueStatusIn=self.queueFileTransferIn, queueStatusOut=self.queueFileTransferOut)
@@ -379,77 +383,7 @@ class gui(gtk.Window):
 	
 	
 	
-	
-# TODO: move this into the socket communication class.
-	def socketIOCallback(self, fd, condition, zmq_socket):
 		
-		# Keep running as long as something waits in the socket.
-		while zmq_socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
-		
-			# Retrieve the message from the socket.
-			msg = zmq_socket.recv_multipart()
-			
-			# Extract message type and message data.
-			messageType, message = msg
-
-			# If message is status info...
-			if messageType == "status":
-				# ... forward it to the status queue.
-				self.queueStatus.put(message)
-			# If message is error...
-			elif messageType == "error":
-				#TODO handle the errors...
-				pass
-			# If message is a returning ping...
-			elif messageType == "ping":
-				# ... set connected flag and reset the ping counter. 
-				self.rasPiConnected = True
-				self.rasPiConnectionTimeout  = 10
-
-		# Return true, otherwise function will be removed from IO watch.		
-		return True
-	
-	
-	
-
-
-
-
-	# *************************************************************************
-	# Function that contiuously sends a ping to the Pi. ***********************
-	# *************************************************************************
-	def pollRasPiConnection(self):
-		# If this is running from PC and we are printing on raspberry:
-		if not self.runningOnRaspberry and self.programSettings['Print from Raspberry Pi?']:
-			# check status via the socket connection.
-			command = "ping"
-			path = ""
-			self.socket.send_multipart([command, path])
-			
-			#command = "slice"
-			#path = ""
-			#self.socket.send_multipart([command, path])
-			# The receive function is running elsewhere and
-			# will forward the returning ping into the timeout function.
-		return True
-	
-	
-	
-	
-	# *************************************************************************
-	# Function that decrements the Pi connection timeout counter. *************
-	# *************************************************************************
-	# This runs every second as a gobject timeout function.
-	def countdownRasPiConnection(self):
-		if self.rasPiConnectionTimeout  > 0:
-			self.rasPiConnectionTimeout  -= 1
-		if self.rasPiConnectionTimeout  < 1:
-			self.rasPiConnected = False
-		return True
-	
-	
-	
-	
 	# *************************************************************************
 	# Function that checks if one of the slicer threads is running. ***********
 	# *************************************************************************
@@ -461,12 +395,14 @@ class gui(gtk.Window):
 				
 
 
+
 	# *************************************************************************
 	# Function that updates all relevant GUI elements during prints. **********
 	# *************************************************************************
 	# This runs every 100 ms as a gobject timeout function.
-	# Updates 3d view, projector view. Also forwards status info.
+	# Updates 3d view and projector view. Also forwards status info.
 	def pollPrintQueues(self):
+	#	print "polling print queues"
 		# Check the queues...
 		# If slice number queue has slice number...
 		if self.queueSliceOut.qsize():
@@ -474,8 +410,6 @@ class gui(gtk.Window):
 			sliceNumber = self.queueSliceOut.get()
 			# If it's an actual slice number...
 			if sliceNumber >=0:
-				# ... set progress bar. WE NOW DO THIS USING THE STATUS QUEUE.
-				#self.progressBar.updateValue(sliceNumber) 
 				# Set 3d view to given slice.
 				self.modelCollection.updateAllSlices3d(sliceNumber)
 				self.renderView.render()
@@ -495,8 +429,8 @@ class gui(gtk.Window):
 			message = self.queueStatus.get()
 			# Check if this is the destroy message for terminating the print window.
 			if message == "destroy":
-				# If running on Raspberry ...
-				if self.runningOnRaspberry:
+				# If running on Raspberry, destroy projector display and clean up files.
+				if self.runningOnRasPi:
 					print "Print process finished! Idling..."
 					self.printFlag = False
 					del self.printProcess
@@ -505,9 +439,8 @@ class gui(gtk.Window):
 					# Remove print file.
 					if os.path.isfile(self.localPath + self.localFilename):
 						os.remove(self.localPath + self.localFilename)
-				# If not...
+				# If not running on Raspberry Pi, destroy projector display and reset GUI.
 				else:
-					# ... reset gui.
 					self.buttonPrintStart.set_sensitive(True)
 					self.buttonPrintStop.set_sensitive(False)
 					self.modelCollection.updateAllSlices3d(0)
@@ -518,54 +451,61 @@ class gui(gtk.Window):
 					self.projectorDisplay.destroy()
 					del self.projectorDisplay
 			else:
-				# If running on Raspberry ...
-				if self.runningOnRaspberry:
-					# ... simply forward the message to the socket connection.
-					self.socket.send_multipart(["status", message])
-				# If not...
+				# If running on Raspberry forward the message to the socket connection.
+				if self.runningOnRasPi:
+					self.socket.sendMulti("status", message)
+				# If not, update the GUI.
 				else:
-					# ... update the GUI.
 					self.processStatusMessage(message)
 		
+		# Poll the command queue.
+		# Only do this when running on Raspberry Pi.
+		# If command queue has info...
+		if self.queueCommands.qsize():
+			# ... get the command.
+			command = self.queueCommands.get()
+			self.processCommandMessage(command)
+
 		# If console queue has info...
 		if self.queueConsole.qsize():
 			if self.console != None:
 				self.console.addLine(self.queueConsole.get())
-			
+
 		# Return true, otherwise function won't run again.
 		return True	
-		'''
-		# If print info queue has info...
-		if self.queueStatus.qsize():
-			#self.progressBar.setText(self.queueStatus.get()) 
-			message = self.queueStatus.get()
-			if message == "destroy":
-				# Reset gui.
-				self.buttonPrintStart.set_sensitive(True)
-				self.buttonPrintStop.set_sensitive(False)
-				self.modelCollection.updateAllSlices3d(0)
-				self.renderView.render()
-				self.progressBar.updateValue(0) 
-				self.printFlag = False
-				del self.printProcess
-				self.projectorDisplay.destroy()
-				del self.projectorDisplay
-			else:
-				self.progressBar.setText(message) 
-		# If console queue has info...
-		if self.queueConsole.qsize():
-			if self.console != None:
-				self.console.addLine(self.queueConsole.get())
-		# Return true, otherwise function won't run again.
-		return True
-		'''
+
+
+
+	# *************************************************************************
+	# Function to process output of commandQueue and control print process. ***
+	# *************************************************************************
+	def processCommandMessage(self, message):
+		# Only needed on Rasperry Pi.
+		#if self.runningOnRasPi:
+			# Split the string.
+			command, parameter = message.split(":")
+			if command == "start":
+				if self.printFlag:
+					pass
+					# TODO: Send error message.
+					#zmq_socket.send_multipart(["error", "Print running already."])
+				else:
+					# Start the print. Parameter is the file path in case of running from Pi.
+					self.printProcessStart(parameter)
+					print "started print process"
+			elif command == "stop":
+				if self.printFlag:
+					self.printProcessStop()
+					#self.printProcess.stop()
+			elif command == "pause":
+				if self.printFlag:
+					self.printProcess.pause()
 
 
 	# *************************************************************************
 	# Function to process the output of statusQueue and update the GUI. *******
 	# *************************************************************************
 	def processStatusMessage(self, message):
-		print message
 		# Split the string.
 		status, param, value = message.split(":")
 		# Check the status and retreive other data.
@@ -608,11 +548,6 @@ class gui(gtk.Window):
 		elif status == "idle":
 			printingFlag = False
 			self.progressBar.setText("Idle.")
-
-
-
-
-
 
 	
 	
@@ -1396,11 +1331,17 @@ class gui(gtk.Window):
 		# Run the dialog and get the result.
 		response = self.dialogStart.run()
 		self.dialogStart.destroy()
-				
-		# If positive, check if we are running from PC or from Pi.
-		# If running from PC...
-		if response==True and not self.programSettings['Print from Raspberry Pi?'].value:
-		#	print "foo"
+		if response == True:
+			#self.printProcessStart()
+			if not self.queueCommands.qsize():
+				self.queueCommands.put("start:")
+		
+	def printProcessStart(self, filename=None):	# Filename is needed for print on Raspberry.
+		if filename == "":
+			filename = None
+
+		# If starting print process on PC...
+		if not self.programSettings['Print from Raspberry Pi?'].value:
 			#... create the projector window and start the print process.
 			self.console.addLine("Starting print")
 			# Disable window close event.
@@ -1409,17 +1350,14 @@ class gui(gtk.Window):
 			self.progressBar.setLimit(self.modelCollection.getNumberOfSlices())
 			# Create the projector window.2
 			self.projectorDisplay = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
-		#	print "bar"
 			# Start the print.
 			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSliceOut, self.queueSliceIn, self.queueStatus, self.queueConsole)
 			self.printProcess.start()
-		#	print "hoo"
 			# Set button sensitivities.
 			self.buttonPrintStart.set_sensitive(False)
 			self.buttonPrintStop.set_sensitive(True)
-		#	print "har"
-		# If running from Pi...
-		elif response==True and self.programSettings['Print from Raspberry Pi?'].value:
+		# If starting print process on Raspberry Pi...
+		elif self.programSettings['Print from Raspberry Pi?'].value:
 			#... pack the data and send it to the Pi.
 			path = self.programSettings['localMkpPath'].value		#os.getcwd() + "/currentPrint.mkp"
 			# Console message.
@@ -1427,7 +1365,7 @@ class gui(gtk.Window):
 			# Save the model collection to the given location.
 			self.modelCollection.saveProject(path)
 			command = "print"
-			self.socket.send_multipart([command, path])
+			self.socket.sendMulti(command, path)
 
 			
 
@@ -1444,10 +1382,24 @@ class gui(gtk.Window):
 		response = dialog.run()
 		dialog.destroy()
 		if response == gtk.RESPONSE_YES:
-			# Stop the print process.
+			#self.printProcessStop()
+			if not self.queueCommands.qsize():
+				self.queueCommands.put("stop:")
+	
+
+
+	def printProcessStop(self, data=None):
+		# Stop the print process.
+		# If print is running on Pi...
+		if self.programSettings['Print from Raspberry Pi?'].value:
+			# ... send the stop command.
+			command = "stop"
+			path = ""
+			self.socket.sendMulti(command, path)
+		else:
 			self.printProcess.stop()	
-			# Reset stop button to insensitive.
-			self.buttonPrintStop.set_sensitive(False)
+		# Reset stop button to insensitive.
+		self.buttonPrintStop.set_sensitive(False)
 	
 
 
@@ -2078,10 +2030,10 @@ class dialogManualControl(gtk.Window):
 		
 		# Create queue for communication between gui and serial.
 		self.queueSerial = Queue.Queue()
-		self.queueCommands = Queue.Queue()
+		self.queueSerialCommands = Queue.Queue()
 		
 		# Create serial.
-		self.serialPrinter = monkeyprintSerial.printer(self.settings, self.queueSerial, self.queueCommands)
+		self.serialPrinter = monkeyprintSerial.printer(self.settings, self.queueSerial, self.queueSerialCommands)
 		
 		# Create gui widgets.
 		box = gtk.VBox()
@@ -2148,7 +2100,7 @@ class dialogManualControl(gtk.Window):
 		listenerIdSerial = gobject.timeout_add(100, self.listenerSerialThread)
 		wait = self.entryWait.get_text()
 		if wait == "None": wait = None
-#		self.queueCommands.put([self.entry.get_text(), None, self.checkbuttonRetry.get_active(), wait])
+#		self.queueSerialCommands.put([self.entry.get_text(), None, self.checkbuttonRetry.get_active(), wait])
 		self.serialPrinter.send([self.entry.get_text(), None, self.checkbuttonRetry.get_active(), wait])
 		
 	
@@ -2676,7 +2628,7 @@ class dialogSettings(gtk.Window):
 	def callbackSerialTest(self, widget, data=None):
 		# Create communication queues.
 		self.queueSerial = Queue.Queue()
-		queueCommands = Queue.Queue()
+		queueSerialCommands = Queue.Queue()
 		self.command = ["ping", None, True, None]	# No value, retry, don't wait.
 		# Make button insensitive.
 		self.buttonSerialTest.set_sensitive(False)
@@ -2684,7 +2636,7 @@ class dialogSettings(gtk.Window):
 		self.consoleSerial.addLine("Connecting...")
 		# Start queue listener.
 		listenerIdSerial = gobject.timeout_add(500, self.listenerSerialThread)
-		self.serial = monkeyprintSerial.printer(self.settings, self.queueSerial, queueCommands)
+		self.serial = monkeyprintSerial.printer(self.settings, self.queueSerial, queueSerialCommands)
 		# Send ping.
 		if self.serial.serial != None:
 			self.serial.send(self.command)

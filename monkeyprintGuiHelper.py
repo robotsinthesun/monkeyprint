@@ -29,7 +29,6 @@ class splashWindow:
 		# Create pixbuf from file.
 		self.pixbuf = gtk.gdk.pixbuf_new_from_file(imageFile)
 		self.size = (self.pixbuf.get_width(), self.pixbuf.get_height())
-		print self.size
 		
 		# Create window.
 		self.splashWindow = gtk.Window()

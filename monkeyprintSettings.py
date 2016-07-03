@@ -156,7 +156,7 @@ class programSettings(dict):
 		self['Projector OFF command'] = setting(value='* 0 IR 002', default='* 0 IR 002')
 		self['Tilt step angle'] = setting(value=1.8, default=1.8, upper=3.6, lower=0.9, unit="°")
 		self['Tilt microsteps per step'] = setting(value=4, default=4, lower=1, upper=32)
-		self['Tilt angle'] = setting(value='14', default='14')
+		self['Tilt angle'] = setting(value='130', default='130')
 		self['Tilt speed'] = setting(value='10', default='10')
 		self['Tilt speed slow'] = setting(value='4', default='4')
 		self['Enable tilt'] = setting(value=True, default=True)
