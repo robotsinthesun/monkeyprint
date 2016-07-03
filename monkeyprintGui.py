@@ -517,8 +517,8 @@ class gui(gtk.Window):
 				# Set current slice in status bar.
 				currentSlice = int(value)
 				# TODO get current slice, this will work once slicer thread returns single slices.
-				#if not self.queueSliceOut.qsize():
-				#	self.queueSliceOut.put(int(currentSlice))
+				if not self.queueSliceOut.qsize():
+					self.queueSliceOut.put(int(currentSlice))
 			self.progressBar.setText("Slicing.") 
 		elif status == "preparing":
 			if param == "nSlices":
@@ -535,6 +535,8 @@ class gui(gtk.Window):
 				# Set current slice in status bar.
 				self.progressBar.updateValue(int(value))
 				self.progressBar.setText("Printing slice " + value + ".")
+				if not self.queueSliceOut.qsize():
+					self.queueSliceOut.put(int(value))
 		elif status == "stopping":
 			self.progressBar.setText("Stopping print.")
 		elif status == "paused":
