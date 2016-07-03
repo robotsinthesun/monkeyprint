@@ -378,6 +378,6 @@ class printProcess(threading.Thread):
 		
 		time.sleep(3)
 		# TODO find a good way to destroy this object.
-		self.queueStatus.put("idle::")
+		self.queueStatus.put("idle:slice:0")
 	#	self.queueSliceSend(0)
 		self.queueStatus.put("destroy")
