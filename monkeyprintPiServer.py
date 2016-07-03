@@ -286,9 +286,9 @@ class monkeyprintPiServer:
 
 		# If status queue has info...
 		if self.queueStatus.qsize():
-			print "Found status message: " + message + ""
 			# ... get the status.
 			message = self.queueStatus.get()
+			#print "Found status message: " + message + "."
 			# Check if this is the destroy message for terminating the print window.
 			if message == "destroy":
 				# If running on Raspberry, destroy projector display and clean up files.
