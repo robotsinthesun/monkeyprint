@@ -1832,7 +1832,7 @@ class dialogFirmware(gtk.Window):
 		self.queueAvrdude = Queue.Queue()
 		
 		# Create avrdude thread.
-		self.threadAvrdude = monkeyprintGuiHelper.avrdudeThread(self.settings, self.queueAvrdude)
+		#self.threadAvrdude = monkeyprintGuiHelper.avrdudeThread(self.settings, self.queueAvrdude)
 		
 		# Main container.
 		box = gtk.VBox()
@@ -1939,6 +1939,8 @@ class dialogFirmware(gtk.Window):
 		self.console.addLine('Running avrdude with options:')
 		self.console.addLine('-p ' + self.settings['MCU'].value + ' -P ' + self.settings['Port'].value + ' -c ' + self.settings['Programmer'].value + ' -b ' + str(self.settings['Baud rate'].value) + ' -U ' + 'flash:w:' + self.settings['Firmware path'].value + " " + self.settings['Options'].value)
 		self.console.addLine("")
+		# Create avrdude thread.
+		self.threadAvrdude = monkeyprintGuiHelper.avrdudeThread(self.settings, self.queueAvrdude)
 		# Add avrdude thread listener to gui main loop.
 		listenerIdAvrdude = gobject.timeout_add(100, self.listenerAvrdudeThread)
 		# Start avrdude thread.
@@ -1989,8 +1991,11 @@ class dialogFirmware(gtk.Window):
 			# Restore flash button.
 			self.buttonFlash.set_sensitive(True)
 			self.buttonFlash.set_label("Flash firmware")
+			# Delete the thread.
+			del self.threadAvrdude
 			# Return False to remove listener from timeout.
 			return False
+			
 		else:
 			# Return True to keep listener in timeout.
 			return True
