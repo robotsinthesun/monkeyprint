@@ -7,20 +7,39 @@ When a friend built a 3d DLP printer which I was doing the software for, we noti
 Until now...
 
 *monkeyprint* allows you to:
-* load an stl file
+* load one or multiple stl files
 * define the position, scale or rotation in the printers build volume
-* generate supports according to some simple parameters
+* generate supports with some simple parameters
 * hollow out the model and create fill structures
 * slice the model with a specific layer height
 * control a print job on your DLP printer via serial port
 
+In addition to that, *monkeyprint* allows you to control your printer directly from your PC or to send print jobs via network to a Raspberry Pi 2 that will control the print for you.
+This way you can use your PC for other things while your printer is busy.
+
+*monkeyprint* currently relies on a custom board (schematics and layout included) and custom control commands. However, a G-Code command interface is in the making so it will soon be possible to control G-Code boards (like the RAMPS board) as well.
+
 In order for *monkeyprint* to work you need a 3d DLP printer that can receive commands via serial port and whos projector is connected to your PC.
 
-### Dependencies
-monkeyprint is programmed in python and uses VTK to visualise and slice 3d models so make sure you have both of them installed. Tested with python 2.7.3 and VTK 5.8.0. There may be issues with VTK versions >= 6 because of syntax changes.
+### Installation
+#### Dependencies
+*monkeyprint* is programmed in python and uses VTK and openCV for stl processing, slicing and slice image handling. It also needs some other stuff, all of which you can get using the following command:
+sudo apt-get install git-core libvtk5.8 libopencv-core2.4 python2.7 python-vtk python-gtkglext1 python-numpy python-opencv python-imaging python-scipy python-serial python-zmq avrdude
+Tested with python 2.7.3 and VTK 5.8.0. There may be issues with VTK version 6 because of API changes.
+
+#### Installation
+Once the dependencies are installed, simply download *monkeyprint* using git:
+git clone git://github.com/robotsinthesun/monkeyprint.git
+
+#### Hardware
+*monkeyprint* currently only works with a custom board. If you want to build it, you can find the schematics and layout.
+It can be made from cheap components like an Arduino Pro Micro and two Pololu DRV8825 stepper drivers.
+There is a board making tutorial here: http://robotsinthesun.org/monkeyprint-dpl-printer-board-making-tutorial/
+
+There will be G-Code support soon, so all of you who already have for example a RAMPS board will be able to use that.
 
 ### Usage
-Simply run monkeyprint via terminal by changing to the monkeyprint directory and typing ./monkeyprint.python
+Simply run monkeyprint via terminal by changing to the monkeyprint directory and typing ./monkeyprint.py
 
 The *monkeyprint* gui is set up to walk you through the pre-processing steps up to committing the print.
 The model and it's position is shown in the 3d view on the left while the tabs on the right will guide you through the necessary settings.
@@ -41,10 +60,7 @@ Cancel the print by pressing "Cancel". It won't stop immediately but complete th
 Note that you can't close the program while a print is running.
 
 ### Future improvements
-* clean up spagetthi code and rebuild gui
-* add debug option
+* clean up code and rebuild print process with G-Code
 * fix issues with VTK versions >= 6
 * improve model rotation -> make model rotate around world axes
-* implement setup dialog instead of manually having to change settings file
-* multiple object print
 * implement a customisable print process
