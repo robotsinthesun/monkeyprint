@@ -20,6 +20,7 @@
 
 import threading, Queue
 import monkeyprintSerial
+import monkeyprintCommands
 import time
 
 
@@ -36,6 +37,32 @@ class printProcess(threading.Thread):
 		self.queueSliceIn = queueSliceIn
 		self.queueStatus = queueStatus
 		self.queueConsole = queueConsole
+		
+		
+		self.runGCode = not self.settings['monkeyprintBoard'].value
+		
+		# Create GCode commands.
+		if self.runGCode:
+			# Create parser object.
+			self.gCodeParser = monkeyprintCommands.stringEvaluator(self.settings, modelCollection)
+			# Parse GCode variables.
+			self.gCodeTiltCommand = self.gCodeParser.parseCommand(self.settings['Tilt GCode'].value)
+			self.gCodeBuildCommand = self.gCodeParser.parseCommand(self.settings['Build platform GCode'].value)
+			self.gCodeShutterOpenCommand = self.gCodeParser.parseCommand(self.settings['Shutter open GCode'].value)
+			self.gCodeShutterCloseCommand = self.gCodeParser.parseCommand(self.settings['Shutter close GCode'].value)
+			# Get start and end code.
+			self.gCodeStartCommands = self.settings['Start commands GCode'].value
+			self.gCodeEndCommands = self.settings['End commands GCode'].value
+			self.gCodeHomeCommand = self.settings['Home GCode'].value
+			
+			print "Tilt command: " + self.gCodeTiltCommand
+			print "Build command: " + self.gCodeBuildCommand
+			print "Shutter open command: " + self.gCodeShutterOpenCommand
+			print "Shutter close command: " + self.gCodeShutterCloseCommand
+			print "Start command: " + self.gCodeStartCommands
+			print "End command: " + self.gCodeEndCommands
+			print "Home command: " + self.gCodeHomeCommand
+		
 		# Get other relevant values.
 		self.numberOfSlices = modelCollection.getNumberOfSlices()
 		self.buildStepsPerMm = int(360. / float(self.settings['Build step angle'].value) * float(self.settings['Build microsteps per step'].value))
@@ -79,10 +106,8 @@ class printProcess(threading.Thread):
 		return result
 	
 	def setGuiSlice(self, sliceNumber):
-		print "1"
 		# Set slice number to queue.
 		self.queueSliceSend(sliceNumber)
-		print "2"
 		
 		# Wait until gui acks that slice is set.
 		# self.queueSliceRecv blocks until slice is set in gui.
@@ -91,7 +116,6 @@ class printProcess(threading.Thread):
 				print "Set slice " + str(sliceNumber) + "."
 			else:
 				print "Set black."
-		print "3"
 	
 	# Non blocking wait function.
 	def wait(self, timeInterval, trigger=False):
@@ -155,27 +179,36 @@ class printProcess(threading.Thread):
 				self.stopThread.set()
 			else:
 				# Send ping to test connection.
-				if self.serialPrinter.send(["ping", None, True, None]) == True:
-					self.queueStatus.put("preparing:connectionSuccess:")
-					#self.queueStatus.put("Connection to printer established.")
-					print "Connection to printer established."
+				if not self.runGCode:
+					if self.serialPrinter.send(["ping", None, True, None]) == True:
+						self.queueStatus.put("preparing:connectionSuccess:")
+						#self.queueStatus.put("Connection to printer established.")
+						print "Connection to printer established."
 		
 		
 		# Send print parameters to printer.
 		if not debug and not self.stopThread.isSet():
-			self.serialPrinter.send(['nSlices', self.numberOfSlices, True, None])
-			self.serialPrinter.send(['buildRes', self.buildStepsPerMm, True, None])
-			self.serialPrinter.send(['buildMinMove', self.buildMinimumMove, True, None])
-			self.serialPrinter.send(['tiltRes', self.tiltStepsPerTurn, True, None])
-			self.serialPrinter.send(['tiltAngle', self.tiltAngle, True, None])
-			self.serialPrinter.send(['shttrOpnPs', self.settings['Shutter position open'].value, True, None])
-			self.serialPrinter.send(['shttrClsPs', self.settings['Shutter position closed'].value, True, None])
+			if not self.runGCode:
+				self.serialPrinter.send(['nSlices', self.numberOfSlices, True, None])
+				self.serialPrinter.send(['buildRes', self.buildStepsPerMm, True, None])
+				self.serialPrinter.send(['buildMinMove', self.buildMinimumMove, True, None])
+				self.serialPrinter.send(['tiltRes', self.tiltStepsPerTurn, True, None])
+				self.serialPrinter.send(['tiltAngle', self.tiltAngle, True, None])
+				self.serialPrinter.send(['shttrOpnPs', self.settings['Shutter position open'].value, True, None])
+				self.serialPrinter.send(['shttrClsPs', self.settings['Shutter position closed'].value, True, None])
+			else:
+				# Send start-up commands.
+				#self.serialPrinter.send([self.gCodeStartCommands, None, False, None])
+				pass
 		elif not self.stopThread.isSet():
-			self.queueConsole.put("Debug: number of slices: " + str(self.numberOfSlices))
-			self.queueConsole.put("Debug: build steps per mm: " + str(self.buildStepsPerMm))
-			self.queueConsole.put("Debug: build minimum move: " + str(self.buildMinimumMove))
-			self.queueConsole.put("Debug: tilt steps per turn: " + str(self.tiltStepsPerTurn))
-			self.queueConsole.put("Debug: tilt angle steps: " + str(self.tiltAngle))
+			if not self.runGCode:
+				self.queueConsole.put("Debug: number of slices: " + str(self.numberOfSlices))
+				self.queueConsole.put("Debug: build steps per mm: " + str(self.buildStepsPerMm))
+				self.queueConsole.put("Debug: build minimum move: " + str(self.buildMinimumMove))
+				self.queueConsole.put("Debug: tilt steps per turn: " + str(self.tiltStepsPerTurn))
+				self.queueConsole.put("Debug: tilt angle steps: " + str(self.tiltAngle))
+			else:
+				print "Debug: GCode command: " + self.gCodeStartCommands
 
 			
 			
@@ -210,9 +243,16 @@ class printProcess(threading.Thread):
 		
 		# Activate shutter servo.
 		if not debug and not self.stopThread.isSet() and self.settings['Enable shutter servo'].value:
-			self.serialPrinter.send(["shutterClose", None, True, None])
-			self.serialPrinter.send(["shutterEnable", None, True, None])
+			if not self.runGCode:
+				self.serialPrinter.send(["shutterClose", None, True, None])
+				self.serialPrinter.send(["shutterEnable", None, True, None])
+			else:
+				#self.serialPrinter.send([self.gCodeShutterCloseCommand, None, False, None])
+				pass
 			print "Shutter enabled."
+		elif not self.stopThread.isSet() and self.settings['Enable shutter servo'].value:
+			if self.runGCode:
+				print "Debug: GCode command: " + self.gCodeShutterCloseCommand
 		
 		
 		# Homing build platform.
@@ -223,7 +263,14 @@ class printProcess(threading.Thread):
 			self.queueStatus.put("preparing:homing:")
 			print "Homing build platform."
 			# Send printer command.
-			self.serialPrinter.send(["buildHome", None, True, 240]) # Retry, wait 240 seconds.
+			if not self.runGCode:
+				self.serialPrinter.send(["buildHome", None, True, 240]) # Retry, wait 240 seconds.
+			else:
+				#self.serialPrinter.send([self.gCodeHomeCommand, None, False, None])
+				pass
+		elif not self.stopThread.isSet():
+			if self.runGCode:
+				print "Debug: GCode command: " + self.gCodeHomeCommand
 		
 		
 		# Tilt to get rid of bubbles.
@@ -236,7 +283,14 @@ class printProcess(threading.Thread):
 			# Tilt 5 times.
 			for tilts in range(3):
 				print "Tilting..."
-				self.serialPrinter.send(["tilt", None, True, 20])
+				if not self.runGCode:
+					self.serialPrinter.send(["tilt", None, True, 20])
+				else:
+					#self.serialPrinter.send([self.gCodeTiltCommand, None, False, None])
+					pass
+		elif not self.stopThread.isSet() and self.settings['Enable tilt'].value:
+			if self.runGCode:
+				print "Debug: GCode command: " + self.gCodeTiltCommand
 		
 		
 		# Wait for resin to settle.
@@ -254,7 +308,8 @@ class printProcess(threading.Thread):
 
 		# Send printing flag to printer.
 		if not debug and not self.stopThread.isSet():
-			self.serialPrinter.send(['printingFlag', 1, True, None])
+			if not self.runGCode:
+				self.serialPrinter.send(['printingFlag', 1, True, None])
 		
 		# Start the print loop.
 		while not self.stopThread.isSet() and self.slice < self.numberOfSlices+1:
@@ -291,10 +346,22 @@ class printProcess(threading.Thread):
 			if not debug:
 				self.queueConsole.put("   Moving build platform.")
 				print "Moving build platform."
+			
 				if self.slice == 1:
-					self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
+					if not self.runGCode:
+						self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
+					else:
+						#self.serialPrinter.send([self.gCodeBuildCommand, None, False, None])
+						pass
 				else:
-					self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
+					if not self.runGCode:
+						self.serialPrinter.send(['buildMove', self.layerHeight, True, 20])
+					else:
+						#self.serialPrinter.send([self.gCodeBuildCommand, None, False, None])
+						pass
+			else:
+				if self.runGCode:
+					print "Debug: GCode command: " + self.gCodeBuildCommand
 
 			# Waiting for resin to settle.
 			if not debug and self.settings['Resin settle time'].value != 0.0:
@@ -306,7 +373,14 @@ class printProcess(threading.Thread):
 			if not debug and self.settings['Enable shutter servo'].value:
 				self.queueConsole.put("   Opening shutter.")
 				print "Opening shutter."
-				self.serialPrinter.send(["shutterOpen", None, True, None])
+				if not self.runGCode:
+					self.serialPrinter.send(["shutterOpen", None, True, None])
+				else:
+					#self.serialPrinter.send([self.gCodeShutterOpenCommand, None, False, None])
+					pass
+			elif self.settings['Enable shutter servo'].value:
+				if self.runGCode:
+					print "Debug: GCode command: " + self.gCodeShutterOpenCommand
 			
 			
 			# Start exposure by writing slice number to queue.
@@ -321,7 +395,14 @@ class printProcess(threading.Thread):
 			if not debug and self.settings['Enable shutter servo'].value:
 				self.queueConsole.put("   Closing shutter.")
 				print "Closing shutter."
-				self.serialPrinter.send(["shutterClose", None, True, None])
+				if not self.runGCode:
+					self.serialPrinter.send(["shutterClose", None, True, None])
+				else:
+					#self.serialPrinter.send([self.gCodeShutterCloseCommand, None, False, None])
+					pass
+			elif self.settings['Enable shutter servo'].value:
+				if self.runGCode:
+					print "Debug: GCode command: " + self.gCodeShutterCloseCommand
 			
 			# Fire the camera after exposure if desired.
 			if not debug and self.settings['camTriggerAfterExposure'].value:
@@ -333,7 +414,14 @@ class printProcess(threading.Thread):
 			if not debug and self.settings['Enable tilt'].value:
 				self.queueConsole.put("   Tilting.")
 				print "Tilting."
-				self.serialPrinter.send(['tilt', None, True, 20])
+				if not self.runGCode:
+					self.serialPrinter.send(['tilt', None, True, 20])
+				else:
+					#self.serialPrinter.send([self.gCodeTiltCommand, None, False, None])
+					pass
+			elif self.settings['Enable tilt'].value:
+				if self.runGCode:
+					print "Debug: GCode command: " + self.gCodeTiltCommand
 
 			
 
@@ -350,7 +438,8 @@ class printProcess(threading.Thread):
 		
 		# Disable shutter.
 		if not debug and not self.stopThread.isSet()  and self.settings['Enable shutter servo'].value:
-			self.serialPrinter.send(["shutterDisable", None, True, None])
+			if not self.runGCode:
+				self.serialPrinter.send(["shutterDisable", None, True, None])
 			print "Shutter disabled."
 
 		
@@ -358,9 +447,14 @@ class printProcess(threading.Thread):
 			# TODO
 			# Move build platform to top.
 			print "Moving build platform to top."
-			self.serialPrinter.send(["buildTop", None, True, 240]) # Retry, wait 240 seconds.
-			# Send printing stop flag to printer.
-			self.serialPrinter.send(["printingFlag", 0, True, None]) # Retry, wait 240 seconds.prin
+			if not self.runGCode:
+				self.serialPrinter.send(["buildTop", None, True, 240]) # Retry, wait 240 seconds.
+				# Send printing stop flag to printer.
+				self.serialPrinter.send(["printingFlag", 0, True, None]) # Retry, wait 240 seconds.prin
+			else:
+				#self.serialPrinter.send([self.gCodeHomeCommand, None, False, None])
+				#self.serialPrinter.send([self.gCodeEndCommands, None, False, None])
+				pass
 			# Deactivate projector.
 			if projectorControl and self.serialProjector != None:
 				self.serialProjector.deactivate()
@@ -370,6 +464,10 @@ class printProcess(threading.Thread):
 			if projectorControl:
 				self.serialProjector.close()
 				del self.serialProjector
+		elif not self.stopThread.isSet():
+			if self.runGCode:
+					print "Debug: GCode command: " + self.gCodeHomeCommand
+					print "Debug: GCode command: " + self.gCodeEndCommands
 
 		
 		#self.queueStatus.put("Print stopped after " + str(self.slice) + " slices.")

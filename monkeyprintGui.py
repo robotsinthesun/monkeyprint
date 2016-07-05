@@ -1995,7 +1995,6 @@ class dialogFirmware(gtk.Window):
 			del self.threadAvrdude
 			# Return False to remove listener from timeout.
 			return False
-			
 		else:
 			# Return True to keep listener in timeout.
 			return True
@@ -2179,7 +2178,7 @@ class dialogSettings(gtk.Window):
 		
 		# Create notebook.
 		self.notebookSettings = monkeyprintGuiHelper.notebook()
-		self.boxMain.pack_start(self.notebookSettings, expand=False, fill=False)
+		self.boxMain.pack_start(self.notebookSettings, expand=True, fill=True)
 		self.notebookSettings.show()
 		
 		# Create notebook pages.
@@ -2202,6 +2201,9 @@ class dialogSettings(gtk.Window):
 		
 		# Set sensitivities according to toggle buttons in main settings tab.
 		self.callbackRaspiToggle(None, None)
+		
+		# Toggle entry visibility regarding G-Code or Monkeyprint board.
+		self.toggleGCodeEntries()
 		
 		# Create bottom buttons.
 		# Horizontal box for buttons.
@@ -2241,6 +2243,11 @@ class dialogSettings(gtk.Window):
 		self.frameRaspberry.add(self.boxRaspberry)
 		self.boxRaspberry.show()
 		# Add entries.
+		# Use Raspberry Pi?
+		self.labelRaspi = gtk.Label("Where do you want your prints to run from?")
+		self.boxRaspberry.pack_start(self.labelRaspi, expand=True, fill=True, padding=5)
+		self.labelRaspi.set_alignment(xalign=0, yalign=0.5)
+		self.labelRaspi.show()
 		self.radioButtonRaspiOff = gtk.RadioButton(group=None, label="Print from PC")
 		self.radioButtonRaspiOff.connect("toggled", self.callbackRaspiToggle, "standalone")
 		self.radioButtonRaspiOff.set_active(not self.settings['Print from Raspberry Pi?'].value)
@@ -2253,9 +2260,23 @@ class dialogSettings(gtk.Window):
 		self.boxRaspberry.pack_start(self.radioButtonRaspiOn, expand=True, fill=True)
 		self.radioButtonRaspiOn.show()
 		self.tooltips.set_tip(self.radioButtonRaspiOn, "Use this option if you want print jobs to run from a Raspberry Pi. You can remove your PC during prints.")
-		#self.checkboxRaspberry = monkeyprintGuiHelper.toggleButton("Print from Raspberry Pi?", settings=self.settings, customFunctions=self.toggleRaspberrySettings)
-		#self.boxRaspberry.pack_start(self.checkboxRaspberry, expand=True, fill=True)
-		#self.checkboxRaspberry.show()
+		# Use Monkeyprint board?
+		self.labelBoard = gtk.Label("Which board are you using?")
+		self.boxRaspberry.pack_start(self.labelBoard, expand=True, fill=True, padding=5)
+		self.labelBoard.set_alignment(xalign=0, yalign=0.5)
+		self.labelBoard.show()
+		self.radioButtonMonkeyprintBoardOn = gtk.RadioButton(group=None, label="Use Monkeyprint board?")
+		self.radioButtonMonkeyprintBoardOn.connect("toggled", self.callbackBoardToggle, "monkeyprintBoard")
+		self.radioButtonMonkeyprintBoardOn.set_active(self.settings['monkeyprintBoard'].value)
+		self.boxRaspberry.pack_start(self.radioButtonMonkeyprintBoardOn, expand=True, fill=True)
+		self.radioButtonMonkeyprintBoardOn.show()
+		self.tooltips.set_tip(self.radioButtonMonkeyprintBoardOn, "Use this option if you want to use the Monkeyprint board for controlling your hardware.")
+		self.radioButtonMonkeyprintBoardOff = gtk.RadioButton(group=self.radioButtonMonkeyprintBoardOn, label="Use G-Code based board?")
+		self.radioButtonMonkeyprintBoardOff.set_active(not self.settings['monkeyprintBoard'].value)
+		self.radioButtonMonkeyprintBoardOff.connect("toggled", self.callbackBoardToggle, "raspberry")
+		self.boxRaspberry.pack_start(self.radioButtonMonkeyprintBoardOff, expand=True, fill=True)
+		self.radioButtonMonkeyprintBoardOff.show()
+		self.tooltips.set_tip(self.radioButtonMonkeyprintBoardOff, "Use this option if you want to use a G-Code based board for controlling your hardware.")
 		# Frame for build volume settings.
 		self.frameBuildVolume = gtk.Frame('Build volume')
 		boxMainSettings.pack_start(self.frameBuildVolume, expand=False, fill=False, padding=5)
@@ -2461,6 +2482,7 @@ class dialogSettings(gtk.Window):
 	
 		boxMotionSettings = gtk.VBox()
 		
+		# First, make the frames for Monkeyprint board. **********************
 		# Frame for Tilt stepper.
 		self.frameTiltStepper = gtk.Frame('Tilt stepper')
 		boxMotionSettings.pack_start(self.frameTiltStepper, expand=False, fill=False, padding=5)
@@ -2473,6 +2495,20 @@ class dialogSettings(gtk.Window):
 		self.checkbuttonTilt = monkeyprintGuiHelper.toggleButton(string="Enable tilt", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive])
 		self.boxTilt.pack_start(self.checkbuttonTilt, expand=False, fill=False)
 		self.checkbuttonTilt.show()
+		# Reverse?
+		self.checkbuttonTiltReverse = monkeyprintGuiHelper.toggleButton(string="Reverse tilt", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive], displayString="Reverse tilt direction?")
+		self.boxTilt.pack_start(self.checkbuttonTiltReverse, expand=False, fill=False)
+		self.checkbuttonTiltReverse.show()
+		# G-Code entry.
+		self.entryTiltGCode = monkeyprintGuiHelper.entry('Tilt GCode', self.settings, width=30)
+		self.boxTilt.pack_start(self.entryTiltGCode, expand=False, fill=False)
+		self.entryTiltGCode.show()
+		self.entryTiltGCode.set_sensitive(self.settings['Enable tilt'].value)
+		# G-Code distance.
+		self.entryTiltDistanceGCode = monkeyprintGuiHelper.entry('Tilt distance GCode', self.settings, width=15)
+		self.boxTilt.pack_start(self.entryTiltDistanceGCode, expand=False, fill=False)
+		self.entryTiltDistanceGCode.show()
+		self.entryTiltDistanceGCode.set_sensitive(self.settings['Enable tilt'].value)
 		# Resolution.
 		self.entryTiltStepAngle = monkeyprintGuiHelper.entry('Tilt step angle', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltStepAngle, expand=False, fill=False)
@@ -2491,11 +2527,6 @@ class dialogSettings(gtk.Window):
 		# Set entry sensitivities.
 		self.setTiltSensitive()
 		
-		# Tilt speed.
-#		self.entryTiltSpeed = monkeyprintGuiHelper.entry('Tilt speed', self.settings, width=15)
-#		self.boxTilt.pack_start(self.entryTiltSpeed, expand=False, fill=False)
-#		self.entryTiltSpeed.show()
-		
 		# Frame for build stepper.
 		self.frameBuildStepper = gtk.Frame('Build platform stepper')
 		boxMotionSettings.pack_start(self.frameBuildStepper, expand=False, fill=False, padding=5)
@@ -2504,23 +2535,31 @@ class dialogSettings(gtk.Window):
 		self.frameBuildStepper.add(self.boxBuildStepper)
 		self.boxBuildStepper.show()
 		# Entries.
+		# Reverse?
+		self.checkbuttonBuildReverse = monkeyprintGuiHelper.toggleButton(string="Reverse build", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive], displayString="Reverse build direction?")
+		self.boxBuildStepper.pack_start(self.checkbuttonBuildReverse, expand=False, fill=False)
+		self.checkbuttonBuildReverse.show()
+		# GCode entry.
+		self.entryBuildGCode = monkeyprintGuiHelper.entry('Build platform GCode', self.settings, width=30)
+		self.boxBuildStepper.pack_start(self.entryBuildGCode, expand=False, fill=False)
+		self.entryBuildGCode.show()
 		# Resolution.
-		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build step angle', self.settings, width=15)
-		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
-		self.entryBuildStepsPerMm.show()
+		self.entryBuildStepAngle = monkeyprintGuiHelper.entry('Build step angle', self.settings, width=15)
+		self.boxBuildStepper.pack_start(self.entryBuildStepAngle, expand=False, fill=False)
+		self.entryBuildStepAngle.show()
 		# Resolution.
-		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build microsteps per step', self.settings, width=15)
-		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
-		self.entryBuildStepsPerMm.show()
+		self.entryBuildMicrosteps = monkeyprintGuiHelper.entry('Build microsteps per step', self.settings, width=15)
+		self.boxBuildStepper.pack_start(self.entryBuildMicrosteps, expand=False, fill=False)
+		self.entryBuildMicrosteps.show()
 		# Resolution.
-		self.entryBuildStepsPerMm = monkeyprintGuiHelper.entry('Build mm per turn', self.settings, width=15)
-		self.boxBuildStepper.pack_start(self.entryBuildStepsPerMm, expand=False, fill=False)
-		self.entryBuildStepsPerMm.show()
+		self.entryBuildMmPerTurn = monkeyprintGuiHelper.entry('Build mm per turn', self.settings, width=15)
+		self.boxBuildStepper.pack_start(self.entryBuildMmPerTurn, expand=False, fill=False)
+		self.entryBuildMmPerTurn.show()
 		# Ramp slope.
 		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Build ramp slope', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildRampSlope, expand=False, fill=False)
 		self.entryBuildRampSlope.show()
-		# Tilt speed.
+		# Build speed.
 		self.entryBuildSpeed = monkeyprintGuiHelper.entry('Build platform speed', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildSpeed, expand=False, fill=False)
 		self.entryBuildSpeed.show()
@@ -2534,9 +2573,25 @@ class dialogSettings(gtk.Window):
 		self.boxShutterServo.show()
 		# Entries.
 		# Enable?
-		self.checkbuttonShutter = monkeyprintGuiHelper.toggleButton(string="Enable shutter servo", settings=self.settings, modelCollection=None, customFunctions=[self.setShutterSensitive])
+		self.checkbuttonShutter = monkeyprintGuiHelper.toggleButton(string="Enable shutter servo", settings=self.settings, modelCollection=None, customFunctions=[self.setShutterSensitive], displayString="Enable shutter servo?")
 		self.boxShutterServo.pack_start(self.checkbuttonShutter, expand=False, fill=False)
 		self.checkbuttonShutter.show()
+		# G-Code entry.
+		self.entryShutterOpenGCode = monkeyprintGuiHelper.entry('Shutter open GCode', self.settings, width=30)
+		self.boxShutterServo.pack_start(self.entryShutterOpenGCode, expand=False, fill=False)
+		self.entryShutterOpenGCode.show()
+		# G-Code entry.
+		self.entryShutterCloseGCode = monkeyprintGuiHelper.entry('Shutter close GCode', self.settings, width=30)
+		self.boxShutterServo.pack_start(self.entryShutterCloseGCode, expand=False, fill=False)
+		self.entryShutterCloseGCode.show()
+		# G-Code open position.
+		self.entryShutterPositionOpenGCode = monkeyprintGuiHelper.entry('Shutter position open GCode', self.settings, width=15, displayString='Shutter position open')
+		self.boxShutterServo.pack_start(self.entryShutterPositionOpenGCode, expand=False, fill=False)
+		self.entryShutterPositionOpenGCode.show()
+		# G-Code closed position.
+		self.entryShutterPositionClosedGCode = monkeyprintGuiHelper.entry('Shutter position closed GCode', self.settings, width=15, displayString='Shutter position closed')
+		self.boxShutterServo.pack_start(self.entryShutterPositionClosedGCode, expand=False, fill=False)
+		self.entryShutterPositionClosedGCode.show()
 		# Open position.
 		self.entryShutterPositionOpen = monkeyprintGuiHelper.entry('Shutter position open', self.settings, width=15)
 		self.boxShutterServo.pack_start(self.entryShutterPositionOpen, expand=False, fill=False)
@@ -2548,8 +2603,54 @@ class dialogSettings(gtk.Window):
 		# Set sensitivities.
 		self.setShutterSensitive()
 		
+		
 		boxMotionSettings.show()
 		return boxMotionSettings
+	
+	
+	def toggleGCodeEntries(self):
+		# If G-Code is used:
+		if not self.settings['monkeyprintBoard'].value:
+			# Hide monkeyprint entries.
+			self.entryTiltAngle.hide()
+			self.entryTiltMicrostepping.hide()
+			self.entryTiltStepAngle.hide()
+			self.entryBuildSpeed.hide()
+			self.entryBuildMmPerTurn.hide()
+			self.entryBuildMicrosteps.hide()
+			self.entryBuildRampSlope.hide()
+			self.entryBuildStepAngle.hide()
+			self.entryShutterPositionClosed.hide()
+			self.entryShutterPositionOpen.hide()
+			# Show GCode entries.
+			self.entryTiltGCode.show()
+			self.entryTiltDistanceGCode.show()
+			self.entryBuildGCode.show()
+			self.entryShutterPositionOpenGCode.show()
+			self.entryShutterPositionClosedGCode.show()
+			self.entryShutterCloseGCode.show()
+			self.entryShutterOpenGCode.show()
+		# If Monkeyprint board is used:
+		else:
+			# Show monkeyprint entries.
+			self.entryTiltAngle.show()
+			self.entryTiltMicrostepping.show()
+			self.entryTiltStepAngle.show()
+			self.entryBuildSpeed.show()
+			self.entryBuildMmPerTurn.show()
+			self.entryBuildMicrosteps.show()
+			self.entryBuildRampSlope.show()
+			self.entryBuildStepAngle.show()
+			self.entryShutterPositionClosed.show()
+			self.entryShutterPositionOpen.show()
+			# Hide GCode entries.
+			self.entryTiltGCode.hide()
+			self.entryTiltDistanceGCode.hide()
+			self.entryBuildGCode.hide()
+			self.entryShutterPositionOpenGCode.hide()
+			self.entryShutterPositionClosedGCode.hide()
+			self.entryShutterCloseGCode.hide()
+			self.entryShutterOpenGCode.hide()
 		
 	def callbackRaspiToggle(self, widget, data=None):
 		self.settings['Print from Raspberry Pi?'].value = self.radioButtonRaspiOn.get_active()
@@ -2565,6 +2666,23 @@ class dialogSettings(gtk.Window):
 				self.boxSerialUsb.set_sensitive(True)
 				self.boxSerialPi.set_sensitive(False)
 				self.boxNetworkPi.set_sensitive(False)
+			except AttributeError:
+				pass
+	
+	def callbackBoardToggle(self, widget, data=None):
+		self.settings['monkeyprintBoard'].value = self.radioButtonMonkeyprintBoardOn.get_active()
+		if self.settings['monkeyprintBoard'].value == True:
+			try:
+				print "Using Monkeyprint board."
+				self.toggleGCodeEntries()
+				#TODO: make motion tab change to monkeyprint controls.
+			except AttributeError:
+				pass
+		else:
+			try:
+				self.toggleGCodeEntries()
+				print "Using G-Code based board."
+				#TODO: make motion tab change to GCode controls.
 			except AttributeError:
 				pass
 		
@@ -2623,13 +2741,20 @@ class dialogSettings(gtk.Window):
 
 	# Tilt enable function.
 	def setTiltSensitive(self):
+		self.checkbuttonTiltReverse.set_sensitive(self.settings['Enable tilt'].value)
 		self.entryTiltStepAngle.set_sensitive(self.settings['Enable tilt'].value)
 		self.entryTiltMicrostepping.set_sensitive(self.settings['Enable tilt'].value)
 		self.entryTiltAngle.set_sensitive(self.settings['Enable tilt'].value)
+		self.entryTiltGCode.set_sensitive(self.settings['Enable tilt'].value)
+		self.entryTiltDistanceGCode.set_sensitive(self.settings['Enable tilt'].value)
 	
 	def setShutterSensitive(self):
 		self.entryShutterPositionOpen.set_sensitive(self.settings['Enable shutter servo'].value)
 		self.entryShutterPositionClosed.set_sensitive(self.settings['Enable shutter servo'].value)
+		self.entryShutterPositionOpenGCode.set_sensitive(self.settings['Enable shutter servo'].value)
+		self.entryShutterPositionClosedGCode.set_sensitive(self.settings['Enable shutter servo'].value)
+		self.entryShutterCloseGCode.set_sensitive(self.settings['Enable shutter servo'].value)
+		self.entryShutterOpenGCode.set_sensitive(self.settings['Enable shutter servo'].value)
 
 	
 	# Serial connect function.
