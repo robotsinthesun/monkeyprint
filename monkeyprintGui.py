@@ -2556,13 +2556,13 @@ class dialogSettings(gtk.Window):
 		self.boxBuildStepper.pack_start(self.entryBuildMmPerTurn, expand=False, fill=False)
 		self.entryBuildMmPerTurn.show()
 		# Ramp slope.
-		self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Build ramp slope', self.settings, width=15)
-		self.boxBuildStepper.pack_start(self.entryBuildRampSlope, expand=False, fill=False)
-		self.entryBuildRampSlope.show()
+		#self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Build ramp slope', self.settings, width=15)
+		#self.boxBuildStepper.pack_start(self.entryBuildRampSlope, expand=False, fill=False)
+		#self.entryBuildRampSlope.show()
 		# Build speed.
-		self.entryBuildSpeed = monkeyprintGuiHelper.entry('Build platform speed', self.settings, width=15)
-		self.boxBuildStepper.pack_start(self.entryBuildSpeed, expand=False, fill=False)
-		self.entryBuildSpeed.show()
+		#self.entryBuildSpeed = monkeyprintGuiHelper.entry('Build platform speed', self.settings, width=15)
+		#self.boxBuildStepper.pack_start(self.entryBuildSpeed, expand=False, fill=False)
+		#self.entryBuildSpeed.show()
 		
 		# Frame for shutter servo.
 		self.frameShutterServo = gtk.Frame('Shutter servo')
