@@ -9,6 +9,7 @@
 
 
 char inputString[30];
+char inputStringUart[30];
 char* firstString;
 char* secondString;
 int16_t stringValue;
@@ -29,26 +30,42 @@ void processCommandInput( void )
 	// Receive a string from USB virtual serial.
 	// This will write the received string to the input variable "inputString".
 	receiveStringUSB(inputString, 30);
-	
 
 	// Receive a string from UART serial.
 	// This will write the received string to the input variable "inputString".
 	// Do this only in case inputString is empty.
-	if (strlen(inputString)<1)
+	if (strlen(inputString)>0)
 	{
-		receiveStringUART(inputString, 30);
+		uartFlag = 0;
+		parseCommand();
+		
 		//sendStringUART(inputString);
 		//uint8_t stringLength = strlen(inputString);
 		//sendByteAsStringUSB(stringLength);
-		uartFlag = 1;
+		//uartFlag = 0;
 	}
-	else
+	
+	receiveStringUART(inputString, 30);
+	if (strlen(inputString)>0)
+	{
+		uartFlag = 1;
+		parseCommand();
+		
+		//sendStringUART(inputString);
+		//uint8_t stringLength = strlen(inputString);
+		//sendByteAsStringUSB(stringLength);
+		//uartFlag = 1;
+	}
+	/*else
 	{
 		uartFlag = 0;
 		//sendStringUART(strlen(inputString));
 	}
+	*/
+}
 
-
+void parseCommand(void)
+{
 	// Look for commands. ******************************************
 	// strcmp returns and int wich is:
 	//	0 in case of match
@@ -73,6 +90,7 @@ void processCommandInput( void )
 		_delay_ms(10);
 		if (!uartFlag)	sendStringUSB("tilt\n");	// Important: don't forget newline character.
 		else	sendStringUART("tilt\n");
+		sendByteAsStringUSB(uartFlag);
 	}
 	else if (!(strcmp(inputString, "buildHome")))
 	{
@@ -287,4 +305,10 @@ void processCommandInput( void )
 			else	sendStringUART("shttrClsPs\n");
 		}
 	}
+}
+
+
+uint8_t getUartFlag(void)
+{
+	return uartFlag;
 }

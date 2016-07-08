@@ -177,7 +177,7 @@ int main(void)
 			if(printerReady())
 			{
 				_delay_ms(100);
-				if (!uartFlag) sendStringUSB("done\n");	// Important: don't forget newline character.
+				if (!(getUartFlag())) sendStringUSB("done\n");	// Important: don't forget newline character.
 				else	sendStringUART("done\n");
 			}
 
