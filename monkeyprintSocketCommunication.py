@@ -58,6 +58,8 @@ class communicationSocket:
 			
 			# Extract message type and message data.
 			messageType, message = msg
+			
+			print "Received: " + messageType + ", " + message
 
 			# If message is status info...
 			if messageType == "command":

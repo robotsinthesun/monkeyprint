@@ -349,7 +349,8 @@ class monkeyprintPiServer:
 			command, parameter = message.split(":")
 			if command == "start":
 				if self.printFlag:
-					pass
+					self.socket.sendMulti("error", "Printer busy.")
+					#pass
 					# TODO: Send error message.
 					#zmq_socket.send_multipart(["error", "Print running already."])
 				else:

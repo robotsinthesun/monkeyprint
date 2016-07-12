@@ -429,7 +429,7 @@ class printProcess(threading.Thread):
 			self.slice+=1
 		
 		#self.queueStatus.put("Stopping print.")
-		self.queueStatus.put("preparing:stopping:")
+		self.queueStatus.put("stopping::")
 		self.queueConsole.put("Stopping print.")
 		print "Stopping print."
 		
@@ -471,7 +471,7 @@ class printProcess(threading.Thread):
 
 		
 		#self.queueStatus.put("Print stopped after " + str(self.slice) + " slices.")
-		self.queueStatus.put("stopped:slice:"+ str(self.slice))
+		self.queueStatus.put("stopped:slice:"+ str(self.slice-1))
 		print "Print stopped after " + str(self.slice) + " slices."
 		
 		time.sleep(3)

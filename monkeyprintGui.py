@@ -457,6 +457,7 @@ class gui(gtk.Window):
 				# If not, update the GUI.
 				else:
 					self.processStatusMessage(message)
+					print message
 		
 		# Poll the command queue.
 		# Only do this when running on Raspberry Pi.
@@ -508,7 +509,7 @@ class gui(gtk.Window):
 		# Split the string.
 		status, param, value = message.split(":")
 		# Check the status and retreive other data.
-		printingFlag = True
+		printFlag = True
 		if status == "slicing":
 			if param == "nSlices":
 				# Set number of slices for status bar.
@@ -547,8 +548,13 @@ class gui(gtk.Window):
 			else:
 				self.progressBar.setText("Print stopped.")
 		elif status == "idle":
-			printingFlag = False
+			if param == "slice":
+				self.progressBar.updateValue(int(value))
+			printFlag = False
 			self.progressBar.setText("Idle.")
+		
+		self.printFlag = printFlag
+				
 
 	
 	
@@ -2615,10 +2621,10 @@ class dialogSettings(gtk.Window):
 			self.entryTiltAngle.hide()
 			self.entryTiltMicrostepping.hide()
 			self.entryTiltStepAngle.hide()
-			self.entryBuildSpeed.hide()
+			#self.entryBuildSpeed.hide()
 			self.entryBuildMmPerTurn.hide()
 			self.entryBuildMicrosteps.hide()
-			self.entryBuildRampSlope.hide()
+			#self.entryBuildRampSlope.hide()
 			self.entryBuildStepAngle.hide()
 			self.entryShutterPositionClosed.hide()
 			self.entryShutterPositionOpen.hide()
@@ -2636,10 +2642,10 @@ class dialogSettings(gtk.Window):
 			self.entryTiltAngle.show()
 			self.entryTiltMicrostepping.show()
 			self.entryTiltStepAngle.show()
-			self.entryBuildSpeed.show()
+			#self.entryBuildSpeed.show()
 			self.entryBuildMmPerTurn.show()
 			self.entryBuildMicrosteps.show()
-			self.entryBuildRampSlope.show()
+			#self.entryBuildRampSlope.show()
 			self.entryBuildStepAngle.show()
 			self.entryShutterPositionClosed.show()
 			self.entryShutterPositionOpen.show()
