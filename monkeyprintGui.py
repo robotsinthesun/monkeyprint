@@ -547,6 +547,8 @@ class gui(gtk.Window):
 				self.progressBar.setText("Print stopped after " + value + " slices.")
 			else:
 				self.progressBar.setText("Print stopped.")
+			# Reset stop button to insensitive.
+			self.buttonPrintStop.set_sensitive(False)
 		elif status == "idle":
 			if param == "slice":
 				self.progressBar.updateValue(int(value))
@@ -1360,9 +1362,6 @@ class gui(gtk.Window):
 			# Start the print.
 			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSliceOut, self.queueSliceIn, self.queueStatus, self.queueConsole)
 			self.printProcess.start()
-			# Set button sensitivities.
-			self.buttonPrintStart.set_sensitive(False)
-			self.buttonPrintStop.set_sensitive(True)
 		# If starting print process on Raspberry Pi...
 		elif self.programSettings['Print from Raspberry Pi?'].value:
 			print "Starting print from Raspberry Pi."
@@ -1375,6 +1374,9 @@ class gui(gtk.Window):
 			#command = "print"
 			self.socket.sendMulti("command", "start:" + path)
 			print "Commands sent."
+		# Set button sensitivities.
+		self.buttonPrintStart.set_sensitive(False)
+		self.buttonPrintStop.set_sensitive(True)
 
 			
 

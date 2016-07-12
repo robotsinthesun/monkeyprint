@@ -50,6 +50,7 @@ class communicationSocket:
 
 	# Register this as a gobject IO watch that fires on changes of the file descriptor.
 	def callbackIOActivity(self, fd, condition, socket):
+		print "foo"
 		# Keep running as long as something waits in the socket.
 		while self.socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
 
