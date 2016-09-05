@@ -194,11 +194,15 @@ class programSettings(dict):
 		self['Build platform GCode'] = setting(value='G1 Z{$layerHeight*$buildDir} F10', default='G1 Z{$layerHeight*$buildDir} F10')
 		self['Shutter open GCode'] = setting(value='M280 P0 S{$shutterPosOpen}', default='M280 P0 S{$shutterPosOpen}')
 		self['Shutter close GCode'] = setting(value='M280 P0 S{$shutterPosClosed}', default='M280 P0 S{$shutterPosClosed}')
-		self['Start commands GCode'] = setting(value='G21\nG91\nM17\n', default='G21\nG91\nM17\n')
-		self['End commands GCode'] = setting(value='M18\n', default='M18\n')
-		self['Home GCode'] = setting(value='G28\n', default='G28\n')
-		self['Top GCode'] = setting(value='G28 Z0\n', default='G28 Z0\n')
-		
+		self['Start commands GCode'] = setting(value='G21 G91 M17', default='G21 G91 M17')
+		self['End commands GCode'] = setting(value='M18', default='M18')
+		self['Home GCode'] = setting(value='G28', default='G28')
+		self['Top GCode'] = setting(value='G28 Z0', default='G28 Z0')
+		# Modules for print process. Values are: Display name, internal name, editable, unit, value.
+		self['PrintModulesMonkeyprint'] = setting(value='Wait,wait,,,True;Build platform layer up,buildUp,,,False;Build platform to home,buildHome,,,False;Build platform to top,buildTop,,,False;Tilt,tilt,,,False;Shutter open,shutterOpen,,,False;Shutter close,shutterClose,,,False;Expose,expose,,,False;Projector on,projectorOn,,,False;Projector off,projectorOff,,,False;Start loop,startLoop,,,False;End loop,endLoop,,,False')
+		self['PrintModulesGCode'] = setting(value='Wait,wait,,,True;Build platform layer up,buildUp,,,False;Build platform to home,buildHome,,,False;Build platform to top,buildTop,,,False;Tilt down,tiltDown,,,False;Tilt up,tiltUp,,,False;Shutter open,shutterOpen,,,False;Shutter close,shutterClose,,,False;Expose,expose,,,False;Projector on,projectorOn,,,False;Projector off,projectorOff,,,False;Start loop,startLoop,,,False;End loop,endLoop,,,False;Custom G-Code,gCode,,,True')		
+		self['PrintProcessMonkeyprint'] = setting(value='Projector on,projectorOn,,,False;Build platform to home,buildHome,,,False;Start loop,startLoop,,,False;Shutter open,shutterOpen,,,False;Expose,expose,,,False;Shutter close,shutterClose,,,False;Tilt,tilt,,,False;Wait,wait,[s],1.0,True;End loop,endLoop,,,False;Build platform to top,buildTop,,,False')
+		self['PrintProcessGCode'] = setting(value='Projector on,projectorOn,,,False;Build platform to home,buildHome,,,False;Start loop,startLoop,,,False;Shutter open,shutterOpen,,,False;Expose,expose,,,False;Shutter close,shutterClose,,,False;Tilt,tilt,,,False;Wait,wait,[s],1.0,True;End loop,endLoop,,,False;Build platform to top,buildTop,,,False')
 		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
 
 	# Load default settings.
@@ -245,3 +249,68 @@ class programSettings(dict):
 		except IOError:
 			if self.console != None:
 				self.console.addLine("No settings file found. Using defaults.")
+	'''
+	def addGCodeSetting(self, settingKey, settingValue):
+		# Add to settings list.
+		self[settingKey] = setting(value=settingValue)
+		# Add to modules list. --> Do this in list module and overwrite module list setting!
+	
+	
+	def removeGCodeSetting(self, settingKey):
+		pass
+	'''	
+	
+	def getModuleList(self):
+		if self['monkeyprintBoard'].value == True:
+			moduleList = self['PrintModulesMonkeyprint'].value.split(';')
+			for i in range(len(moduleList)):
+				moduleList[i] = moduleList[i].split(',')
+				moduleList[i][-1] = eval(moduleList[i][-1])
+			return moduleList
+		else:
+			moduleList = self['PrintModulesGCode'].value.split(';')
+			for i in range(len(moduleList)):
+				moduleList[i] = moduleList[i].split(',')
+				moduleList[i][-1] = eval(moduleList[i][-1])
+			return moduleList
+	
+	def setModuleList(self, moduleList):
+		settingString = ''
+		for row in range(len(moduleList)):
+			settingString += str(moduleList[row])
+			if row < len(moduleList)-1:
+				settingString += ';'
+		if self['monkeyprintBoard'].value == True:		
+			self['PrintModulesMonkeyprint'].value = moduleList
+		else:
+			self['PrintModulesGCode'].value = settingString
+	
+	def getPrintProcessList(self):
+		if self['monkeyprintBoard'].value == True:
+			printProcessList = self['PrintProcessMonkeyprint'].value.split(';')
+			for i in range(len(printProcessList)):
+				printProcessList[i] = printProcessList[i].split(',')
+				printProcessList[i][-1] = eval(printProcessList[i][-1])
+			return printProcessList
+		else:
+			printProcessList = self['PrintProcessGCode'].value.split(';')
+			for i in range(len(printProcessList)):
+				printProcessList[i] = printProcessList[i].split(',')
+				printProcessList[i][-1] = eval(printProcessList[i][-1])
+			return printProcessList
+
+
+	def setPrintProcessList(self, moduleList):
+		settingString = ''
+		for row in range(len(moduleList)):
+			for item in range(len(moduleList[row])):
+				print moduleList[row][item]
+				settingString += str(moduleList[row][item])
+				if item < len(moduleList[row])-1:
+					settingString += ','
+			if row < len(moduleList)-1:
+				settingString += ';'
+		if self['monkeyprintBoard'].value == True:		
+			self['PrintProcessMonkeyprint'].value = settingString
+		else:
+			self['PrintProcessGCode'].value = moduleList
