@@ -1,6 +1,6 @@
 # -*- coding: latin-1 -*-
-
-#	Copyright (c) 2015 Paul Bomke
+#
+#	Copyright (c) 2015-2016 Paul Bomke
 #	Distributed under the GNU GPL v2.
 #
 #	This file is part of monkeyprint.
@@ -20,7 +20,7 @@
 
 
 class setting:
-	def __init__(self, value, lower=None, upper=None, unit='', default=None, valType=None):
+	def __init__(self, value, lower=None, upper=None, unit='', default=None, valType=None, name=None):
 		self.value = value
 		self.upper = upper
 		self.lower = lower
@@ -29,6 +29,8 @@ class setting:
 		else:
 			self.unit = unit
 		self.default = default
+		self.name = name
+
 
 	# Set value and control bounds.
 	def setValue(self, inVal):
@@ -71,29 +73,29 @@ class modelSettings(dict):
 		dict.__init__(self)
 		# Create objects for all the settings and put them into dictionary.
 		self['filename'] = setting(value="")
-		self['Active'] = setting(value=True)
-		self['Scaling'] = setting(value=1)
-		self['Rotation X'] = setting(value=0,	lower=0,	upper=359,	unit='°')
-		self['Rotation Y'] = setting(value=0,	lower=0,	upper=359,	unit='°')
-		self['Rotation Z'] = setting(value=0,	lower=0,	upper=359,	unit='°')
-		self['Position X'] = setting(value=50,	lower=0,	upper=100,	unit='%')
-		self['Position Y'] = setting(value=50,	lower=0,	upper=100,	unit='%')
-		self['Bottom plate thickness'] = setting(value=0.5,	lower=0.1,	upper=1.0,	unit='mm')
-		self['Bottom clearance'] = setting(value=5,	lower=self['Bottom plate thickness'].lower, unit='mm')
+		self['active'] = setting(value=True)
+		self['scaling'] = setting(value=1, name='Scaling')
+		self['rotationX'] = setting(value=0,	lower=0,	upper=359,	unit='°',		name='Rotation X')
+		self['rotationY'] = setting(value=0,	lower=0,	upper=359,	unit='°',		name='Rotation Y')
+		self['rotationZ'] = setting(value=0,	lower=0,	upper=359,	unit='°',		name='Rotation Z')
+		self['positionX'] = setting(value=50,	lower=0,	upper=100,	unit='%',		name='Position X')
+		self['positionY'] = setting(value=50,	lower=0,	upper=100,	unit='%',		name='Position Y')
+		self['bottomPlateThickness'] = setting(value=0.5,	lower=0.1,	upper=1.0,	unit='mm',		name='Bottom plate thickness')
+		self['bottomClearance'] = setting(value=5,	lower=self['bottomPlateThickness'].lower, unit='mm',		name='Bottom clearance')
 		# bottomClearanceMax must be set by model position, rotation and size
-		self['Overhang angle'] = setting(value=45,	lower=5,	upper=80,	unit='°')
-		self['Spacing X'] = setting(value=5,	lower=0,	upper=10,	unit='mm')
-		self['Spacing Y'] = setting(value=5,	lower=0,	upper=10,	unit='mm')
-		self['Maximum height'] = setting(value=20,	lower=1,	upper=1000,	unit='mm')
-		self['Base diameter'] = setting(value=1.5,	lower=0.3,	upper=5.0,	unit='mm')
-		self['Tip diameter'] = setting(value=0.5,	lower=0.1,	upper=0.5,	unit='mm')
-		self['Cone height'] = setting(value=2.5,	lower=1.0,	upper=10.0,	unit='mm')
-		self['Bottom plate thickness'] = setting(value=0.5,	lower=0.1,	upper=1.0,	unit='mm')
-		self['Print hollow'] = setting(value=True)
-		self['Fill'] = setting(value=True)
-		self['Shell wall thickness'] = setting(value=2.0, lower=0.5, upper=10.0, unit='mm')
-		self['Fill spacing'] = setting(value=3.0, lower=1.0, upper=10.0, unit='mm')
-		self['Fill wall thickness'] = setting(value=0.3, lower=0.1, upper=0.4)
+		self['overhangAngle'] = setting(value=45,	lower=5,	upper=80,	unit='°',		name='Overhang angle')
+		self['spacingX'] = setting(value=5,	lower=0,	upper=10,	unit='mm',		name='Spacing X')
+		self['spacingY'] = setting(value=5,	lower=0,	upper=10,	unit='mm',		name='Spacing Y')
+		self['maximumHeight'] = setting(value=20,	lower=1,	upper=1000,	unit='mm',		name='Maximum height')
+		self['baseDiameter'] = setting(value=1.5,	lower=0.3,	upper=5.0,	unit='mm',		name='Base diameter')
+		self['tipDiameter'] = setting(value=0.5,	lower=0.1,	upper=0.5,	unit='mm',		name='Tip diameter')
+		self['coneHeight'] = setting(value=2.5,	lower=1.0,	upper=10.0,	unit='mm',		name='Cone height')
+	#	self['bottomPlateThickness'] = setting(value=0.5,	lower=0.1,	upper=1.0,	unit='mm',		name='Bottom plate thickness')
+		self['printHollow'] = setting(value=True,		name='Print hollow')
+		self['fill'] = setting(value=True,		name='Use fill')
+		self['fillShellWallThickness'] = setting(value=2.0, lower=0.5, upper=10.0, unit='mm',		name='Shell thickness')
+		self['fillSpacing'] = setting(value=3.0, lower=1.0, upper=10.0, unit='mm',		name='Fill spacing')
+		self['fillPatternWallThickness'] = setting(value=0.3, lower=0.1, upper=0.4,		name='Fill thickness')
 
 class jobSettings(dict):
 	# Override init function.
@@ -104,11 +106,11 @@ class jobSettings(dict):
 		self.console = console
 		# Create objects for all the settings and put them into dictionary.
 		# Load defaults from program settings to get settings saved from last session.
-		self['Layer height'] = setting(value=0.1, lower=.01, upper=0.3, unit='mm')
+		self['layerHeight'] = setting(value=0.1, lower=.01, upper=0.3, unit='mm')
 		self['projectPath'] = programSettings['currentFolder']#setting(value="")		
-		self['Exposure time base'] = programSettings['Exposure time base']#setting(value=14.0, lower=1.0, upper=15.0)
-		self['Exposure time'] = programSettings['Exposure time']#setting(value=9.0, lower=1.0, upper=15.0)
-		self['Resin settle time'] = programSettings['Resin settle time']#setting(value=1.0, lower=0.1, upper=3.0)
+		self['exposureTimeBase'] = programSettings['exposureTimeBase']#setting(value=14.0, lower=1.0, upper=15.0)
+		self['exposureTime'] = programSettings['exposureTime']#setting(value=9.0, lower=1.0, upper=15.0)
+	#	self['Resin settle time'] = programSettings['Resin settle time']#setting(value=1.0, lower=0.1, upper=3.0)
 		
 		
 class programSettings(dict):	
@@ -121,88 +123,101 @@ class programSettings(dict):
 		# Create objects for all the settings and put them into dictionary.
 		self['currentFolder'] = setting(value='./models')
 		self['versionMajor'] = setting(value=0)
-		self['versionMinor'] = setting(value=10)	
-		self['revision'] = setting(value=3)
-		self['Projector size X'] = setting(value=1024, default=1024)
-		self['Projector size Y'] = setting(value=768, default=768)
-		self['Projector position X'] = setting(value=1920, default=1920)
-		self['Projector position Y'] = setting(value=0, default=0)
-		self['Build size X'] = setting(value=102.4, default=102.4, unit='mm')
-		self['Build size Y'] = setting(value=76.8, default=76.8, unit='mm')
-		self['Build size Z'] = setting(value=150.0, default=150.0, unit='mm')
-		self['projectorSizeXY'] = setting(value=[1024,768])
-		self['projectorPositionXY'] = setting(value=[1280,0])
-		self['buildSizeXYZ'] = setting(value=[102.4,76.8,150.0])
-		self['pxPerMm'] =  setting(value=self['projectorSizeXY'].value[0] / self['buildSizeXYZ'].value[0])
-		self['MCU'] = setting(value='atmega32u4', default='atmega32u4')
-		self['Programmer'] = setting(value='avr109', default='avr109')
-		self['Port'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0')
-		self['Baud rate'] = setting(value='57600', default=57600)
-		self['Options'] = setting(value='-D -V', default='-D -V')
-		self['Firmware path'] = setting(value='./firmware/main.hex', default='./firmware/main.hex')
-		self['avrdudeSettings'] = setting(value=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'])
-		self['avrdudeSettingsDefault'] = setting(value=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'])
-		self['Port RasPi'] = setting(value='/dev/ttyAMA0', default='/dev/ttyAMA0')
-		self['Baud rate RasPi'] = setting(value='9600', default='9600')
-		self['IP address RasPi'] = setting(value='192.168.2.111', default='192.168.2.111')
-		self['Network port RasPi'] = setting(value='5553', default='5553')
-		self['File transmission port RasPi'] = setting(value='6000', default='6000')
-		self['SSH user name'] = setting(value='pi', default='pi')
-		self['SSH password'] = setting(value='raspberry', default='raspberry')
-		self['Projector port'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0')
-		self['Projector baud rate'] = setting(value='9600', default='9600')
-		self['Projector control'] = setting(value=False, default=False)
-		self['Projector ON command'] = setting(value='* 0 IR 001', default='* 0 IR 001')
-		self['Projector OFF command'] = setting(value='* 0 IR 002', default='* 0 IR 002')
-		self['Tilt step angle'] = setting(value=1.8, default=1.8, upper=3.6, lower=0.9, unit="°")
-		self['Tilt microsteps per step'] = setting(value=4, default=4, lower=1, upper=32)
-		self['Tilt angle'] = setting(value='130', default='130')
-		self['Tilt distance GCode'] = setting(value='10', default='10', unit='mm')
-		self['Tilt speed'] = setting(value='10', default='10')
-		self['Tilt speed slow'] = setting(value='4', default='4')
-		self['Enable tilt'] = setting(value=True, default=True)
-		self['Reverse tilt'] = setting(value=False, default=False)
-		self['Build step angle'] = setting(value=1.8, default=1.8, unit="°")
-		self['Build microsteps per step'] = setting(value=16, default=16, lower=1, upper=32)
-		self['Build mm per turn'] = setting(value=1.0, default=1.0, unit="mm")
-		self['Build minimum move'] = setting(value=0.01, default=0.01, unit="mm")
-		self['Build ramp slope'] = setting(value=15, default=15)
-		self['Build platform speed'] = setting(value='10', default='10', unit='mm/s')
-		self['Reverse build'] = setting(value=False, default=False)
-		self['Show fill'] = setting(value=True)
-		self['Layer height'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm')
-		self['Model safety distance'] = setting(value=1.0, unit='mm')
-		self['Debug'] = setting(value=False)
-		self['Exposure time base'] = setting(value=14.0, lower=1.0, upper=15.0)
-		self['Exposure time'] = setting(value=9.0, lower=1.0, upper=15.0)
-		self['Resin settle time'] = setting(value=1.0, lower=0.0, upper=5.0)
+		self['versionMinor'] = setting(value=11)	
+		self['revision'] = setting(value=0)
+		self['projectorSizeX'] = setting(value=1024, default=1024,		name='Projector size X')
+		self['projectorSizeY'] = setting(value=768, default=768,		name='Projector size Y')
+		self['projectorPositionX'] = setting(value=1920, default=1920,		name='Projector position X')
+		self['projectorPositionY'] = setting(value=0, default=0,		name='Projector position Y')
+		self['buildSizeX'] = setting(value=102.4, default=102.4, unit='mm',		name='Build size X')
+		self['buildSizeY'] = setting(value=76.8, default=76.8, unit='mm',		name='Build size Y')
+		self['buildSizeZ'] = setting(value=150.0, default=150.0, unit='mm',		name='Build size Z')
+#		self['projectorSizeXY'] = setting(value=[1024,768])
+#		self['projectorPositionXY'] = setting(value=[1280,0])
+#		self['buildSizeXYZ'] = setting(value=[102.4,76.8,150.0])
+
+		self['pxPerMm'] =  setting(value=self['projectorSizeX'].value / self['buildSizeX'].value)
+
+		self['port'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0',		name='Port')
+		self['baudrate'] = setting(value='57600', default=57600,		name='Baud rate')
+		self['baudrateGCode'] = setting(value='115200', default=115200,		name='Baud rate')
+		
+		self['avrdudeMcu'] = setting(value='atmega32u4', default='atmega32u4',		name='MCU')
+		self['avrdudeMcuGCode'] = setting(value='atmega2560', default='atmega2560',		name='MCU')
+		self['avrdudeProgrammer'] = setting(value='avr109', default='avr109',		name='Programmer')
+		self['avrdudeProgrammerGCode'] = setting(value='stk500v2', default='stk500v2',		name='Programmer')
+		self['avrdudePort'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0',		name='Port')
+		self['avrdudePortGCode'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0',		name='Port')
+		self['avrdudeBaudrate'] = setting(value='57600', default=57600,		name='Baud rate')
+		self['avrdudeBaudrateGCode'] = setting(value='115200', default=115200,		name='Baud rate')
+		self['avrdudeOptions'] = setting(value='-D -V', default='-D -V',		name='Options')
+		self['avrdudeOptionsGCode'] = setting(value='-D -V', default='-D -V',		name='Options')
+		self['avrdudeFirmwarePath'] = setting(value='./firmware/main.hex', default='./firmware/main.hex',		name='Firmware path')
+		self['avrdudeFirmwarePathGCode'] = setting(value='./firmware/marlin/marlinForMonkeyprint.hex', default='./firmware/marlin/marlinForMonkeyprint.hex',		name='Firmware path')
+	#	self['avrdudeSettings'] = setting(value=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'], default=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'])
+	#	self['avrdudeSettingsGCode'] = setting(value=['atmega2560', 'stk500v2', '/dev/ttyACM0', '115200', '-D -V -U', './firmware/marlin/marlinForMonkeyprint.hex'])
+	#	self['avrdudeSettingsDefault'] = setting(value=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'])
+		self['portRaspi'] = setting(value='/dev/ttyAMA0', default='/dev/ttyAMA0',		name='Port')
+		self['baudrateRaspi'] = setting(value='9600', default='9600',		name='Baud rate')
+		self['ipAddressRaspi'] = setting(value='192.168.2.111', default='192.168.2.111',		name='IP address')
+		self['networkPortRaspi'] = setting(value='5553', default='5553',		name='Control port')
+		self['fileTransmissionPortRaspi'] = setting(value='6000', default='6000',		name='File transmission port')
+	#	self['SSH user name'] = setting(value='pi', default='pi')
+	#	self['SSH password'] = setting(value='raspberry', default='raspberry')
+		self['projectorPort'] = setting(value='/dev/ttyUSB0', default='/dev/ttyUSB0',		name='Port')
+		self['projectorBaudrate'] = setting(value='9600', default='9600',		name='Baud rate')
+		self['projectorControl'] = setting(value=False, default=False,		name='Projector control')
+		self['projectorOnCommand'] = setting(value='* 0 IR 001', default='* 0 IR 001',		name='Projector ON command')
+		self['projectorOffCommand'] = setting(value='* 0 IR 002', default='* 0 IR 002',		name='Projector OFF command')
+		self['tiltStepAngle'] = setting(value=1.8, default=1.8, upper=3.6, lower=0.9, unit="°",		name='Step angle')
+		self['tiltMicroStepsPerStep'] = setting(value=4, default=4, lower=1, upper=32,		name='Micro steps per step')
+		self['tiltAngle'] = setting(value='130', default='130',		name='Angle')
+#		self['Tilt distance GCode'] = setting(value='10', default='10', unit='mm')
+		self['tiltSpeed'] = setting(value='10', default='10',		name='Speed')
+		self['tiltSpeedSlow'] = setting(value='4', default='4',		name='Speed slow')
+		self['tiltEnable'] = setting(value=True, default=True,		name='Enable')
+		self['tiltReverse'] = setting(value=False, default=False,		name='Reverse tilt direction')
+		self['buildStepAngle'] = setting(value=1.8, default=1.8, unit="°",		name='Step angle')
+		self['buildMicroStepsPerStep'] = setting(value=16, default=16, lower=1, upper=32,		name='Micro steps per step')
+		self['buildMmPerTurn'] = setting(value=1.0, default=1.0, unit="mm",		name='Distance per turn')
+		self['buildMinimumMove'] = setting(value=0.01, default=0.01, unit="mm",		name='Minimum move')
+		self['buildRampSlope'] = setting(value=15, default=15,		name='Ramp slope')
+		self['buildPlatformSpeed'] = setting(value='10', default='10', unit='mm/s',		name='Speed')
+		self['reverseBuild'] = setting(value=False, default=False,		name='Reverse build direction')
+		self['showFill'] = setting(value=True,		name='Show fill')
+		self['layerHeight'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm',		name='MCU')
+		self['modelSafetyDistance'] = setting(value=1.0, unit='mm')
+		self['debug'] = setting(value=False,		name='Debug')
+		self['exposureTimeBase'] = setting(value=14.0, lower=0.1, upper=15.0)
+		self['exposureTime'] = setting(value=9.0, lower=0.1, upper=15.0)
+#		self['Resin settle time'] = setting(value=1.0, lower=0.0, upper=5.0)
 		self['camTriggerWithExposure'] = setting(value=False, default=False)
 		self['camTriggerAfterExposure'] = setting(value=False, default=False)
 		self['calibrationImagePath'] = setting(value="./calibrationImage", default="./calibrationImage")
 		self['calibrationImage'] = setting(value=False, default=False)
 		self['showVtkErrors'] = setting(value=False, default=False)
-		self['runOnRaspberry'] = setting(value=False, default=False)
-		self['Print from Raspberry Pi?'] = setting(value=False, default=False)
-		self['Shutter position open'] = setting(value=4, default=4, lower=0, upper=10)
-		self['Shutter position closed'] = setting(value=6, default=6, lower=0, upper=10)
-		self['Shutter position open GCode'] = setting(value=550, default=550, lower=500, upper=2500)
-		self['Shutter position closed GCode'] = setting(value=2450, default=2450, lower=500, upper=2500)
-		self['Enable shutter servo'] = setting(value=False, default=False)
+		self['runningOnRaspberry'] = setting(value=False, default=False)
+		self['printOnRaspberry'] = setting(value=False, default=False)
+		self['shutterPositionOpen'] = setting(value=4, default=4, lower=0, upper=10, 		name='Shutter position closed')
+		self['shutterPositionClosed'] = setting(value=6, default=6, lower=0, upper=10, 		name='Shutter position closed')
+#		self['Shutter position open GCode'] = setting(value=550, default=550, lower=500, upper=2500)
+#		self['Shutter position closed GCode'] = setting(value=2450, default=2450, lower=500, upper=2500)
+		self['enableShutterServo'] = setting(value=False, default=False, 	name='Enable shutter servo')
 		self['localMkpPath'] = setting(value='./currentPrint.mkp', default='./currentPrint.mkp')
 		self['monkeyprintBoard'] = setting(value=True, default=True)
-		self['Tilt GCode']	 = setting(value='G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10', default = 'G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10')
-		self['Build platform GCode'] = setting(value='G1 Z{$layerHeight*$buildDir} F10', default='G1 Z{$layerHeight*$buildDir} F10')
-		self['Shutter open GCode'] = setting(value='M280 P0 S{$shutterPosOpen}', default='M280 P0 S{$shutterPosOpen}')
-		self['Shutter close GCode'] = setting(value='M280 P0 S{$shutterPosClosed}', default='M280 P0 S{$shutterPosClosed}')
-		self['Start commands GCode'] = setting(value='G21 G91 M17', default='G21 G91 M17')
-		self['End commands GCode'] = setting(value='M18', default='M18')
-		self['Home GCode'] = setting(value='G28', default='G28')
-		self['Top GCode'] = setting(value='G28 Z0', default='G28 Z0')
-		# Modules for print process. Values are: Display name, internal name, editable, unit, value.
-		self['PrintModulesMonkeyprint'] = setting(value='Wait,wait,,,True;Build platform layer up,buildUp,,,False;Build platform to home,buildHome,,,False;Build platform to top,buildTop,,,False;Tilt,tilt,,,False;Shutter open,shutterOpen,,,False;Shutter close,shutterClose,,,False;Expose,expose,,,False;Projector on,projectorOn,,,False;Projector off,projectorOff,,,False;Start loop,startLoop,,,False;End loop,endLoop,,,False')
-		self['PrintModulesGCode'] = setting(value='Wait,wait,,,True;Build platform layer up,buildUp,,,False;Build platform to home,buildHome,,,False;Build platform to top,buildTop,,,False;Tilt down,tiltDown,,,False;Tilt up,tiltUp,,,False;Shutter open,shutterOpen,,,False;Shutter close,shutterClose,,,False;Expose,expose,,,False;Projector on,projectorOn,,,False;Projector off,projectorOff,,,False;Start loop,startLoop,,,False;End loop,endLoop,,,False;Custom G-Code,gCode,,,True')		
-		self['PrintProcessMonkeyprint'] = setting(value='Projector on,projectorOn,,,False;Build platform to home,buildHome,,,False;Start loop,startLoop,,,False;Shutter open,shutterOpen,,,False;Expose,expose,,,False;Shutter close,shutterClose,,,False;Tilt,tilt,,,False;Wait,wait,[s],1.0,True;End loop,endLoop,,,False;Build platform to top,buildTop,,,False')
-		self['PrintProcessGCode'] = setting(value='Projector on,projectorOn,,,False;Build platform to home,buildHome,,,False;Start loop,startLoop,,,False;Shutter open,shutterOpen,,,False;Expose,expose,,,False;Shutter close,shutterClose,,,False;Tilt,tilt,,,False;Wait,wait,[s],1.0,True;End loop,endLoop,,,False;Build platform to top,buildTop,,,False')
+#		self['Tilt GCode']	 = setting(value='G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10', default = 'G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10')
+#		self['Build platform GCode'] = setting(value='G1 Z{$layerHeight*$buildDir} F10', default='G1 Z{$layerHeight*$buildDir} F10')
+#		self['Shutter open GCode'] = setting(value='M280 P0 S{$shutterPosOpen}', default='M280 P0 S{$shutterPosOpen}')
+#		self['Shutter close GCode'] = setting(value='M280 P0 S{$shutterPosClosed}', default='M280 P0 S{$shutterPosClosed}')
+#		self['Start commands GCode'] = setting(value='G21 G91 M17', default='G21 G91 M17')
+#		self['End commands GCode'] = setting(value='M18', default='M18')
+#		self['Home GCode'] = setting(value='G28', default='G28')
+#		self['Top GCode'] = setting(value='G28 Z0', default='G28 Z0')
+		# Modules for print process. Values are: Type, Display name, Value, Unit, Editable.
+		self['printModulesMonkeyprint'] = setting(value=	'Initialise printer,,,internal,False;Wait,1.0,,internal,True;Build platform layer up,,buildUp,serialMonkeyprint,False;Build platform to home,,buildHome,serialMonkeyprint,False;Build platform to top,,buildTop,serialMonkeyprint,False;Tilt,,tilt,serialMonkeyprint,False;Shutter open,,shutterOpen,serialMonkeyprint,False;Shutter close,,shutterClose,serialMonkeyprint,False;Expose,,,internal,False;Projector on,,projectorOn,serialMonkeyprint,False;Projector off,,projectorOff,serialMonkeyprint,False;Start loop,,,internal,False;End loop,,,internal,False')
+		self['printModulesGCode'] = setting(value='Wait,1.0,,internal,True;Initialise printer,G21 G91 M17,,serialGCode,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True;Build platform to home,G28 X Z,,serialGCode,True;Build platform to top,G162 Z F100,,serialGCode,True;Tilt down,G1 X20 F1000,,serialGCode,True;Tilt up,G1 X-20 F1000,,serialGCode,True;Shutter open,M280 P0 S500,,serialGCode,True;Shutter close,M280 P0 S2500,,serialGCode,True;Expose,,,internal,False;Projector on,,,internal,False;Projector off,,,internal,False;Start loop,,,internal,False;End loop,,,internal,False;Shut down printer,M18,,serialGCode,True;Set steps per unit,M92 X 20.8 Z 10.2,,serialGCode,True;Emergency stop,M112,,serialGCode,True;Beep,M300 S440 P500,,serialGCode,True;Custom G-Code,G91,,serialGCode,True')		
+		self['printProcessMonkeyprint'] = setting(value='Initialise printer,,,internal,False;Projector on,,projectorOn,serialMonkeyprint,False;Build platform to home,,buildHome,serialMonkeyprint,False;Start loop,,,internal,False;Shutter open,,shutterOpen,serialMonkeyprint,False;Expose,,,internal,False;Shutter close,,shutterClose,serialMonkeyprint,False;Tilt,,tilt,serialMonkeyprint,False;Wait,1.0,,internal,True;End loop,,,internal,False;Build platform to top,,buildTop,serialMonkeyprint,False')
+		self['printProcessGCode'] = setting(value='Initialise printer,G21 G91 M17,,serialGCode,True;Projector on,---,,internal,False;Build platform to home,G28 X Z,,serialGCode,True;Start loop,---,,internal,False;Shutter open,M280 P0 S500,,serialGCode,True;Expose,---,,internal,False;Shutter close,M280 P0 S2500,,serialGCode,True;Tilt down,G1 X20 F1000,,serialGCode,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True;Tilt up,G1 X-20 F1000,,serialGCode,True;Wait,1.0,,internal,True;End loop,---,,internal,False;Build platform to top,G162 F100,,serialGCode,True;Shut down printer,M18,,serialGCode,True')
 		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
 
 	# Load default settings.
@@ -249,26 +264,17 @@ class programSettings(dict):
 		except IOError:
 			if self.console != None:
 				self.console.addLine("No settings file found. Using defaults.")
-	'''
-	def addGCodeSetting(self, settingKey, settingValue):
-		# Add to settings list.
-		self[settingKey] = setting(value=settingValue)
-		# Add to modules list. --> Do this in list module and overwrite module list setting!
-	
-	
-	def removeGCodeSetting(self, settingKey):
-		pass
-	'''	
+
 	
 	def getModuleList(self):
 		if self['monkeyprintBoard'].value == True:
-			moduleList = self['PrintModulesMonkeyprint'].value.split(';')
+			moduleList = self['printModulesMonkeyprint'].value.split(';')
 			for i in range(len(moduleList)):
 				moduleList[i] = moduleList[i].split(',')
 				moduleList[i][-1] = eval(moduleList[i][-1])
 			return moduleList
 		else:
-			moduleList = self['PrintModulesGCode'].value.split(';')
+			moduleList = self['printModulesGCode'].value.split(';')
 			for i in range(len(moduleList)):
 				moduleList[i] = moduleList[i].split(',')
 				moduleList[i][-1] = eval(moduleList[i][-1])
@@ -281,21 +287,25 @@ class programSettings(dict):
 			if row < len(moduleList)-1:
 				settingString += ';'
 		if self['monkeyprintBoard'].value == True:		
-			self['PrintModulesMonkeyprint'].value = moduleList
+			self['printModulesMonkeyprint'].value = moduleList
 		else:
-			self['PrintModulesGCode'].value = settingString
+			self['printModulesGCode'].value = settingString
 	
 	def getPrintProcessList(self):
 		if self['monkeyprintBoard'].value == True:
-			printProcessList = self['PrintProcessMonkeyprint'].value.split(';')
+			printProcessList = self['printProcessMonkeyprint'].value.split(';')
 			for i in range(len(printProcessList)):
+				# Split comma separated string for each command.
 				printProcessList[i] = printProcessList[i].split(',')
+				# Turn True/False string into boolean.
 				printProcessList[i][-1] = eval(printProcessList[i][-1])
 			return printProcessList
 		else:
-			printProcessList = self['PrintProcessGCode'].value.split(';')
+			printProcessList = self['printProcessGCode'].value.split(';')
 			for i in range(len(printProcessList)):
+				# Split comma separated string for each command.
 				printProcessList[i] = printProcessList[i].split(',')
+				# Turn True/False string into boolean.
 				printProcessList[i][-1] = eval(printProcessList[i][-1])
 			return printProcessList
 
@@ -304,13 +314,12 @@ class programSettings(dict):
 		settingString = ''
 		for row in range(len(moduleList)):
 			for item in range(len(moduleList[row])):
-				print moduleList[row][item]
 				settingString += str(moduleList[row][item])
 				if item < len(moduleList[row])-1:
 					settingString += ','
 			if row < len(moduleList)-1:
 				settingString += ';'
 		if self['monkeyprintBoard'].value == True:		
-			self['PrintProcessMonkeyprint'].value = settingString
+			self['printProcessMonkeyprint'].value = settingString
 		else:
-			self['PrintProcessGCode'].value = moduleList
+			self['printProcessGCode'].value = settingString

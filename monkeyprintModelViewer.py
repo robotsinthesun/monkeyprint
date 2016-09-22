@@ -1,6 +1,6 @@
 # -*- coding: latin-1 -*-
-
-#	Copyright (c) 2015 Paul Bomke
+#
+#	Copyright (c) 2015-2016 Paul Bomke
 #	Distributed under the GNU GPL v2.
 #
 #	This file is part of monkeyprint.
@@ -45,8 +45,8 @@ class renderView(gtk.VBox):
 		# Create camera and set view options..
 		self.camera =vtk.vtkCamera();
 		self.camera.SetViewUp(0,0,1)
-		self.camera.SetPosition(self.settings['Build size X'].value/2+200, self.settings['Build size Y'].value/2-300,300);
-		self.camera.SetFocalPoint(self.settings['Build size X'].value/2, self.settings['Build size Y'].value/2, self.settings['Build size Z'].value/2);
+		self.camera.SetPosition(self.settings['buildSizeX'].value/2+200, self.settings['buildSizeY'].value/2-300,300);
+		self.camera.SetFocalPoint(self.settings['buildSizeX'].value/2, self.settings['buildSizeY'].value/2, self.settings['buildSizeZ'].value/2);
 		self.camera.SetClippingRange(0.0001, 10000)
 		self.renderer.SetActiveCamera(self.camera);
 
@@ -107,7 +107,7 @@ class renderView(gtk.VBox):
 		self.checkButtonAxes.show()
 		
 		# Make build volume box.
-		self.buildVolume = monkeyprintModelHandling.buildVolume([self.settings['Build size X'].value, self.settings['Build size Y'].value, self.settings['Build size Z'].value])
+		self.buildVolume = monkeyprintModelHandling.buildVolume([self.settings['buildSizeX'].value, self.settings['buildSizeY'].value, self.settings['buildSizeZ'].value])
 		self.addActor(self.buildVolume.getActor())
 		
 	def callbackResetButton(self, widget, data=None):
@@ -160,8 +160,8 @@ class renderView(gtk.VBox):
 		if self.console:
 			self.console.message("View reset.")
 		self.camera.SetViewUp(0,0,1)
-		self.camera.SetPosition(self.settings['Build size X'].value/2+200, self.settings['Build size Y'].value/2-300,300);
-		self.camera.SetFocalPoint(self.settings['Build size X'].value/2, self.settings['Build size Y'].value/2, self.settings['Build size Z'].value/2);
+		self.camera.SetPosition(self.settings['buildSizeX'].value/2+200, self.settings['buildSizeY'].value/2-300,300);
+		self.camera.SetFocalPoint(self.settings['buildSizeX'].value/2, self.settings['buildSizeY'].value/2, self.settings['buildSizeZ'].value/2);
 		self.camera.SetClippingRange(0.0001, 10000)
 		self.render()
 
@@ -176,7 +176,6 @@ class renderView(gtk.VBox):
 	def removeActors(self, actors):
 		if type(actors) == tuple or type(actors) == list:
 			for actor in actors:
-				print actor
 				self.renderer.RemoveActor(actor)
 		else:
 			self.renderer.RemoveActor(actors)

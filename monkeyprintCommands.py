@@ -1,6 +1,6 @@
 # -*- coding: latin-1 -*-
-
-#	Copyright (c) 2015--2016 Paul Bomke
+#
+#	Copyright (c) 2015-2016 Paul Bomke
 #	Distributed under the GNU GPL v2.
 #
 #	This file is part of monkeyprint.
@@ -20,6 +20,79 @@
 
 import re
 
+
+class command:
+	def __init__(self, commandType, displayName, paramName=None, param=None, string=None):
+		self.commandType = commandType
+		self.displayName = displayName
+		self.string = string
+		
+		if self.commandType == 'monkeyprintSerial':	
+			pass
+		
+		elif self.commandType == 'gCodeSerial':
+			pass
+		
+		elif self.commandType == 'internal':
+			self.fcn = fcn
+			self.paramName = paramName
+			self.param = param
+
+
+
+
+class commandListAll(dict):
+	# Override init function.
+	def __init__(self):
+		# Call super class init function.
+		dict.__init__(self)
+		# Create commands.
+		# Internal.
+		self['prepare'] = command(commandType=internal, displayName='Prepare printer', )
+		self['wait'] = command(commandType=internal, displayName='Wait', paramName="Time", param=1)
+		self['expose']
+		self['loopStart']
+		self['loopEnd']
+		# G-Code board.
+		self['gCodeSerial'] = command(commandType=gCode)
+		# Monkeyprint board.
+		self['monkeyprintLayerUp'] = command(commandType=monkeyprint)
+		self['monkeyprintShutterOpen'] = command(commandType=monkeyprint)
+		self['monkeyprintShutterClose'] = command(commandType=monkeyprint)
+		self['monkeyprintTilt'] = command(commandType=monkeyprint)
+		self['monkeyprintHome'] = command(commandType=monkeyprint)
+		self['monkeyprintTop'] = command(commandType=monkeyprint)
+		self['monkeyprintProjectorOn'] = command(commandType=monkeyprint)
+		self['monkeyprintProjectorOff'] = command(commandType=monkeyprint)
+		
+
+class commandListPrintProcess(list):
+	# Override init function.
+	def __init__(self):
+		# Call super class init function.
+		list.__init__(self)
+		
+		# Create default print process.
+	#	if settings
+		
+		
+		# If file found, load the file.
+		self.loadFile
+	
+	def loadFile(self):
+		pass
+	
+	def writeFile(self):
+		pass
+
+class printProcess:
+	pass
+
+class commandExecutor:
+	def __init__():
+		pass
+		#if command.commandType == internal
+
 class stringEvaluator:
 	
 	def __init__(self, settings, modelCollection):
@@ -36,7 +109,7 @@ class stringEvaluator:
 		for expression in curlyBraceContents:
 			# Strip the curly braces.
 			expressionContent = expression[1:-1]
-			print "Found expression: " + expressionContent
+#			print "Found expression: " + expressionContent
 			# Test if there are prohibited chars inside.
 			# We only want letters, spaces and +-*/.
 			# Create a pattern that matches what we don't want.
@@ -45,26 +118,26 @@ class stringEvaluator:
 			prohibitedChars = allowedPattern.findall(expressionContent)
 			# If not...
 			if len(prohibitedChars) == 0:
-				print "   Expression valid. Processing..."
+#				print "   Expression valid. Processing..."
 				# ... do the processing.
 				
 				# Replace all $-variables with the corresponding values.
 				#values = []
 				# First, find all $-variables.
 				variables = re.findall(r"\$[A-Za-z]+", expressionContent)
-				print "   Found variables: " + str(variables)
+#				print "   Found variables: " + str(variables)
 				# Iterate through the $-variables...
 				for variable in variables:
 					# ... and get the corresponding value from the settings.
 					#values.append(self.replaceWithValue(variable))
 					value = self.replaceWithValue(variable[1:])
 					expressionContent = expressionContent.replace(variable, value)
-				print "   Replaced variables: " + str(expressionContent)
+#				print "   Replaced variables: " + str(expressionContent)
 				# Evaluate the expression.
 				result = "0"
 				try:
 					result = str(eval(expressionContent))
-					print "Result: " + result 
+#					print "Result: " + result 
 				except SyntaxError:
 					print "   Something went wrong while parsing G-Code variables. Replacing by \"0\""
 				#curlyBraceContentsEvaluated.append(result)
@@ -74,18 +147,18 @@ class stringEvaluator:
 			
 			# If we found prohibited chars...
 			else:
-				print "Prohibited characters " + str(prohibitedChars) + " found. Check your G-Code string."
+#				print "Prohibited characters " + str(prohibitedChars) + " found. Check your G-Code string."
 				command = command.replace(expression, "0")
-		print "Finished G-Code command: " + command
+#		print "Finished G-Code command: " + command
 		
 		return command
 			
 	
 	def replaceWithValue(self, variable):
-		print "      Processing variable: " + variable
+#		print "      Processing variable: " + variable
 		variableValid = True
 		if variable == "layerHeight":
-			value = str(self.modelCollection.jobSettings['Layer height'].value)
+			value = str(self.modelCollection.jobSettings['layerHeight'].value)
 		elif variable == "buildDir":
 			if self.settings['Reverse build'].value:
 				value = "-1"
@@ -107,7 +180,8 @@ class stringEvaluator:
 			variableValid = False
 		
 		if variableValid:
-			print "      Replacing by " + value + "."
+			pass
+#			print "      Replacing by " + value + "."
 		else:
 			print "      Unknown G-Code variable found: \"" + variable + "\". Replacing by \"0\"."
 		

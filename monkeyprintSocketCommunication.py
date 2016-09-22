@@ -1,4 +1,23 @@
-#! /usr/bin/python
+# -*- coding: latin-1 -*-
+#
+#	Copyright (c) 2015-2016 Paul Bomke
+#	Distributed under the GNU GPL v2.
+#
+#	This file is part of monkeyprint.
+#
+#	monkeyprint is free software: you can redistribute it and/or modify
+#	it under the terms of the GNU General Public License as published by
+#	the Free Software Foundation, either version 3 of the License, or
+#	(at your option) any later version.
+#
+#	monkeyprint is distributed in the hope that it will be useful,
+#	but WITHOUT ANY WARRANTY; without even the implied warranty of
+#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#	GNU General Public License for more details.
+#
+#	You have received a copy of the GNU General Public License
+#    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
+
 
 import os, time, math
 import threading, Queue
@@ -50,7 +69,7 @@ class communicationSocket:
 
 	# Register this as a gobject IO watch that fires on changes of the file descriptor.
 	def callbackIOActivity(self, fd, condition, socket):
-		print "foo"
+#		print "foo"
 		# Keep running as long as something waits in the socket.
 		while self.socket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
 
@@ -98,6 +117,7 @@ class communicationSocket:
 	
 	# This should run ever 500 ms as gobject timeout function, but only from PC.
 	def pollRasPiConnection(self):
+	#	print "sending ping"
 		# Send a ping.
 		command = "ping"
 		path = ""

@@ -1,4 +1,22 @@
 # -*- coding: latin-1 -*-
+#
+#	Copyright (c) 2015-2016 Paul Bomke
+#	Distributed under the GNU GPL v2.
+#
+#	This file is part of monkeyprint.
+#
+#	monkeyprint is free software: you can redistribute it and/or modify
+#	it under the terms of the GNU General Public License as published by
+#	the Free Software Foundation, either version 3 of the License, or
+#	(at your option) any later version.
+#
+#	monkeyprint is distributed in the hope that it will be useful,
+#	but WITHOUT ANY WARRANTY; without even the implied warranty of
+#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#	GNU General Public License for more details.
+#
+#	You have received a copy of the GNU General Public License
+#    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
 import pygtk
 pygtk.require('2.0')
@@ -160,7 +178,7 @@ class imageFromFile(gtk.VBox):
 		self.width = width
 		
 		# Get projector width and set height according to projector aspect ratio.
-		aspect = float(self.programSettings['Projector size Y'].value) / float(self.programSettings['Projector size X'].value)
+		aspect = float(self.programSettings['projectorSizeY'].value) / float(self.programSettings['projectorSizeX'].value)
 		self.height = int(width * aspect)
 		
 		# Create image view.
@@ -305,7 +323,7 @@ class imageSlider(gtk.VBox):
 #		self.image = self.modelCollection.sliceImage
 		
 		# Get parent width and set height according to projector aspect ratio.
-		aspect = float(programSettings['Projector size Y'].value) / float(programSettings['Projector size X'].value)
+		aspect = float(programSettings['projectorSizeY'].value) / float(programSettings['projectorSizeX'].value)
 		self.width = width#250
 		self.height = int(self.width * aspect)
 		
@@ -415,7 +433,7 @@ class imageSlider(gtk.VBox):
 
 class toggleButton(gtk.CheckButton):
 	# Override init function.
-	def __init__(self, string, settings=None, modelCollection=None, customFunctions=None):
+	def __init__(self, string, settings=None, modelCollection=None, customFunctions=None, displayString=None):
 	
 		# Internalise model collection.
 		self.modelCollection = modelCollection
@@ -432,7 +450,12 @@ class toggleButton(gtk.CheckButton):
 		self.customFunctions = customFunctions
 		
 		# Create the label string.
-		self.labelString = string+self.settings[string].unit
+		if displayString != None:
+			self.labelString = displayString+self.settings[string].unit
+		elif self.settings[self.string].name != None:
+			self.labelString = self.settings[self.string].name + self.settings[string].unit
+		else:
+			self.labelString = string+self.settings[string].unit
 		
 		# Create toggle button.
 		# Call super class init funtion.
@@ -496,11 +519,22 @@ class entry(gtk.HBox):
 			
 		self.customFunctions = customFunctions
 		
-		# Make label.
+		
+		# Create the label string.
 		if displayString != None:
-			self.label = gtk.Label(displayString+self.settings[string].unit)
+			self.labelString = displayString+self.settings[string].unit
+		elif self.settings[self.string].name != None:
+			self.labelString = self.settings[self.string].name + self.settings[string].unit
 		else:
-			self.label = gtk.Label(string+self.settings[string].unit)
+			self.labelString = string+self.settings[string].unit
+
+		
+		# Make label.
+		self.label = gtk.Label(self.labelString)
+	#	if displayString != None:
+	#		self.label = gtk.Label(displayString+self.settings[string].unit)
+	#	else:
+	#		self.label = gtk.Label(string+self.settings[string].unit)
 		self.label.set_alignment(xalign=0, yalign=0.5)
 		self.pack_start(self.label, expand=True, fill=True, padding=5)
 		self.label.show()
@@ -604,7 +638,7 @@ class imageSlider2(gtk.VBox):
 		self.customFunctions = customFunctions
 		
 		# Get parent width and set height according to projector aspect ratio.
-		aspect = float(programSettings['Projector size Y'].value) / float(programSettings['Projector size X'].value)
+		aspect = float(programSettings['projectorSizeY'].value) / float(programSettings['projectorSizeX'].value)
 		print aspect
 		self.width = 240
 		self.height = int(self.width * aspect)
@@ -714,7 +748,7 @@ class printProgressBar(gtk.ProgressBar):
 		
 	def setLimit(self, limit):
 		self.limit = float(limit)
-		print "Limit: ", limit
+	#	print "Limit: ", limit
 	
 	def setText(self, text):
 		self.set_text(text)
@@ -810,19 +844,25 @@ class avrdudeThread(threading.Thread):
 		self.queue = queue
 		# Call super class init function.
 		super(avrdudeThread, self).__init__()
+		
+		# If G-Code board is used append GCode to settings strings.
+		if self.settings['monkeyprintBoard'].value:
+			self.postfix = ""
+		else:
+			self.postfix = "GCode"
 	
 	# Override run function.
 	def run(self):
 		# Create avrdude commandline string.
 		avrdudeCommandList = [	'avrdude',
-							'-p', self.settings['MCU'].value,
-							'-P', self.settings['Port'].value,
-							'-c', self.settings['Programmer'].value,
-							'-b', str(self.settings['Baud rate'].value),
-							'-U', 'flash:w:' + self.settings['Firmware path'].value
+							'-p', self.settings['avrdudeMcu'+self.postfix].value,
+							'-P', self.settings['avrdudePort'+self.postfix].value,
+							'-c', self.settings['avrdudeProgrammer'+self.postfix].value,
+							'-b', str(self.settings['avrdudeBaudrate'+self.postfix].value),
+							'-U', 'flash:w:' + self.settings['avrdudeFirmwarePath'+self.postfix].value
 							]
 		# Append additional options.
-		optionList = self.settings['Options'].value.split(' ')
+		optionList = self.settings['avrdudeOptions'+self.postfix].value.split(' ')
 		for option in optionList:
 			avrdudeCommandList.append(option)
 		# Call avrdude and get its output.
@@ -854,14 +894,14 @@ class imageView(gtk.Image):
 		# If no width is given...
 		if width == None:
 			# ... take the projector size from the settings.
-			self.width = self.settings['Projector size X'].value
-			self.height = self.settings['Projector size Y'].value
+			self.width = self.settings['projectorSizeX'].value
+			self.height = self.settings['projectorSizeY'].value
 		# If a width is given...
 		else:
 			# ... set corresponding height using projector aspect ratio.
 			self.width = width
 			# Get parent width and set height according to projector aspect ratio.
-			aspect = float(self.settings['Projector size Y'].value) / float(self.settings['Projector size X'].value)
+			aspect = float(self.settings['projectorSizeY'].value) / float(self.settings['projectorSizeX'].value)
 			self.height = int(self.width * aspect)
 			self.resizeFlag = True
 
@@ -881,7 +921,7 @@ class imageView(gtk.Image):
 			# Write image to pixbuf.
 			self.pixbuf = gtk.gdk.pixbuf_new_from_array(image, gtk.gdk.COLORSPACE_RGB, 8)
 			# Resize the image if in debug mode.
-			#if self.settings['Debug'].value:
+			#if self.settings['debug'].value:
 			if self.resizeFlag:
 				self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
 		else:
@@ -901,18 +941,18 @@ class projectorDisplay(gtk.Window):
 		
 		debugWidth = 200
 		
-		self.debug = self.settings['Debug'].value
-		self.printOnPi = self.settings['Print from Raspberry Pi?'].value
+		self.debug = self.settings['debug'].value
+		self.printOnPi = self.settings['printOnRaspberry'].value
 		
 		# Customise window.
 		# No decorations.
 		self.set_decorated(False)#gtk.FALSE)
 		# Call resize before showing the window.
 		if self.debug and not self.printOnPi:
-			aspect = float(self.settings['Projector size Y'].value) / float(self.settings['Projector size X'].value)
+			aspect = float(self.settings['projectorSizeY'].value) / float(self.settings['projectorSizeX'].value)
 			self.resize(debugWidth, int(debugWidth*aspect))
 		else:
-			self.resize(self.settings['Projector size X'].value, self.settings['Projector size Y'].value)
+			self.resize(self.settings['projectorSizeX'].value, self.settings['projectorSizeY'].value)
 		# Show the window.
 		self.show()
 		# Set position after showing the window.
@@ -921,7 +961,7 @@ class projectorDisplay(gtk.Window):
 		elif self.printOnPi:
 			self.move(0,0)
 		else:
-			self.move(self.settings['Projector position X'].value, self.settings['Projector position Y'].value)
+			self.move(self.settings['projectorPositionX'].value, self.settings['projectorPositionY'].value)
 
 		# Create image view.
 		if self.debug:

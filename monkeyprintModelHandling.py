@@ -1,6 +1,6 @@
 # -*- coding: latin-1 -*-
-
-#	Copyright (c) 2015 Paul Bomke
+#
+#	Copyright (c) 2015-2016 Paul Bomke
 #	Distributed under the GNU GPL v2.
 #
 #	This file is part of monkeyprint.
@@ -62,8 +62,8 @@ class modelContainer:
 		# Create model object.
 		self.model = modelData(filename, self.settings, programSettings, self.console)
 		
-		# Active flag. Only do updates if model is active.
-		self.flagActive = True
+		# active flag. Only do updates if model is active.
+		self.flagactive = True
 		
 		# Update model and supports.
 		self.updateModel()
@@ -126,7 +126,7 @@ class modelContainer:
 		self.hideSlices()
 		
 	def showAllActors(self, state):
-	#	if self.isActive():
+	#	if self.isactive():
 			if state == 0:
 				self.showActorsDefault()
 			elif state == 1:
@@ -191,12 +191,12 @@ class modelContainer:
 		self.hideSupports()
 		self.hideSlices()
 	
-	def setActive(self, active):
-		self.flagActive = active
-		self.model.setActive(active)
+	def setactive(self, active):
+		self.flagactive = active
+		self.model.setactive(active)
 	
-	def isActive(self):
-		return self.flagActive
+	def isactive(self):
+		return self.flagactive
 	
 	def getActor(self):
 		return self.model.getActor()
@@ -225,7 +225,7 @@ class modelContainer:
 		return self.model.getActorSlices()
 
 	def showBox(self):
-	#	if self.flagActive:
+	#	if self.flagactive:
 			self.model.showBoundingBox()
 			self.model.showBoundingBoxText()
 		
@@ -235,7 +235,7 @@ class modelContainer:
 	
 	def showModel(self):
 		self.model.show()
-		if not self.flagActive:
+		if not self.flagactive:
 			self.model.opacity(.1)
 	
 	def hideModel(self):
@@ -252,7 +252,7 @@ class modelContainer:
 	
 	def showOverhang(self):
 		self.model.showActorOverhang()
-		if not self.flagActive:
+		if not self.flagactive:
 			self.hideOverhang()
 
 	def hideOverhang(self):
@@ -260,7 +260,7 @@ class modelContainer:
 	
 	def showBottomPlate(self):
 		self.model.showActorBottomPlate()
-		if not self.flagActive:
+		if not self.flagactive:
 			self.model.setOpacityBottomPlate(.1)
 
 	def hideBottomPlate(self):
@@ -277,7 +277,7 @@ class modelContainer:
 			
 	def showSupports(self):
 		self.model.showActorSupports()
-		if not self.flagActive:
+		if not self.flagactive:
 			self.model.setOpacitySupports(.1)
 	
 	def hideSupports(self):
@@ -294,7 +294,7 @@ class modelContainer:
 	
 	def showClipModel(self):
 		self.model.showActorClipModel()
-		if not self.flagActive:
+		if not self.flagactive:
 			self.model.setOpacityClipModel(.1)
 	
 	def hideClipModel(self):
@@ -311,7 +311,7 @@ class modelContainer:
 	
 	def showSlices(self):
 		self.model.showActorSlices()
-		if not self.flagActive:
+		if not self.flagactive:
 			self.model.setOpacitySlices(.1)
 	
 	def opaqueSlices(self):
@@ -338,7 +338,7 @@ class modelCollection(dict):
 		self.console = console
 		
 		# Create slice image. *********************************
-		self.sliceImage = imageHandling.createImageGray(self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value, 0)
+		self.sliceImage = imageHandling.createImageGray(self.programSettings['projectorSizeX'].value, self.programSettings['projectorSizeY'].value, 0)
 		self.sliceImageBlack = numpy.empty_like(self.sliceImage)
 		
 		# Create calibration image. ***************************
@@ -377,7 +377,7 @@ class modelCollection(dict):
 				# Convert to grayscale.
 				calibrationImage = cv2.cvtColor(calibrationImage, cv2.COLOR_BGR2GRAY)
 				# ... scale the image according to projector size.
-				calibrationImage = cv2.resize(calibrationImage, (self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value)) 
+				calibrationImage = cv2.resize(calibrationImage, (self.programSettings['projectorSizeX'].value, self.programSettings['projectorSizeY'].value)) 
 				# Blur the image to reduce the influence of noise.
 				calibrationImage = cv2.GaussianBlur(calibrationImage, (21, 21), 0)
 				# Turn into numpy array.
@@ -394,8 +394,8 @@ class modelCollection(dict):
 		if self.calibrationImage != None and self.programSettings['calibrationImage'].value:
 			
 			# Resize in case of settings change.
-			if self.calibrationImage.shape[0] != self.programSettings['Projector size Y'].value or self.calibrationImage.shape[1] != self.programSettings['Projector size X'].value:
-				self.calibrationImage = cv2.resize(self.calibrationImage, (self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value)) 
+			if self.calibrationImage.shape[0] != self.programSettings['projectorSizeY'].value or self.calibrationImage.shape[1] != self.programSettings['projectorSizeX'].value:
+				self.calibrationImage = cv2.resize(self.calibrationImage, (self.programSettings['projectorSizeX'].value, self.programSettings['projectorSizeY'].value)) 
 		#	print "Subtracting calibration image."
 			# ... subtract the calibration image from the input image.
 			inputImage = cv2.subtract(inputImage, self.calibrationImage)
@@ -586,11 +586,11 @@ class modelCollection(dict):
 				height = self[model].getHeight()
 		if self.console != None:
 			self.console.addLine('Maximum model height: ' + str(height) + ' mm.')
-		numberOfSlices = int(math.floor(height / self.programSettings['Layer height'].value))
+		numberOfSlices = int(math.floor(height / self.programSettings['layerHeight'].value))
 		return numberOfSlices
 	
 	# Update the slice stack. Set it's height according to max model
-	# height and layer height.
+	# height and layerHeight.
 	def updateSliceStack(self):
 		# Update all models' slice stacks.
 		for model in self:
@@ -604,14 +604,14 @@ class modelCollection(dict):
 		i = int(i)
 		# Get slice images from all models and add to projector frame.
 		# Reset projector frame.
-		self.sliceImage = imageHandling.createImageGray(self.programSettings['Projector size X'].value, self.programSettings['Projector size Y'].value, 0)
+		self.sliceImage = imageHandling.createImageGray(self.programSettings['projectorSizeX'].value, self.programSettings['projectorSizeY'].value, 0)
 	#	print "Projector dimensions: " + str(self.sliceImage.shape) + "."
 		# Get slice images from models.
 		# Append the slice image and its position on the projector frame.
 		imgList = []
 		for model in self:
 	#		self[model].updateSlice3d(sliceNumber)
-			if model != "default" and self[model].isActive() and i<len(self[model].model.sliceStack):
+			if model != "default" and self[model].isactive() and i<len(self[model].model.sliceStack):
 	#			print "Image dimensions: " + str(self[model].model.sliceStack[i].shape) + "."
 				imgList.append((self[model].model.sliceStack[i], self[model].model.getSlicePosition()))
 		# Add list of slice images to projector frame.
@@ -677,6 +677,10 @@ class modelCollection(dict):
 			self[model].showSlices()
 	
 	'''
+	def updateAllModels(self):
+		for model in self:
+			self[model].updateModel()
+	
 	# Update supports.
 	def updateAllSupports(self):
 		for model in self:
@@ -710,7 +714,7 @@ class modelCollection(dict):
 	def getTotalVolume(self):
 		volume = 0
 		for model in self:
-			if self[model].isActive():
+			if self[model].isactive():
 				volume += self[model].model.getVolume()
 		return volume
 	
@@ -829,7 +833,7 @@ class modelData:
 		# Internalise settings.
 		self.filenameStl = ""
 		self.filename = filename
-		self.flagActive = True
+		self.flagactive = True
 		self.settings = settings
 		self.programSettings = programSettings
 		self.console = console
@@ -1141,12 +1145,12 @@ class modelData:
 	# #########################################################################
 
 	# Change active flag.
-	def setActive(self, active):
-		self.flagActive = active
+	def setactive(self, active):
+		self.flagactive = active
 	
 	# Check active flag.
-	def isActive(self):
-		return self.flagActive
+	def isactive(self):
+		return self.flagactive
 
 	# Analyse normal Z component.
 	def getNormalZComponent(self, inputPolydata):
@@ -1201,7 +1205,7 @@ class modelData:
 
 	def getBoundsSafety(self):
 		bounds = self.__getBounds(self.stlPositionFilter)
-		dist = self.programSettings['Model safety distance'].value
+		dist = self.programSettings['modelSafetyDistance'].value
 		bounds = [	bounds[0]-dist,
 					bounds[1]+dist,
 					bounds[2]-dist,
@@ -1230,7 +1234,7 @@ class modelData:
 	# Update methods. #########################################################
 	###########################################################################
 	def updateModel(self):
-		if self.filename != "" and self.isActive():
+		if self.filename != "" and self.isactive():
 			# Move model to origin. ****
 			self.stlCenterTransform.Translate(-self.__getCenter(self.stlScaleFilter)[0], -self.__getCenter(self.stlScaleFilter)[1], -self.__getCenter(self.stlScaleFilter)[2])
 			self.stlCenterFilter.Update()
@@ -1244,9 +1248,9 @@ class modelData:
 #			print "Orientation reset: " + str(self.stlRotateTransform.GetOrientation())
 #			print "Orientation from settings: " + str(modelSettings.getRotationXYZ())
 			# Rotate with new angles.
-			self.stlRotateTransform.RotateWXYZ(self.settings['Rotation X'].value,1,0,0)
-			self.stlRotateTransform.RotateWXYZ(self.settings['Rotation Y'].value,0,1,0)
-			self.stlRotateTransform.RotateWXYZ(self.settings['Rotation Z'].value,0,0,1)
+			self.stlRotateTransform.RotateWXYZ(self.settings['rotationX'].value,1,0,0)
+			self.stlRotateTransform.RotateWXYZ(self.settings['rotationY'].value,0,1,0)
+			self.stlRotateTransform.RotateWXYZ(self.settings['rotationZ'].value,0,0,1)
 #			print "Orientation new: " + str(self.stlRotateTransform.GetOrientation())
 			# Update filter.
 			self.stlRotationFilter.Update()
@@ -1262,31 +1266,31 @@ class modelData:
 			# Compare the ratio of model size plus safety distance to build volume size in all dimensions with each other.
 			# Return smallest ratio as maximum scaling.
 			smallestRatio = 1
-			if ((self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) <= ((self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY) and ((self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) <= (self.programSettings['Build size Z'].value / self.dimZ):
-				smallestRatio =  (self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX * currentScale
-			elif ((self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY) <= ((self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) and ((self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY) <= (self.programSettings['Build size Z'].value / self.dimZ):
-				smallestRatio =  (self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY * currentScale
-			elif (self.programSettings['Build size Z'].value / self.dimZ) <= ((self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) / self.dimX) and (self.programSettings['Build size Z'].value / self.dimZ) <= ((self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) / self.dimY):
-				smallestRatio =  self.programSettings['Build size Z'].value / self.dimZ * currentScale
+			if ((self.programSettings['buildSizeX'].value-2*self.programSettings['modelSafetyDistance'].value) / self.dimX) <= ((self.programSettings['buildSizeY'].value-2*self.programSettings['modelSafetyDistance'].value) / self.dimY) and ((self.programSettings['buildSizeX'].value-2*self.programSettings['modelSafetyDistance'].value) / self.dimX) <= (self.programSettings['buildSizeZ'].value / self.dimZ):
+				smallestRatio =  (self.programSettings['buildSizeX'].value-2*self.programSettings['modelSafetyDistance'].value) / self.dimX * currentScale
+			elif ((self.programSettings['buildSizeY'].value-2*self.programSettings['modelSafetyDistance'].value) / self.dimY) <= ((self.programSettings['buildSizeX'].value-2*self.programSettings['modelSafetyDistance'].value) / self.dimX) and ((self.programSettings['buildSizeY'].value-2*self.programSettings['modelSafetyDistance'].value) / self.dimY) <= (self.programSettings['buildSizeZ'].value / self.dimZ):
+				smallestRatio =  (self.programSettings['buildSizeY'].value-2*self.programSettings['modelSafetyDistance'].value) / self.dimY * currentScale
+			elif (self.programSettings['buildSizeZ'].value / self.dimZ) <= ((self.programSettings['buildSizeX'].value-2*self.programSettings['modelSafetyDistance'].value) / self.dimX) and (self.programSettings['buildSizeZ'].value / self.dimZ) <= ((self.programSettings['buildSizeY'].value-2*self.programSettings['modelSafetyDistance'].value) / self.dimY):
+				smallestRatio =  self.programSettings['buildSizeZ'].value / self.dimZ * currentScale
 			# Restrict input scalingFactor if necessary.
-			if smallestRatio < self.settings['Scaling'].value:
-				self.settings['Scaling'].setValue(smallestRatio)
+			if smallestRatio < self.settings['scaling'].value:
+				self.settings['scaling'].setValue(smallestRatio)
 				
 			# Scale. *******************
 			# First, reset scale to 1.
 			self.stlScaleTransform.Scale(1/self.stlScaleTransform.GetScale()[0], 1/self.stlScaleTransform.GetScale()[1], 1/self.stlScaleTransform.GetScale()[2])
 			# Change scale value.
-			self.stlScaleTransform.Scale(self.settings['Scaling'].value, self.settings['Scaling'].value, self.settings['Scaling'].value)
+			self.stlScaleTransform.Scale(self.settings['scaling'].value, self.settings['scaling'].value, self.settings['scaling'].value)
 			self.stlScaleFilter.Update()	# Update to get new bounds.
 
 			# Position. ****************
 			# Subtract safety distance from build volume in X and Y directions. Z doesn't need safety space.
-			clearRangeX = (self.programSettings['Build size X'].value-2*self.programSettings['Model safety distance'].value) - self.__getSize(self.stlRotationFilter)[0]
-			clearRangeY = (self.programSettings['Build size Y'].value-2*self.programSettings['Model safety distance'].value) - self.__getSize(self.stlRotationFilter)[1]
-			positionZMax = self.programSettings['Build size Z'].value - self.__getSize(self.stlRotationFilter)[2]
-			if self.settings['Bottom clearance'].value > positionZMax:
-				self.settings['Bottom clearance'].setValue(positionZMax)
-			self.stlPositionTransform.Translate(  ((self.__getSize(self.stlRotationFilter)[0]/2 + clearRangeX * (self.settings['Position X'].value / 100.0)) - self.stlPositionTransform.GetPosition()[0]) + self.programSettings['Model safety distance'].value,      ((self.__getSize(self.stlRotationFilter)[1]/2 + clearRangeY * (self.settings['Position Y'].value / 100.0)) - self.stlPositionTransform.GetPosition()[1]) + self.programSettings['Model safety distance'].value,       self.__getSize(self.stlRotationFilter)[2]/2 - self.stlPositionTransform.GetPosition()[2] + self.settings['Bottom clearance'].value)
+			clearRangeX = (self.programSettings['buildSizeX'].value-2*self.programSettings['modelSafetyDistance'].value) - self.__getSize(self.stlRotationFilter)[0]
+			clearRangeY = (self.programSettings['buildSizeY'].value-2*self.programSettings['modelSafetyDistance'].value) - self.__getSize(self.stlRotationFilter)[1]
+			positionZMax = self.programSettings['buildSizeZ'].value - self.__getSize(self.stlRotationFilter)[2]
+			if self.settings['bottomClearance'].value > positionZMax:
+				self.settings['bottomClearance'].setValue(positionZMax)
+			self.stlPositionTransform.Translate(  ((self.__getSize(self.stlRotationFilter)[0]/2 + clearRangeX * (self.settings['positionX'].value / 100.0)) - self.stlPositionTransform.GetPosition()[0]) + self.programSettings['modelSafetyDistance'].value,      ((self.__getSize(self.stlRotationFilter)[1]/2 + clearRangeY * (self.settings['positionY'].value / 100.0)) - self.stlPositionTransform.GetPosition()[1]) + self.programSettings['modelSafetyDistance'].value,       self.__getSize(self.stlRotationFilter)[2]/2 - self.stlPositionTransform.GetPosition()[2] + self.settings['bottomClearance'].value)
 			self.stlPositionFilter.Update()
 
 			# Recalculate normals.
@@ -1308,22 +1312,22 @@ class modelData:
 
 
 	def updateBottomPlate(self):
-		if self.filename != "" and self.isActive():
+		if self.filename != "" and self.isactive():
 			modelBounds = self.getBounds()
 			self.bottomPlate.SetXLength(modelBounds[1] - modelBounds[0])
 			self.bottomPlate.SetYLength(modelBounds[3] - modelBounds[2])
-			self.bottomPlate.SetZLength(self.settings['Bottom plate thickness'].value)
-			self.bottomPlate.SetCenter( (modelBounds[0] + modelBounds[1]) / 2.0, (modelBounds[2] + modelBounds[3]) / 2.0, self.settings['Bottom plate thickness'].value/2.0)
+			self.bottomPlate.SetZLength(self.settings['bottomPlateThickness'].value)
+			self.bottomPlate.SetCenter( (modelBounds[0] + modelBounds[1]) / 2.0, (modelBounds[2] + modelBounds[3]) / 2.0, self.settings['bottomPlateThickness'].value/2.0)
 			self.bottomPlate.Update()
 			self.modelBoundingBoxTextActor.SetCaption("x: %6.2f mm\ny: %6.2f mm\nz: %6.2f mm\nVolume: %6.2f ml"	% (self.getSize()[0], self.getSize()[1], self.getSize()[2], self.getVolume()) )
 
 
 	def updateOverhang(self):
-		if self.filename != "" and self.isActive():
+		if self.filename != "" and self.isactive():
 			# Calculate clipping threshold based on Z component..
 			# Z normals are 1 if pointing upwards, -1 if downwards and 0 if pointing sideways.
 			# Turn angle into value between -1 and 0.
-			self.clipThreshold = -math.cos(self.settings['Overhang angle'].value/180.0*math.pi)
+			self.clipThreshold = -math.cos(self.settings['overhangAngle'].value/180.0*math.pi)
 			self.overhangClipFilter.SetValue(self.clipThreshold)
 			self.overhangClipFilter.Update()
 
@@ -1331,7 +1335,7 @@ class modelData:
 	# Update supports. ########################################################
 	def updateSupports(self):
 
-		if self.filename != "" and self.isActive():
+		if self.filename != "" and self.isactive():
 			# Update overhang.
 			self.updateOverhang()
 
@@ -1368,15 +1372,15 @@ class modelData:
 
 			# Create support pattern bounds.
 			# Number of supports in each direction of center.
-			nXMin = int(math.floor((center[0] - bounds[0]) / self.settings['Spacing X'].value))
-			nXMax = int(math.floor((bounds[1] - center[0]) / self.settings['Spacing X'].value))
-			nYMin = int(math.floor((center[1] - bounds[2]) / self.settings['Spacing Y'].value))
-			nYMax = int(math.floor((bounds[3] - center[1]) / self.settings['Spacing Y'].value))	
+			nXMin = int(math.floor((center[0] - bounds[0]) / self.settings['spacingX'].value))
+			nXMax = int(math.floor((bounds[1] - center[0]) / self.settings['spacingX'].value))
+			nYMin = int(math.floor((center[1] - bounds[2]) / self.settings['spacingY'].value))
+			nYMax = int(math.floor((bounds[3] - center[1]) / self.settings['spacingY'].value))	
 
 		
 			# Start location, first point of pattern.
-			startX = center[0] - nXMin * self.settings['Spacing X'].value
-			startY = center[1] - nYMin * self.settings['Spacing Y'].value
+			startX = center[0] - nXMin * self.settings['spacingX'].value
+			startY = center[1] - nYMin * self.settings['spacingY'].value
 
 		
 			# Number of points in X and Y.
@@ -1387,12 +1391,12 @@ class modelData:
 			for iX in range(nX):
 				for iY in range(nY):
 					# Get X and Y values.
-					pointX = startX + iX * self.settings['Spacing X'].value
-					pointY = startY + iY * self.settings['Spacing Y'].value
+					pointX = startX + iX * self.settings['spacingX'].value
+					pointY = startY + iY * self.settings['spacingY'].value
 				
 					# Combine to bottom and top point.
 					pointBottom = [pointX, pointY, 0]
-					pointTop = [pointX, pointY, self.settings['Maximum height'].value]
+					pointTop = [pointX, pointY, self.settings['maximumHeight'].value]
 				
 					# Create outputs for intersector.
 					t = vtk.mutable(0)			# not needed.
@@ -1409,13 +1413,13 @@ class modelData:
 						# Create cone.
 						cone = vtk.vtkConeSource()
 						# Set cone dimensions.
-						cone.SetRadius(self.settings['Base diameter'].value/2.0)
-						cone.SetHeight(self.settings['Cone height'].value)
+						cone.SetRadius(self.settings['baseDiameter'].value/2.0)
+						cone.SetHeight(self.settings['coneHeight'].value)
 						cone.SetResolution(20)
 						# Set cone position (at cone center) according to current point.
-						pos[2] = pos[2]-self.settings['Cone height'].value/2.0
+						pos[2] = pos[2]-self.settings['coneHeight'].value/2.0
 						# Adjust cone Z position to meet tip connection diameter.
-						pos[2] = pos[2]+1.0*self.settings['Cone height'].value/(1.0*self.settings['Base diameter'].value/self.settings['Tip diameter'].value)
+						pos[2] = pos[2]+1.0*self.settings['coneHeight'].value/(1.0*self.settings['baseDiameter'].value/self.settings['tipDiameter'].value)
 						cone.SetCenter(pos)
 					
 						# Rotate the cone tip upwards.
@@ -1436,13 +1440,13 @@ class modelData:
 						# Create cylinder.
 						cylinder = vtk.vtkCylinderSource()
 						# Set cylinder dimensions.
-						cylinder.SetRadius(self.settings['Base diameter'].value/2.0)
-						cylinder.SetHeight(pos[2]-self.settings['Cone height'].value/2.0)
+						cylinder.SetRadius(self.settings['baseDiameter'].value/2.0)
+						cylinder.SetHeight(pos[2]-self.settings['coneHeight'].value/2.0)
 						cylinder.SetResolution(20)
 					
 						# Set cylinder position.
 						# Adjust height to fit beneath corresponding cone.
-						pos[2] = (pos[2]-self.settings['Cone height'].value/2.0)/2.0
+						pos[2] = (pos[2]-self.settings['coneHeight'].value/2.0)/2.0
 						cylinder.SetCenter(pos)
 		
 						# Rotate the cone tip upwards.
@@ -1475,12 +1479,12 @@ class modelData:
 		
 	# Update slice actor.
 	def updateSlice3d(self, sliceNumber):		
-		if self.filename != "" and self.isActive():
-			# Update pipeline with slice position given by layer height and slice number.
+		if self.filename != "" and self.isactive():
+			# Update pipeline with slice position given by layerHeight and slice number.
 			if sliceNumber == 0:
 				zPosition = 0.01
 			else:
-				zPosition = self.programSettings['Layer height'].value*sliceNumber
+				zPosition = self.programSettings['layerHeight'].value*sliceNumber
 			self.cuttingPlane.SetOrigin(0,0,zPosition)
 			self.combinedCutlines.Update()
 			self.combinedClipModels.Update()
@@ -1490,7 +1494,7 @@ class modelData:
 	def startBackgroundSlicer(self):
 		# Only update if this is not default flag and the 
 		# model or supports have been changed before.
-		if self.filename!="" and self.flagChanged and self.isActive():
+		if self.filename!="" and self.flagChanged and self.isactive():
 			if self.console != None:
 				self.console.addLine('Slicer started.')
 			# Reset the slice stack.
@@ -1524,12 +1528,12 @@ class modelData:
 	def getSizePxXY(self):
 		# Get bounds.
 		bounds = self.getBounds()
-		# Get layer height in mm.
-		layerHeight = 	self.programSettings['Layer height'].value
+		# Get layerHeight in mm.
+		layerHeight = 	self.programSettings['layerHeight'].value
 		# Calc number of layers.
 		numberOfSlices = int(math.ceil(bounds[5] / layerHeight))
 		# Get rim size in pixels.
-		rim = int(self.programSettings['Model safety distance'].value * self.programSettings['pxPerMm'].value)
+		rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
 		# Get position in pixels. Include rim.
 		position = [bounds[0]/self.programSettings['pxPerMm'].value-rim, bounds[2]/self.programSettings['pxPerMm'].value-rim, 0]
 		# Get size in pixels. Add rim twice.
@@ -1545,7 +1549,7 @@ class modelData:
 		# Get bounds.
 		bounds = self.getBounds()
 		# Get rim size in pixels.
-		rim = int(self.programSettings['Model safety distance'].value * self.programSettings['pxPerMm'].value)
+		rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
 		# Get size in pixels. Add rim twice.
 		width = int(math.ceil((bounds[1]-bounds[0]) * self.programSettings['pxPerMm'].value) + rim*2)
 		height = int(math.ceil((bounds[3]-bounds[2]) * self.programSettings['pxPerMm'].value) + rim*2)
@@ -1557,8 +1561,8 @@ class modelData:
 	def getNumberOfSlices(self):
 		# Get bounds.
 		bounds = self.getBounds()
-		# Get layer height in mm.
-		layerHeight = 	self.programSettings['Layer height'].value
+		# Get layerHeight in mm.
+		layerHeight = 	self.programSettings['layerHeight'].value
 		# Calc number of layers.
 		numberOfSlices = int(math.ceil(bounds[5] / layerHeight))
 		return numberOfSlices
@@ -1569,7 +1573,7 @@ class modelData:
 		# Get bounds.
 		bounds = self.getBounds()
 		# Get rim size in pixels.
-		rim = int(self.programSettings['Model safety distance'].value * self.programSettings['pxPerMm'].value)
+		rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
 		# Get position in pixels. Include rim.
 		position = (bounds[0]*self.programSettings['pxPerMm'].value-rim, bounds[2]*self.programSettings['pxPerMm'].value-rim)
 		return position
@@ -1781,8 +1785,8 @@ class sliceStack(list):
 		# If program settings are supplied...
 		if programSettings != None:
 			# use projector width and height.
-			self.width = self.programSettings['Projector size X'].value
-			self.height = self.programSettings['Projector size Y'].value
+			self.width = self.programSettings['projectorSizeX'].value
+			self.height = self.programSettings['projectorSizeY'].value
 		else:
 			# use dummy width and height until setSize function is called.
 			self.width = 100
@@ -1860,8 +1864,8 @@ class sliceStack(list):
 	
 	# Add new image stack at given position.
 	def newModelStack(self, bounds, start=0):
-		# Get layer height from settings.
-		stackHeight = int(bounds[5] / self.programSettings['Layer height'].value)
+		# Get layerHeight from settings.
+		stackHeight = int(bounds[5] / self.programSettings['layerHeight'].value)
 		# Convert position and size to pixels, height to number of slices.
 		# Define rim size in pixel.
 		rim = 0
@@ -2089,12 +2093,12 @@ class backgroundSlicer(threading.Thread):
 			bounds = [0 for i in range(6)]
 			inputModel[0].GetBounds(bounds)
 			print "Model bounds: " + str(bounds) + "."
-			# Get layer height in mm.
-			layerHeight = 	self.programSettings['Layer height'].value
+			# Get layerHeight in mm.
+			layerHeight = 	self.programSettings['layerHeight'].value
 			# Calc number of layers.
 			numberOfSlices = int(math.ceil(bounds[5] / layerHeight))
 			# Get rim size in pixels.
-			rim = int(self.programSettings['Model safety distance'].value * self.programSettings['pxPerMm'].value)
+			rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
 			# Get position in pixels. Include rim.
 			position = (int(bounds[0]*self.programSettings['pxPerMm'].value-rim), int(bounds[2]*self.programSettings['pxPerMm'].value-rim), 0)
 			positionMm = (bounds[0]-rim/self.programSettings['pxPerMm'].value, bounds[2]-rim/self.programSettings['pxPerMm'].value, 0)
@@ -2106,7 +2110,7 @@ class backgroundSlicer(threading.Thread):
 			spacing = (1./self.programSettings['pxPerMm'].value,)*3
 			# Prepare images.
 			self.imageWhite = numpy.ones((height, width), numpy.uint8)
-			self.imageWhite *= 255.
+			self.imageWhite *= 255
 			self.imageBlack = numpy.zeros((height, width), numpy.uint8)
 			self.imageFill = self.createFillPattern(width, height)
 
@@ -2185,13 +2189,13 @@ class backgroundSlicer(threading.Thread):
 					# Only use model slice data. Supports and bottom plate have no internal pattern anyway.
 					# Check if we are in the first or last mm of the model, then there should not be a pattern anyways, so we set everything black.
 					# Only do this whole thing if fillFlag is set and fill is shown or print is going.
-					if self.settings['Print hollow'].value == True:# and (self.programSettings['Show fill'].value == True or self.printFlag == True):
+					if self.settings['printHollow'].value == True:# and (self.programSettings['showFill'].value == True or self.printFlag == True):
 						# Start time measurement.
-						if self.programSettings['Debug'].value:
+						if self.programSettings['debug'].value:
 							interval = time.time()	
 											
 						# Get wall thickness from settings.
-						wallThickness = self.settings['Shell wall thickness'].value	# [mm]
+						wallThickness = self.settings['fillShellWallThickness'].value	# [mm]
 						wallThicknessPx = wallThickness * self.programSettings['pxPerMm'].value
 					
 						# Get top and bottom masks for wall thickness.
@@ -2239,7 +2243,7 @@ class backgroundSlicer(threading.Thread):
 						self.imageEroded = cv2.multiply(self.imageEroded, self.imageBottomMask)
 		
 						# Add internal pattern to wall. Write result to original slice image.
-						if self.settings['Fill'].value == True:
+						if self.settings['fill'].value == True:
 					
 							# Shift internal pattern 1 pixel to prevent burning in the pdms coating.
 							patternShift = 1	# TODO: implement setting for pattern shift.
@@ -2253,7 +2257,7 @@ class backgroundSlicer(threading.Thread):
 						self.imageModel = cv2.subtract(self.imageModel, self.imageEroded)
 						
 						# End time measurement.
-						if self.programSettings['Debug'].value:
+						if self.programSettings['debug'].value:
 							interval = time.time() - interval
 							print "Slice: " + str(sliceNumber) + ". Erode time: " + str(interval) + "."
 						
@@ -2284,8 +2288,8 @@ class backgroundSlicer(threading.Thread):
 			imageFill = numpy.ones((height, width), numpy.uint8) * 255
 	
 			# Set every Nth vertical line (and it's  neighbour or so) white.
-			spacing = self.settings['Fill spacing'].value * self.programSettings['pxPerMm'].value
-			wallThickness = self.settings['Fill wall thickness'].value * self.programSettings['pxPerMm'].value
+			spacing = self.settings['fillSpacing'].value * self.programSettings['pxPerMm'].value
+			wallThickness = self.settings['fillPatternWallThickness'].value * self.programSettings['pxPerMm'].value
 			for pixelX in range(width):
 				if (pixelX / spacing - math.floor(pixelX / spacing)) * spacing < wallThickness:
 					imageFill[:,pixelX-1] = 0

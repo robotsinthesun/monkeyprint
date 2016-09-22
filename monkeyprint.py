@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
-
-#	Copyright (c) 2015 Paul Bomke
+#
+#	Copyright (c) 2015-2016 Paul Bomke
 #	Distributed under the GNU GPL v2.
 #
 #	This file is part of monkeyprint.
@@ -18,6 +18,8 @@
 #
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
+
+
 import sys, getopt # Needed to parse command line arguments.
 import time
 import monkeyprintModelHandling
@@ -97,9 +99,9 @@ def runGui(filename=None, debug=False):
 	# Set debug mode if specified.
 	if debug:
 		print "Debug mode active."
-		programSettings['Debug'].value = True
+		programSettings['debug'].value = True
 	else:
-		programSettings['Debug'].value = False
+		programSettings['debug'].value = False
 
 	# Create model collection object.
 	# This object contains model data and settings data for each model.
@@ -130,10 +132,10 @@ def runNoGui(filename=None, debug=False):
 
 	# Set debug mode if specified.
 	if debug==True:
-		programSettings['Debug'].value = debug
+		programSettings['debug'].value = debug
 		print "Debug mode active."
 	else:
-		programSettings['Debug'].value = False
+		programSettings['debug'].value = False
 	
 	# Create model collection object.
 	# This object contains model data and settings data for each model.
@@ -142,8 +144,8 @@ def runNoGui(filename=None, debug=False):
 	
 	
 	#TODO disable this...
-	modelCollection.jobSettings['Exposure time'].value = 0.1
-	print ("Exposure time: " + str(modelCollection.jobSettings['Exposure time'].value) + ".")
+	modelCollection.jobSettings['exposureTime'].value = 0.1
+	print ("Exposure time: " + str(modelCollection.jobSettings['exposureTime'].value) + ".")
 	
 	
 	# Load project file.

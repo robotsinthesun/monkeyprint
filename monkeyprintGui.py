@@ -1,6 +1,6 @@
 # -*- coding: latin-1 -*-
-
-#	Copyright (c) 2015 Paul Bomke
+#
+#	Copyright (c) 2015-2016 Paul Bomke
 #	Distributed under the GNU GPL v2.
 #
 #	This file is part of monkeyprint.
@@ -87,7 +87,7 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 		# Create additional variables.*************************
 		# Flag to set during print process.
 		self.printFlag = True
-		self.programSettings['Print from Raspberry Pi?'].value = True
+		self.programSettings['printOnRaspberry'].value = True
 		
 		# Create the print window.
 #		self.projectorDisplay = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
@@ -216,6 +216,11 @@ class gui(gtk.Window):
 		
 		
 		
+		# ********************************************************************
+		# Create print process. **********************************************
+		# ********************************************************************
+#		self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSliceOut, self.queueSliceIn, self.queueStatus, self.queueConsole)
+#DO THIS LATER ON PRINT BUTTON PRESS!		
 		
 		# TODO: make specific for Pi or PC
 		# ********************************************************************
@@ -223,9 +228,9 @@ class gui(gtk.Window):
 		# ********************************************************************
 		# Create the socket and connect.
 		if self.runningOnRasPi:
-			self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['Network port RasPi'].value, ip=None, queueCommands=self.queueCommands)
+			self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['networkPortRaspi'].value, ip=None, queueCommands=self.queueCommands)
 		else:
-			self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['Network port RasPi'].value, ip=self.programSettings['IP address RasPi'].value, queueStatus=self.queueStatus) 
+			self.socket = monkeyprintSocketCommunication.communicationSocket(port=self.programSettings['networkPortRaspi'].value, ip=self.programSettings['ipAddressRaspi'].value, queueStatus=self.queueStatus) 
 
 		# Add socket listener and connection timeout methods to GTK event loop.
 		gobject.io_add_watch(self.socket.fileDescriptor, gobject.IO_IN, self.socket.callbackIOActivity, self.socket.socket)
@@ -268,8 +273,8 @@ class gui(gtk.Window):
 		# ********************************************************************
 		# Only if this is not running on Raspberry Pi.
 		if not self.runningOnRasPi:
-			ipFileClient = self.programSettings['IP address RasPi'].value
-			portFileClient = self.programSettings['File transmission port RasPi'].value
+			ipFileClient = self.programSettings['ipAddressRaspi'].value
+			portFileClient = self.programSettings['fileTransmissionPortRaspi'].value
 			self.threadFileTransmission = monkeyprintSocketCommunication.fileSender(ip=ipFileClient, port=portFileClient, queueStatusIn=self.queueFileTransferIn, queueStatusOut=self.queueFileTransferOut)
 			self.threadFileTransmission.start()
 		
@@ -457,7 +462,7 @@ class gui(gtk.Window):
 				# If not, update the GUI.
 				else:
 					self.processStatusMessage(message)
-					print message
+	#				print message
 		
 		# Poll the command queue.
 		# Only do this when running on Raspberry Pi.
@@ -494,6 +499,7 @@ class gui(gtk.Window):
 					# Start the print. Parameter is the file path in case of running from Pi.
 					self.printProcessStart(parameter)
 			elif command == "stop":
+				print "command: stop"
 				if self.printFlag:
 					self.printProcessStop()
 					#self.printProcess.stop()
@@ -548,6 +554,7 @@ class gui(gtk.Window):
 			else:
 				self.progressBar.setText("Print stopped.")
 			# Reset stop button to insensitive.
+			self.buttonPrintStart.set_sensitive(True)
 			self.buttonPrintStop.set_sensitive(False)
 		elif status == "idle":
 			if param == "slice":
@@ -962,19 +969,19 @@ class gui(gtk.Window):
 		self.boxModelModifications = gtk.VBox()
 		self.frameModifications.add(self.boxModelModifications)
 		self.boxModelModifications.show()
-		self.entryScaling = monkeyprintGuiHelper.entry('Scaling', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryScaling = monkeyprintGuiHelper.entry('scaling', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryScaling, expand=False, fill=False)
-		self.entryRotationX = monkeyprintGuiHelper.entry('Rotation X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryRotationX = monkeyprintGuiHelper.entry('rotationX', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationX, expand=False, fill=False)
-		self.entryRotationY = monkeyprintGuiHelper.entry('Rotation Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryRotationY = monkeyprintGuiHelper.entry('rotationY', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationY, expand=False, fill=False)
-		self.entryRotationZ = monkeyprintGuiHelper.entry('Rotation Z', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryRotationZ = monkeyprintGuiHelper.entry('rotationZ', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryRotationZ, expand=False, fill=False)
-		self.entryPositionX = monkeyprintGuiHelper.entry('Position X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryPositionX = monkeyprintGuiHelper.entry('positionX', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryPositionX, expand=False, fill=False)
-		self.entryPositionY = monkeyprintGuiHelper.entry('Position Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryPositionY = monkeyprintGuiHelper.entry('positionY', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryPositionY, expand=False, fill=False)
-		self.entryBottomClearance = monkeyprintGuiHelper.entry('Bottom clearance', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryBottomClearance = monkeyprintGuiHelper.entry('bottomClearance', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxModelModifications.pack_start(self.entryBottomClearance, expand=False, fill=False)
 
 	# Supports page.
@@ -990,13 +997,13 @@ class gui(gtk.Window):
 		self.boxSupportPattern = gtk.VBox()
 		self.frameSupportPattern.add(self.boxSupportPattern)
 		self.boxSupportPattern.show()
-		self.entryOverhangAngle = monkeyprintGuiHelper.entry('Overhang angle', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryOverhangAngle = monkeyprintGuiHelper.entry('overhangAngle', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entryOverhangAngle, expand=False, fill=False)
-		self.entrySupportSpacingX = monkeyprintGuiHelper.entry('Spacing X', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportSpacingX = monkeyprintGuiHelper.entry('spacingX', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportSpacingX, expand=False, fill=False)
-		self.entrySupportSpacingY = monkeyprintGuiHelper.entry('Spacing Y', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportSpacingY = monkeyprintGuiHelper.entry('spacingY', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportSpacingY, expand=False, fill=False)
-		self.entrySupportMaxHeight = monkeyprintGuiHelper.entry('Maximum height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportMaxHeight = monkeyprintGuiHelper.entry('maximumHeight', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportPattern.pack_start(self.entrySupportMaxHeight, expand=False, fill=False)
 		
 		# Create support geometry frame.
@@ -1006,11 +1013,11 @@ class gui(gtk.Window):
 		self.boxSupportGeometry = gtk.VBox()
 		self.frameSupportGeometry.add(self.boxSupportGeometry)
 		self.boxSupportGeometry.show()
-		self.entrySupportBaseDiameter = monkeyprintGuiHelper.entry('Base diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportBaseDiameter = monkeyprintGuiHelper.entry('baseDiameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportBaseDiameter, expand=False, fill=False)
-		self.entrySupportTipDiameter = monkeyprintGuiHelper.entry('Tip diameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportTipDiameter = monkeyprintGuiHelper.entry('tipDiameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportTipDiameter, expand=False, fill=False)
-		self.entrySupportTipHeight = monkeyprintGuiHelper.entry('Cone height', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportTipHeight = monkeyprintGuiHelper.entry('coneHeight', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxSupportGeometry.pack_start(self.entrySupportTipHeight, expand=False, fill=False)
 
 		# Create bottom plate frame.
@@ -1020,7 +1027,7 @@ class gui(gtk.Window):
 		self.boxBottomPlate = gtk.VBox()
 		self.frameBottomPlate.add(self.boxBottomPlate)
 		self.boxBottomPlate.show()
-		self.entrySupportBottomPlateThickness = monkeyprintGuiHelper.entry('Bottom plate thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entrySupportBottomPlateThickness = monkeyprintGuiHelper.entry('bottomPlateThickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxBottomPlate.pack_start(self.entrySupportBottomPlateThickness, expand=False, fill=False)
 	
 	# Slicing page.
@@ -1036,8 +1043,8 @@ class gui(gtk.Window):
 		self.boxSlicingParameters = gtk.VBox()
 		self.frameSlicing.add(self.boxSlicingParameters)
 		self.boxSlicingParameters.show()
-		# Layer height entry.
-		self.entryLayerHeight = monkeyprintGuiHelper.entry('Layer height', settings=self.programSettings, customFunctions=[self.updateAllModels, self.updateSlider, self.renderView.render, self.updateAllEntries])
+		# layerHeight entry.
+		self.entryLayerHeight = monkeyprintGuiHelper.entry('layerHeight', settings=self.programSettings, customFunctions=[self.updateAllModels, self.updateSlider, self.renderView.render, self.updateAllEntries])
 		self.boxSlicingParameters.pack_start(self.entryLayerHeight, expand=False, fill=False)
 		
 		# Create hollow and fill frame.
@@ -1051,17 +1058,17 @@ class gui(gtk.Window):
 		self.boxFill.pack_start(self.boxFillCheckbuttons)
 		self.boxFillCheckbuttons.show()
 		# Checkbox for hollow prints.
-		self.checkboxHollow = monkeyprintGuiHelper.toggleButton(string="Print hollow", settings=None, modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel])#gtk.CheckButton(label="Print hollow?")
+		self.checkboxHollow = monkeyprintGuiHelper.toggleButton(string='printHollow', settings=None, modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel])#gtk.CheckButton(label="Print hollow?")
 		self.boxFillCheckbuttons.pack_start(self.checkboxHollow, expand=True, fill=True)
 		# Checkbox for fill structures.
-		self.checkboxFill = monkeyprintGuiHelper.toggleButton(string="Fill", settings=None, modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel])#gtk.CheckButton(label="Print hollow?")
+		self.checkboxFill = monkeyprintGuiHelper.toggleButton(string='fill', settings=None, modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel])#gtk.CheckButton(label="Print hollow?")
 		self.boxFillCheckbuttons.pack_start(self.checkboxFill, expand=True, fill=True)
 		# Entries.
-		self.entryShellThickness = monkeyprintGuiHelper.entry('Shell wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryShellThickness = monkeyprintGuiHelper.entry('fillShellWallThickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryShellThickness, expand=True, fill=True)
-		self.entryFillSpacing = monkeyprintGuiHelper.entry('Fill spacing', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryFillSpacing = monkeyprintGuiHelper.entry('fillSpacing', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryFillSpacing, expand=True, fill=True)
-		self.entryFillThickness = monkeyprintGuiHelper.entry('Fill wall thickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryFillThickness = monkeyprintGuiHelper.entry('fillPatternWallThickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryFillThickness, expand=True, fill=True)
 		
 		# Create preview frame.
@@ -1105,12 +1112,12 @@ class gui(gtk.Window):
 		self.boxPrintParameters.show()
 		
 		# Create entries.
-		self.entryExposureBase = monkeyprintGuiHelper.entry('Exposure time base', settings=self.programSettings)
+		self.entryExposureBase = monkeyprintGuiHelper.entry('exposureTimeBase', settings=self.programSettings)
 		self.boxPrintParameters.pack_start(self.entryExposureBase, expand=True, fill=True)
-		self.entryExposure = monkeyprintGuiHelper.entry('Exposure time', settings=self.programSettings)
+		self.entryExposure = monkeyprintGuiHelper.entry('exposureTime', settings=self.programSettings)
 		self.boxPrintParameters.pack_start(self.entryExposure, expand=True, fill=True)
-		self.entrySettleTime = monkeyprintGuiHelper.entry('Resin settle time', settings=self.programSettings)
-		self.boxPrintParameters.pack_start(self.entrySettleTime, expand=True, fill=True)
+	#	self.entrySettleTime = monkeyprintGuiHelper.entry('Resin settle time', settings=self.programSettings)
+	#	self.boxPrintParameters.pack_start(self.entrySettleTime, expand=True, fill=True)
 		
 		# Create model volume frame.
 		self.frameResinVolume = gtk.Frame(label="Resin volume")
@@ -1254,12 +1261,12 @@ class gui(gtk.Window):
 	# Other callback function. ################################################
 	
 	def callbackCheckButtonHollow(self, widget, data=None):
-		self.modelCollection.getCurrentModel().settings['Print hollow'].setValue(widget.get_active())
+		self.modelCollection.getCurrentModel().settings['printHollow'].setValue(widget.get_active())
 		# Update model.
 		self.updateCurrentModel()
 		
 	def callbackCheckButtonFill(self, widget, data=None):
-		self.modelCollection.getCurrentModel().settings['Fill'].setValue(widget.get_active())
+		self.modelCollection.getCurrentModel().settings['fill'].setValue(widget.get_active())
 		self.updateCurrentModel()
 	
 	def callbackSaveSlices(self, widget, data=None):
@@ -1350,7 +1357,7 @@ class gui(gtk.Window):
 			filename = None
 
 		# If starting print process on PC...
-		if not self.programSettings['Print from Raspberry Pi?'].value:
+		if not self.programSettings['printOnRaspberry'].value:
 			#... create the projector window and start the print process.
 			self.console.addLine("Starting print")
 			# Disable window close event.
@@ -1363,7 +1370,7 @@ class gui(gtk.Window):
 			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSliceOut, self.queueSliceIn, self.queueStatus, self.queueConsole)
 			self.printProcess.start()
 		# If starting print process on Raspberry Pi...
-		elif self.programSettings['Print from Raspberry Pi?'].value:
+		elif self.programSettings['printOnRaspberry'].value:
 			print "Starting print from Raspberry Pi."
 			#... pack the data and send it to the Pi.
 			path = self.programSettings['localMkpPath'].value		#os.getcwd() + "/currentPrint.mkp"
@@ -1402,7 +1409,7 @@ class gui(gtk.Window):
 	def printProcessStop(self, data=None):
 		# Stop the print process.
 		# If print is running on Pi...
-		if self.programSettings['Print from Raspberry Pi?'].value:
+		if self.programSettings['printOnRaspberry'].value:
 			# ... send the stop command.
 			command = "stop"
 			path = ""
@@ -1457,14 +1464,17 @@ class gui(gtk.Window):
 	
 	
 	def updateAllModels(self):
-		if self.notebook.getCurrentPage() == 2:
+		if self.notebook.getCurrentPage() in [2,3]:
+			self.modelCollection.updateAllModels()
 			self.modelCollection.updateSliceStack()
+		elif self.notebook.getCurrentPage() in [0,1]:
+			self.modelCollection.updateAllModels()
 			
 	
 	
 	# Update all the settings if the current model has changed.
 	def updateAllEntries(self, state=None, render=None):
-		if not self.modelCollection.getCurrentModel().isActive():
+		if not self.modelCollection.getCurrentModel().isactive():
 			self.entryScaling.set_sensitive(False)
 			self.entryRotationX.set_sensitive(False)
 			self.entryRotationY.set_sensitive(False)
@@ -1538,6 +1548,11 @@ class gui(gtk.Window):
 		if render == True:	
 			self.modelCollection.getCurrentModel().showAllActors(self.notebook.getCurrentPage())
 			self.renderView.render()
+		# Hide camera trigger box when using G-Code.
+		if self.programSettings['monkeyprintBoard'].value:
+			self.frameCameraTrigger.show()
+		else:
+			self.frameCameraTrigger.hide()
 	
 	
 				
@@ -1595,14 +1610,14 @@ class modelListView(gtk.VBox):
 		self.columnModel.add_attribute(self.cellModel, 'text', 0)
 		self.columnModel.set_sort_column_id(0)
 		# Add active? column and respective toggle cell renderer.
-		self.columnActive = gtk.TreeViewColumn('Active?')
-		self.viewModels.append_column(self.columnActive)
-		self.cellActive = gtk.CellRendererToggle()
-		self.cellActive.set_property('activatable', True)
-		self.cellActive.connect("toggled", self.callbackToggleChanged, self.modelList)
-		self.columnActive.pack_start(self.cellActive, False)
-		self.columnActive.add_attribute(self.cellActive, 'active', 3)
-		self.columnActive.set_sort_column_id(3)
+		self.columnactive = gtk.TreeViewColumn('active?')
+		self.viewModels.append_column(self.columnactive)
+		self.cellactive = gtk.CellRendererToggle()
+		self.cellactive.set_property('activatable', True)
+		self.cellactive.connect("toggled", self.callbackToggleChanged, self.modelList)
+		self.columnactive.pack_start(self.cellactive, False)
+		self.columnactive.add_attribute(self.cellactive, 'active', 3)
+		self.columnactive.set_sort_column_id(3)
 
 		# Create item selection.
 		self.modelSelection = self.viewModels.get_selection()
@@ -1755,7 +1770,7 @@ class modelListView(gtk.VBox):
 	def callbackEdited(self, cell, path, new_text, model):
 		model[path][0] = new_text
 		
-	# Active state toggled callback.
+	# active state toggled callback.
 	def callbackToggleChanged(self, cell, path, model):
 		# Save previous selection. Contains tree model and selection iter.
 		model, treeiter = self.modelSelection.get_selected()
@@ -1764,7 +1779,7 @@ class modelListView(gtk.VBox):
 		# Toggle active flag in model list.
 		model[path][3] = not model[path][3]
 		# Set active flag in model collection.
-		self.modelCollection.getCurrentModel().setActive(model[path][3])
+		self.modelCollection.getCurrentModel().setactive(model[path][3])
 		# Show box.
 		self.modelCollection.getCurrentModel().showBox()
 		# Call gui update function to change actor visibilities.
@@ -1836,6 +1851,14 @@ class dialogFirmware(gtk.Window):
 		# Internalise settings.
 		self.settings = settings
 		
+		
+		# If G-Code board is used append GCode to settings strings.
+		if self.settings['monkeyprintBoard'].value:
+			self.postfix = ""
+		else:
+			self.postfix = "GCode"
+		
+		
 		# Create avrdude queue.
 		self.queueAvrdude = Queue.Queue()
 		
@@ -1851,7 +1874,7 @@ class dialogFirmware(gtk.Window):
 		boxLabel = gtk.HBox()
 		box.pack_start(boxLabel, padding=5)
 		boxLabel.show()
-		label = gtk.Label("Push the reset button on your controller board and press \"Flash firmware\"!")
+		label = gtk.Label("Push your board's reset button twice and press \"Flash firmware\"!")
 		boxLabel.pack_start(label, expand=False, fill=False, padding=5)
 		label.show()
 		
@@ -1868,19 +1891,27 @@ class dialogFirmware(gtk.Window):
 		boxEntries = gtk.VBox()
 		frameEntries.add(boxEntries)
 		boxEntries.show()
+			
 		# Avrdude option entries.
-		self.entryPath = monkeyprintGuiHelper.entry('Firmware path', settings=self.settings, width=20)
-		boxEntries.pack_start(self.entryPath)
-		self.entryMCU = monkeyprintGuiHelper.entry('MCU', settings=self.settings, width=20)
+		self.entryMCU = monkeyprintGuiHelper.entry('avrdudeMcu'+self.postfix, settings=self.settings, width=20)#, displayString="MCU")
 		boxEntries.pack_start(self.entryMCU)
-		self.entryProgrammer = monkeyprintGuiHelper.entry('Programmer', settings=self.settings, width=20)
+		self.entryProgrammer = monkeyprintGuiHelper.entry('avrdudeProgrammer'+self.postfix, settings=self.settings, width=20)#, displayString="Programmer")
 		boxEntries.pack_start(self.entryProgrammer)
-		self.entryPort = monkeyprintGuiHelper.entry('Port', settings=self.settings, width=20)
+		self.entryPort = monkeyprintGuiHelper.entry('avrdudePort'+self.postfix, settings=self.settings, width=20)#, displayString="Port")
 		boxEntries.pack_start(self.entryPort)
-		self.entryBaud = monkeyprintGuiHelper.entry('Baud rate', settings=self.settings, width=20)
+		self.entryBaud = monkeyprintGuiHelper.entry('avrdudeBaudrate'+self.postfix, settings=self.settings, width=20)#, displayString="Baud rate")
 		boxEntries.pack_start(self.entryBaud)
-		self.entryOptions = monkeyprintGuiHelper.entry('Options', settings=self.settings, customFunctions=[self.entryOptionsUpdate], width=20)
+		self.entryOptions = monkeyprintGuiHelper.entry('avrdudeOptions'+self.postfix, settings=self.settings, customFunctions=[self.entryOptionsUpdate], width=20)#, displayString="Options")
 		boxEntries.pack_start(self.entryOptions)
+		boxPath = gtk.HBox()
+		boxEntries.pack_start(boxPath)
+		boxPath.show()
+		self.entryPath = monkeyprintGuiHelper.entry('avrdudeFirmwarePath'+self.postfix, settings=self.settings, width=14)#, displayString="Firmware path")
+		boxPath.pack_start(self.entryPath)
+		self.buttonPath = gtk.Button('…')
+		boxPath.pack_start(self.buttonPath, expand=False, fill=False, padding=5)
+		self.buttonPath.connect('clicked', self.callbackButtonPath)
+		self.buttonPath.show()
 		
 		
 		# Make a box for the buttons.
@@ -1935,9 +1966,35 @@ class dialogFirmware(gtk.Window):
 		# Remove trailing space.
 		optionString = optionString[:-1]
 		# Write to settings and set entry string.
-		self.settings['Options'].value = optionString
+		self.settings['avrdudeOptions'+self.postfix].value = optionString
 		self.entryOptions.entry.set_text(optionString)
 	
+	def callbackButtonPath(self, widget, data=None):
+		# Open file chooser dialog."
+		filepath = ""
+		# File open dialog to retrive file name and file path.
+		dialog = gtk.FileChooserDialog("Choose firmware file", None, gtk.FILE_CHOOSER_ACTION_OPEN, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+		dialog.set_modal(True)
+		dialog.set_default_response(gtk.RESPONSE_OK)
+		dialog.set_current_folder(''.join(self.settings['avrdudeFirmwarePath'+self.postfix].value.split("/")[:-1]))
+		# File filter for the dialog.
+		fileFilter = gtk.FileFilter()
+		fileFilter.set_name("Firmware files")
+		fileFilter.add_pattern("*.hex")
+		dialog.add_filter(fileFilter)
+		# Run the dialog and return the file path.
+		response = dialog.run()
+		# Check the response.
+		# If OK was pressed...
+		if response == gtk.RESPONSE_OK:
+			self.settings['avrdudeFirmwarePath'+self.postfix].value = dialog.get_filename()
+			self.entryPath.update()
+			# Close dialog.
+			dialog.destroy()
+		# If cancel was pressed...
+		elif response == gtk.RESPONSE_CANCEL:
+			#... do nothing.
+			dialog.destroy()
 
 	def callbackFlash(self, widget, data=None):
 		# Change button sensititvity and label.
@@ -1945,7 +2002,7 @@ class dialogFirmware(gtk.Window):
 		self.buttonFlash.set_label("Flashing. Please wait...")
 		# Console output.
 		self.console.addLine('Running avrdude with options:')
-		self.console.addLine('-p ' + self.settings['MCU'].value + ' -P ' + self.settings['Port'].value + ' -c ' + self.settings['Programmer'].value + ' -b ' + str(self.settings['Baud rate'].value) + ' -U ' + 'flash:w:' + self.settings['Firmware path'].value + " " + self.settings['Options'].value)
+		self.console.addLine('-p ' + self.settings['avrdudeMcu'+self.postfix].value + ' -P ' + self.settings['avrdudePort'+self.postfix].value + ' -c ' + self.settings['avrdudeProgrammer'+self.postfix].value + ' -b ' + str(self.settings['avrdudeBaudrate'+self.postfix].value) + ' -U ' + 'flash:w:' + self.settings['avrdudeFirmwarePath'+self.postfix].value + " " + self.settings['avrdudeOptions'+self.postfix].value)
 		self.console.addLine("")
 		# Create avrdude thread.
 		self.threadAvrdude = monkeyprintGuiHelper.avrdudeThread(self.settings, self.queueAvrdude)
@@ -1958,14 +2015,14 @@ class dialogFirmware(gtk.Window):
 	def flash(self):
 		# Create avrdude commandline string.
 		avrdudeCommandList = [	'avrdude',
-							'-p', self.settings['MCU'].value,
-							'-P', self.settings['Port'].value,
-							'-c', self.settings['Programmer'].value,
-							'-b', str(self.settings['Baud rate'].value),
-							'-U', 'flash:w:' + self.settings['Firmware path'].value
+							'-p', self.settings['avrdudeMcu'+self.postfix].value,
+							'-P', self.settings['avrdudePort'+self.postfix].value,
+							'-c', self.settings['avrdudeProgrammer'+self.postfix].value,
+							'-b', str(self.settings['avrdudeBaudrate'+self.postfix].value),
+							'-U', 'flash:w:' + self.settings['avrdudeFirmwarePath'+self.postfix].value
 							]
 		# Append additional options.
-		optionList = self.settings['Options'].value.split(' ')
+		optionList = self.settings['avrdudeOptions'+self.postfix].value.split(' ')
 		for option in optionList:
 			avrdudeCommandList.append(option)
 		# Call avrdude and get it's output.
@@ -2205,7 +2262,14 @@ class dialogSettings(gtk.Window):
 		
 		self.tabMotionSettings = self.createMotionTab()
 		self.notebookSettings.append_page(self.tabMotionSettings, gtk.Label('Motion'))
-		self.tabMotionSettings.show()
+		if self.settings['monkeyprintBoard'].value:
+			self.tabMotionSettings.show()
+		else:
+			self.tabMotionSettings.hide()
+		
+		self.tabPrintProcessSettings = self.createPrintProcessTab()
+		self.notebookSettings.append_page(self.tabPrintProcessSettings, gtk.Label('Print process'))
+		self.tabPrintProcessSettings.show()
 		
 		# Set sensitivities according to toggle buttons in main settings tab.
 		self.callbackRaspiToggle(None, None)
@@ -2256,30 +2320,33 @@ class dialogSettings(gtk.Window):
 		self.boxRaspberry.pack_start(self.labelRaspi, expand=True, fill=True, padding=5)
 		self.labelRaspi.set_alignment(xalign=0, yalign=0.5)
 		self.labelRaspi.show()
+		self.labelRaspi.set_sensitive(False)
 		self.radioButtonRaspiOff = gtk.RadioButton(group=None, label="Print from PC")
 		self.radioButtonRaspiOff.connect("toggled", self.callbackRaspiToggle, "standalone")
-		self.radioButtonRaspiOff.set_active(not self.settings['Print from Raspberry Pi?'].value)
+		self.radioButtonRaspiOff.set_active(not self.settings['printOnRaspberry'].value)
+		self.radioButtonRaspiOff.set_sensitive(False)
 		self.boxRaspberry.pack_start(self.radioButtonRaspiOff, expand=True, fill=True)
 		self.radioButtonRaspiOff.show()
 		self.tooltips.set_tip(self.radioButtonRaspiOff, "Use this option if you want print jobs to run directly from your PC. Your PC has to remain connected to the printer during prints.")
 		self.radioButtonRaspiOn = gtk.RadioButton(group=self.radioButtonRaspiOff, label="Print from Raspberry Pi")
-		self.radioButtonRaspiOn.set_active(self.settings['Print from Raspberry Pi?'].value)
+		self.radioButtonRaspiOn.set_active(self.settings['printOnRaspberry'].value)
 		self.radioButtonRaspiOn.connect("toggled", self.callbackRaspiToggle, "raspberry")
 		self.boxRaspberry.pack_start(self.radioButtonRaspiOn, expand=True, fill=True)
 		self.radioButtonRaspiOn.show()
+		self.radioButtonRaspiOn.set_sensitive(False)
 		self.tooltips.set_tip(self.radioButtonRaspiOn, "Use this option if you want print jobs to run from a Raspberry Pi. You can remove your PC during prints.")
 		# Use Monkeyprint board?
 		self.labelBoard = gtk.Label("Which board are you using?")
 		self.boxRaspberry.pack_start(self.labelBoard, expand=True, fill=True, padding=5)
 		self.labelBoard.set_alignment(xalign=0, yalign=0.5)
 		self.labelBoard.show()
-		self.radioButtonMonkeyprintBoardOn = gtk.RadioButton(group=None, label="Use Monkeyprint board?")
+		self.radioButtonMonkeyprintBoardOn = gtk.RadioButton(group=None, label="Monkeyprint board")
 		self.radioButtonMonkeyprintBoardOn.connect("toggled", self.callbackBoardToggle, "monkeyprintBoard")
 		self.radioButtonMonkeyprintBoardOn.set_active(self.settings['monkeyprintBoard'].value)
 		self.boxRaspberry.pack_start(self.radioButtonMonkeyprintBoardOn, expand=True, fill=True)
 		self.radioButtonMonkeyprintBoardOn.show()
 		self.tooltips.set_tip(self.radioButtonMonkeyprintBoardOn, "Use this option if you want to use the Monkeyprint board for controlling your hardware.")
-		self.radioButtonMonkeyprintBoardOff = gtk.RadioButton(group=self.radioButtonMonkeyprintBoardOn, label="Use G-Code based board?")
+		self.radioButtonMonkeyprintBoardOff = gtk.RadioButton(group=self.radioButtonMonkeyprintBoardOn, label="G-Code based board")
 		self.radioButtonMonkeyprintBoardOff.set_active(not self.settings['monkeyprintBoard'].value)
 		self.radioButtonMonkeyprintBoardOff.connect("toggled", self.callbackBoardToggle, "raspberry")
 		self.boxRaspberry.pack_start(self.radioButtonMonkeyprintBoardOff, expand=True, fill=True)
@@ -2293,13 +2360,13 @@ class dialogSettings(gtk.Window):
 		self.frameBuildVolume.add(self.boxBuildVolume)
 		self.boxBuildVolume.show()
 		# Add entries.
-		self.entryBuildSizeX= monkeyprintGuiHelper.entry('Build size X', self.settings, width=15)
+		self.entryBuildSizeX= monkeyprintGuiHelper.entry('buildSizeX', self.settings, width=15)#, displayString="Build size X")
 		self.boxBuildVolume.pack_start(self.entryBuildSizeX, expand=False, fill=False)
 		self.entryBuildSizeX.show()
-		self.entryBuildSizeY= monkeyprintGuiHelper.entry('Build size Y', self.settings, width=15)
+		self.entryBuildSizeY= monkeyprintGuiHelper.entry('buildSizeY', self.settings, width=15)#, displayString="Build size Y")
 		self.boxBuildVolume.pack_start(self.entryBuildSizeY, expand=False, fill=False)
 		self.entryBuildSizeY.show()
-		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('Build size Z', self.settings, width=15)
+		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('buildSizeZ', self.settings, width=15)#, displayString="Build size Z")
 		self.boxBuildVolume.pack_start(self.entryBuildSizeZ, expand=False, fill=False)
 		self.entryBuildSizeZ.show()
 		
@@ -2311,16 +2378,16 @@ class dialogSettings(gtk.Window):
 		self.frameDebug.add(self.boxDebug)
 		self.boxDebug.show()
 		# Add entry.
-		self.checkbuttonDebug = monkeyprintGuiHelper.toggleButton('Debug', settings=self.settings)
+		self.checkbuttonDebug = monkeyprintGuiHelper.toggleButton('debug', settings=self.settings)
 		self.boxDebug.pack_start(self.checkbuttonDebug, expand=False, fill=False, padding=5)
 		self.checkbuttonDebug.show()
 		'''
-		self.labelDebug = gtk.Label('Debug')
+		self.labelDebug = gtk.Label('debug')
 		self.boxDebug.pack_start(self.labelDebug, expand=False, fill=False, padding=5)
 		self.labelDebug.show()
 		self.checkboxDebug = gtk.CheckButton()
 		self.boxDebug.pack_start(self.checkboxDebug, expand=False, fill=False, padding=5)
-		self.checkboxDebug.set_active(self.settings['Debug'].value)
+		self.checkboxDebug.set_active(self.settings['debug'].value)
 		self.checkboxDebug.show()
 		self.checkboxDebug.connect('toggled', self.callbackDebug)
 		'''
@@ -2345,13 +2412,19 @@ class dialogSettings(gtk.Window):
 		self.boxSerialUsb.show()
 		# Add entries.
 		# Port.
-		self.entryPort = monkeyprintGuiHelper.entry('Port', self.settings, width=15)
+		self.entryPort = monkeyprintGuiHelper.entry('port', self.settings, width=15)
 		self.boxSerialUsb.pack_start(self.entryPort, expand=False, fill=False)
 		self.entryPort.show()
 		# Baud rate.
-		self.entryBaud = monkeyprintGuiHelper.entry('Baud rate', self.settings, width=15)
+		self.entryBaud = monkeyprintGuiHelper.entry('baudrate', self.settings, width=15)#, displayString="Baud rate")
 		self.boxSerialUsb.pack_start(self.entryBaud, expand=False, fill=False)
-		self.entryBaud.show()
+		self.entryBaudGCode = monkeyprintGuiHelper.entry('baudrateGCode', settings=self.settings, width=15)#, displayString="Baud rate")
+		self.boxSerialUsb.pack_start(self.entryBaudGCode)
+		if self.settings['monkeyprintBoard'].value:
+			self.entryBaudGCode.hide()
+		else:
+			self.entryBaud.hide()
+		#self.entryBaud.show()
 		
 		# Raspberry Pi serial frame.
 		self.frameSerialPi = gtk.Frame('Raspberry Pi serial connection')
@@ -2362,11 +2435,11 @@ class dialogSettings(gtk.Window):
 		self.boxSerialPi.show()
 		# Add entries.
 		# Port.
-		self.entryPortPi = monkeyprintGuiHelper.entry('Port RasPi', self.settings, width=15, displayString='Port')
+		self.entryPortPi = monkeyprintGuiHelper.entry('portRaspi', self.settings, width=15)#, displayString='Port')
 		self.boxSerialPi.pack_start(self.entryPortPi, expand=False, fill=False)
 		self.entryPortPi.show()
 		# Baud rate.
-		self.entryBaudPi = monkeyprintGuiHelper.entry('Baud rate RasPi', self.settings, width=15, displayString="Baud rate")
+		self.entryBaudPi = monkeyprintGuiHelper.entry('baudrateRaspi', self.settings, width=15)#, displayString="Baud rate")
 		self.boxSerialPi.pack_start(self.entryBaudPi, expand=False, fill=False)
 		self.entryBaudPi.show()
 		
@@ -2379,15 +2452,15 @@ class dialogSettings(gtk.Window):
 		self.boxNetworkPi.show()
 		# Add entries.
 		# IP adress.
-		self.entryIpPi = monkeyprintGuiHelper.entry('IP address RasPi', self.settings, width=15, displayString="IP address")
+		self.entryIpPi = monkeyprintGuiHelper.entry('ipAddressRaspi', self.settings, width=15)#, displayString="IP address")
 		self.boxNetworkPi.pack_start(self.entryIpPi, expand=False, fill=False)
 		self.entryIpPi.show()
 		# Communication port.
-		self.entryPortPi = monkeyprintGuiHelper.entry('Network port RasPi', self.settings, width=15, displayString="Communication port")
+		self.entryPortPi = monkeyprintGuiHelper.entry('networkPortRaspi', self.settings, width=15)#, displayString="Communication port")
 		self.boxNetworkPi.pack_start(self.entryPortPi, expand=False, fill=False)
 		self.entryPortPi.show()
 		# File transfer port.
-		self.entryPortPiFiles = monkeyprintGuiHelper.entry('File transmission port RasPi', self.settings, width=15, displayString="File transfer port")
+		self.entryPortPiFiles = monkeyprintGuiHelper.entry('fileTransmissionPortRaspi', self.settings, width=15)#, displayString="File transfer port")
 		self.boxNetworkPi.pack_start(self.entryPortPiFiles, expand=False, fill=False)
 		self.entryPortPiFiles.show()
 		'''
@@ -2419,16 +2492,16 @@ class dialogSettings(gtk.Window):
 		self.frameProjector.add(self.boxProjector)
 		self.boxProjector.show()
 		
-		self.entryProjectorSizeX= monkeyprintGuiHelper.entry('Projector size X', self.settings, width=15)
+		self.entryProjectorSizeX= monkeyprintGuiHelper.entry('projectorSizeX', self.settings, width=15)#, displayString="Projector size X")
 		self.boxProjector.pack_start(self.entryProjectorSizeX, expand=False, fill=False)
 		self.entryProjectorSizeX.show()
-		self.entryProjectorSizeY= monkeyprintGuiHelper.entry('Projector size Y', self.settings, width=15)
+		self.entryProjectorSizeY= monkeyprintGuiHelper.entry('projectorSizeY', self.settings, width=15)#, displayString="Projector size Y")
 		self.boxProjector.pack_start(self.entryProjectorSizeY, expand=False, fill=False)
 		self.entryProjectorSizeY.show()
-		self.entryProjectorPositionX= monkeyprintGuiHelper.entry('Projector position X', self.settings, width=15)
+		self.entryProjectorPositionX= monkeyprintGuiHelper.entry('projectorPositionX', self.settings, width=15)#, displayString="Projector position X")
 		self.boxProjector.pack_start(self.entryProjectorPositionX, expand=False, fill=False)
 		self.entryProjectorPositionX.show()
-		self.entryProjectorPositionY= monkeyprintGuiHelper.entry('Projector position Y', self.settings, width=15)
+		self.entryProjectorPositionY= monkeyprintGuiHelper.entry('projectorPositionY', self.settings, width=15)#, displayString="Projector position Y")
 		self.boxProjector.pack_start(self.entryProjectorPositionY, expand=False, fill=False)
 		self.entryProjectorPositionY.show()
 		
@@ -2440,9 +2513,12 @@ class dialogSettings(gtk.Window):
 		self.frameProjectorControl.add(self.boxProjectorControl)
 		self.boxProjectorControl.show()
 		# Check box for using projector control via serial.
-		self.checkbuttonProjectorControl = monkeyprintGuiHelper.toggleButton(string="Projector control", settings=self.settings, modelCollection=None, customFunctions=[self.callbackProjectorControl])
+		self.checkbuttonProjectorControl = monkeyprintGuiHelper.toggleButton(string="projectorControl", settings=self.settings, modelCollection=None, customFunctions=[self.callbackProjectorControl])#, displayString="Projector control")
 		self.boxProjectorControl.pack_start(self.checkbuttonProjectorControl, expand=True, fill=True, padding=5)
-		self.checkbuttonProjectorControl.show()
+		if self.settings['monkeyprintBoard'].value==True:
+			self.checkbuttonProjectorControl.show()
+		else:
+			self.checkbuttonProjectorControl.hide()
 		#self.boxProjectorControlCheckbox = gtk.HBox()
 		#self.boxProjectorControl.pack_start(self.boxProjectorControlCheckbox, expand=True, fill=True)
 		#self.boxProjectorControlCheckbox.show()
@@ -2455,20 +2531,22 @@ class dialogSettings(gtk.Window):
 		#self.checkboxProjectorControl.show()
 		#self.checkboxProjectorControl.connect('toggled', self.callbackProjectorControl)
 		# Entries.
-		self.entryProjectorOnCommand= monkeyprintGuiHelper.entry('Projector ON command', self.settings, width=15)
+		self.entryProjectorOnCommand= monkeyprintGuiHelper.entry('projectorOnCommand', self.settings, width=15)#, displayString="Projector ON command")
 		self.boxProjectorControl.pack_start(self.entryProjectorOnCommand, expand=False, fill=False)
 		self.entryProjectorOnCommand.show()
-		self.entryProjectorOffCommand= monkeyprintGuiHelper.entry('Projector OFF command', self.settings, width=15)
+		self.entryProjectorOffCommand= monkeyprintGuiHelper.entry('projectorOffCommand', self.settings, width=15)#, displayString="Projector OFF command")
 		self.boxProjectorControl.pack_start(self.entryProjectorOffCommand, expand=False, fill=False)
 		self.entryProjectorOffCommand.show()
-		'''
-		self.entryProjectorPort= monkeyprintGuiHelper.entry('Projector port', self.settings, width=15)
+		
+		self.entryProjectorPort= monkeyprintGuiHelper.entry('projectorPort', self.settings, width=15)#, displayString="Projector port")
 		self.boxProjectorControl.pack_start(self.entryProjectorPort, expand=False, fill=False)
-		self.entryProjectorPort.show()
-		self.entryProjectorBaud= monkeyprintGuiHelper.entry('Projector baud rate', self.settings, width=15)
+		if self.settings['monkeyprintBoard'].value==False:
+			self.entryProjectorPort.show()
+		self.entryProjectorBaud= monkeyprintGuiHelper.entry('projectorBaudrate', self.settings, width=15)#, displayString="Projector baud rate")
 		self.boxProjectorControl.pack_start(self.entryProjectorBaud, expand=False, fill=False)
-		self.entryProjectorBaud.show()
-		'''
+		if self.settings['monkeyprintBoard'].value==False:
+			self.entryProjectorBaud.show()
+		
 		
 		
 		# Frame for projector calibration image.
@@ -2500,38 +2578,38 @@ class dialogSettings(gtk.Window):
 		self.boxTilt.show()
 		# Entries.
 		# Enable?
-		self.checkbuttonTilt = monkeyprintGuiHelper.toggleButton(string="Enable tilt", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive])
+		self.checkbuttonTilt = monkeyprintGuiHelper.toggleButton(string='tiltEnable', settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive])
 		self.boxTilt.pack_start(self.checkbuttonTilt, expand=False, fill=False)
 		self.checkbuttonTilt.show()
 		# Reverse?
-		self.checkbuttonTiltReverse = monkeyprintGuiHelper.toggleButton(string="Reverse tilt", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive], displayString="Reverse tilt direction?")
+		self.checkbuttonTiltReverse = monkeyprintGuiHelper.toggleButton(string='tiltReverse', settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive])#, displayString="Reverse tilt direction?")
 		self.boxTilt.pack_start(self.checkbuttonTiltReverse, expand=False, fill=False)
 		self.checkbuttonTiltReverse.show()
-		# G-Code entry.
-		self.entryTiltGCode = monkeyprintGuiHelper.entry('Tilt GCode', self.settings, width=30)
-		self.boxTilt.pack_start(self.entryTiltGCode, expand=False, fill=False)
-		self.entryTiltGCode.show()
-		self.entryTiltGCode.set_sensitive(self.settings['Enable tilt'].value)
-		# G-Code distance.
-		self.entryTiltDistanceGCode = monkeyprintGuiHelper.entry('Tilt distance GCode', self.settings, width=15)
-		self.boxTilt.pack_start(self.entryTiltDistanceGCode, expand=False, fill=False)
-		self.entryTiltDistanceGCode.show()
-		self.entryTiltDistanceGCode.set_sensitive(self.settings['Enable tilt'].value)
+#		# G-Code entry.
+#		self.entryTiltGCode = monkeyprintGuiHelper.entry('Tilt GCode', self.settings, width=30)
+#		self.boxTilt.pack_start(self.entryTiltGCode, expand=False, fill=False)
+#		self.entryTiltGCode.show()
+#		self.entryTiltGCode.set_sensitive(self.settings['tiltEnable'].value)
+#		# G-Code distance.
+#		self.entryTiltDistanceGCode = monkeyprintGuiHelper.entry('Tilt distance GCode', self.settings, width=15)
+#		self.boxTilt.pack_start(self.entryTiltDistanceGCode, expand=False, fill=False)
+#		self.entryTiltDistanceGCode.show()
+#		self.entryTiltDistanceGCode.set_sensitive(self.settings['tiltEnable'].value)
 		# Resolution.
-		self.entryTiltStepAngle = monkeyprintGuiHelper.entry('Tilt step angle', self.settings, width=15)
+		self.entryTiltStepAngle = monkeyprintGuiHelper.entry('tiltStepAngle', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltStepAngle, expand=False, fill=False)
 		self.entryTiltStepAngle.show()
-		self.entryTiltStepAngle.set_sensitive(self.settings['Enable tilt'].value)
+		self.entryTiltStepAngle.set_sensitive(self.settings['tiltEnable'].value)
 		# Resolution.
-		self.entryTiltMicrostepping = monkeyprintGuiHelper.entry('Tilt microsteps per step', self.settings, width=15)
+		self.entryTiltMicrostepping = monkeyprintGuiHelper.entry('tiltMicroStepsPerStep', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltMicrostepping, expand=False, fill=False)
 		self.entryTiltMicrostepping.show()
-		self.entryTiltMicrostepping.set_sensitive(self.settings['Enable tilt'].value)
+		self.entryTiltMicrostepping.set_sensitive(self.settings['tiltEnable'].value)
 		# Tilt angle.
-		self.entryTiltAngle = monkeyprintGuiHelper.entry('Tilt angle', self.settings, width=15)
+		self.entryTiltAngle = monkeyprintGuiHelper.entry('tiltAngle', self.settings, width=15)
 		self.boxTilt.pack_start(self.entryTiltAngle, expand=False, fill=False)
 		self.entryTiltAngle.show()
-		self.entryTiltAngle.set_sensitive(self.settings['Enable tilt'].value)
+		self.entryTiltAngle.set_sensitive(self.settings['tiltEnable'].value)
 		# Set entry sensitivities.
 		self.setTiltSensitive()
 		
@@ -2544,31 +2622,31 @@ class dialogSettings(gtk.Window):
 		self.boxBuildStepper.show()
 		# Entries.
 		# Reverse?
-		self.checkbuttonBuildReverse = monkeyprintGuiHelper.toggleButton(string="Reverse build", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive], displayString="Reverse build direction?")
+		self.checkbuttonBuildReverse = monkeyprintGuiHelper.toggleButton(string="reverseBuild", settings=self.settings, modelCollection=None, customFunctions=[self.setTiltSensitive])#, displayString="reverseBuild direction?")
 		self.boxBuildStepper.pack_start(self.checkbuttonBuildReverse, expand=False, fill=False)
 		self.checkbuttonBuildReverse.show()
 		# GCode entry.
-		self.entryBuildGCode = monkeyprintGuiHelper.entry('Build platform GCode', self.settings, width=30)
-		self.boxBuildStepper.pack_start(self.entryBuildGCode, expand=False, fill=False)
-		self.entryBuildGCode.show()
+	#	self.entryBuildGCode = monkeyprintGuiHelper.entry('Build platform GCode', self.settings, width=30)
+	#	self.boxBuildStepper.pack_start(self.entryBuildGCode, expand=False, fill=False)
+	#	self.entryBuildGCode.show()
 		# Resolution.
-		self.entryBuildStepAngle = monkeyprintGuiHelper.entry('Build step angle', self.settings, width=15)
+		self.entryBuildStepAngle = monkeyprintGuiHelper.entry('buildStepAngle', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildStepAngle, expand=False, fill=False)
 		self.entryBuildStepAngle.show()
 		# Resolution.
-		self.entryBuildMicrosteps = monkeyprintGuiHelper.entry('Build microsteps per step', self.settings, width=15)
+		self.entryBuildMicrosteps = monkeyprintGuiHelper.entry('buildMicroStepsPerStep', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildMicrosteps, expand=False, fill=False)
 		self.entryBuildMicrosteps.show()
 		# Resolution.
-		self.entryBuildMmPerTurn = monkeyprintGuiHelper.entry('Build mm per turn', self.settings, width=15)
+		self.entryBuildMmPerTurn = monkeyprintGuiHelper.entry('buildMmPerTurn', self.settings, width=15)
 		self.boxBuildStepper.pack_start(self.entryBuildMmPerTurn, expand=False, fill=False)
 		self.entryBuildMmPerTurn.show()
 		# Ramp slope.
-		#self.entryBuildRampSlope = monkeyprintGuiHelper.entry('Build ramp slope', self.settings, width=15)
+		#self.entryBuildRampSlope = monkeyprintGuiHelper.entry('buildRampSlope', self.settings, width=15)
 		#self.boxBuildStepper.pack_start(self.entryBuildRampSlope, expand=False, fill=False)
 		#self.entryBuildRampSlope.show()
 		# Build speed.
-		#self.entryBuildSpeed = monkeyprintGuiHelper.entry('Build platform speed', self.settings, width=15)
+		#self.entryBuildSpeed = monkeyprintGuiHelper.entry('buildPlatformSpeed', self.settings, width=15)
 		#self.boxBuildStepper.pack_start(self.entryBuildSpeed, expand=False, fill=False)
 		#self.entryBuildSpeed.show()
 		
@@ -2581,31 +2659,31 @@ class dialogSettings(gtk.Window):
 		self.boxShutterServo.show()
 		# Entries.
 		# Enable?
-		self.checkbuttonShutter = monkeyprintGuiHelper.toggleButton(string="Enable shutter servo", settings=self.settings, modelCollection=None, customFunctions=[self.setShutterSensitive], displayString="Enable shutter servo?")
+		self.checkbuttonShutter = monkeyprintGuiHelper.toggleButton(string="enableShutterServo", settings=self.settings, modelCollection=None, customFunctions=[self.setShutterSensitive])#, displayString="Enable shutter servo?")
 		self.boxShutterServo.pack_start(self.checkbuttonShutter, expand=False, fill=False)
 		self.checkbuttonShutter.show()
 		# G-Code entry.
-		self.entryShutterOpenGCode = monkeyprintGuiHelper.entry('Shutter open GCode', self.settings, width=30)
-		self.boxShutterServo.pack_start(self.entryShutterOpenGCode, expand=False, fill=False)
-		self.entryShutterOpenGCode.show()
+	#	self.entryShutterOpenGCode = monkeyprintGuiHelper.entry('Shutter open GCode', self.settings, width=30)
+	#	self.boxShutterServo.pack_start(self.entryShutterOpenGCode, expand=False, fill=False)
+	#	self.entryShutterOpenGCode.show()
 		# G-Code entry.
-		self.entryShutterCloseGCode = monkeyprintGuiHelper.entry('Shutter close GCode', self.settings, width=30)
-		self.boxShutterServo.pack_start(self.entryShutterCloseGCode, expand=False, fill=False)
-		self.entryShutterCloseGCode.show()
+	#	self.entryShutterCloseGCode = monkeyprintGuiHelper.entry('Shutter close GCode', self.settings, width=30)
+	#	self.boxShutterServo.pack_start(self.entryShutterCloseGCode, expand=False, fill=False)
+	#	self.entryShutterCloseGCode.show()
 		# G-Code open position.
-		self.entryShutterPositionOpenGCode = monkeyprintGuiHelper.entry('Shutter position open GCode', self.settings, width=15, displayString='Shutter position open')
-		self.boxShutterServo.pack_start(self.entryShutterPositionOpenGCode, expand=False, fill=False)
-		self.entryShutterPositionOpenGCode.show()
+	#	self.entryShutterPositionOpenGCode = monkeyprintGuiHelper.entry('Shutter position open GCode', self.settings, width=15, displayString='Shutter position open')
+	#	self.boxShutterServo.pack_start(self.entryShutterPositionOpenGCode, expand=False, fill=False)
+	#	self.entryShutterPositionOpenGCode.show()
 		# G-Code closed position.
-		self.entryShutterPositionClosedGCode = monkeyprintGuiHelper.entry('Shutter position closed GCode', self.settings, width=15, displayString='Shutter position closed')
-		self.boxShutterServo.pack_start(self.entryShutterPositionClosedGCode, expand=False, fill=False)
-		self.entryShutterPositionClosedGCode.show()
+	#	self.entryShutterPositionClosedGCode = monkeyprintGuiHelper.entry('Shutter position closed GCode', self.settings, width=15, displayString='Shutter position closed')
+	#	self.boxShutterServo.pack_start(self.entryShutterPositionClosedGCode, expand=False, fill=False)
+	#	self.entryShutterPositionClosedGCode.show()
 		# Open position.
-		self.entryShutterPositionOpen = monkeyprintGuiHelper.entry('Shutter position open', self.settings, width=15)
+		self.entryShutterPositionOpen = monkeyprintGuiHelper.entry('shutterPositionOpen', self.settings, width=15)#, displayString='Shutter position open')
 		self.boxShutterServo.pack_start(self.entryShutterPositionOpen, expand=False, fill=False)
 		self.entryShutterPositionOpen.show()
 		# Closed position.
-		self.entryShutterPositionClosed = monkeyprintGuiHelper.entry('Shutter position closed', self.settings, width=15)
+		self.entryShutterPositionClosed = monkeyprintGuiHelper.entry('shutterPositionClosed', self.settings, width=15)#, displayString='Shutter position closed')
 		self.boxShutterServo.pack_start(self.entryShutterPositionClosed, expand=False, fill=False)
 		self.entryShutterPositionClosed.show()
 		# Set sensitivities.
@@ -2616,9 +2694,26 @@ class dialogSettings(gtk.Window):
 		return boxMotionSettings
 	
 	
+	
+	
+	def createPrintProcessTab(self):
+	
+		boxPrintProcessSettings = gtk.VBox()
+		self.listViewModules = modulesListView(self.settings, parentWindow=self)
+		boxPrintProcessSettings.pack_start(self.listViewModules, expand=True, fill=True, padding=5)
+		self.listViewModules.show()
+		
+	#	boxPrintProcessSettings.show()
+		return boxPrintProcessSettings
+		
+		
+		
+	
 	def toggleGCodeEntries(self):
 		# If G-Code is used:
 		if not self.settings['monkeyprintBoard'].value:
+			self.entryBaudGCode.show()
+			self.entryBaud.hide()
 			# Hide monkeyprint entries.
 			self.entryTiltAngle.hide()
 			self.entryTiltMicrostepping.hide()
@@ -2631,15 +2726,22 @@ class dialogSettings(gtk.Window):
 			self.entryShutterPositionClosed.hide()
 			self.entryShutterPositionOpen.hide()
 			# Show GCode entries.
-			self.entryTiltGCode.show()
-			self.entryTiltDistanceGCode.show()
-			self.entryBuildGCode.show()
-			self.entryShutterPositionOpenGCode.show()
-			self.entryShutterPositionClosedGCode.show()
-			self.entryShutterCloseGCode.show()
-			self.entryShutterOpenGCode.show()
+		#	self.entryTiltGCode.show()
+		#	self.entryTiltDistanceGCode.show()
+		#	self.entryBuildGCode.show()
+		#	self.entryShutterPositionOpenGCode.show()
+		#	self.entryShutterPositionClosedGCode.show()
+			self.entryProjectorPort.show()
+			self.entryProjectorBaud.show()
+			self.checkbuttonProjectorControl.hide()
+		#	self.entryShutterCloseGCode.show()
+		#	self.entryShutterOpenGCode.show()
+		#	self.checkbuttonShutter.hide()
+			self.tabMotionSettings.hide()
 		# If Monkeyprint board is used:
 		else:
+			self.entryBaudGCode.hide()
+			self.entryBaud.show()
 			# Show monkeyprint entries.
 			self.entryTiltAngle.show()
 			self.entryTiltMicrostepping.show()
@@ -2652,17 +2754,25 @@ class dialogSettings(gtk.Window):
 			self.entryShutterPositionClosed.show()
 			self.entryShutterPositionOpen.show()
 			# Hide GCode entries.
-			self.entryTiltGCode.hide()
-			self.entryTiltDistanceGCode.hide()
-			self.entryBuildGCode.hide()
-			self.entryShutterPositionOpenGCode.hide()
-			self.entryShutterPositionClosedGCode.hide()
-			self.entryShutterCloseGCode.hide()
-			self.entryShutterOpenGCode.hide()
+	#		self.entryTiltGCode.hide()
+	#		self.entryTiltDistanceGCode.hide()
+	#		self.entryBuildGCode.hide()
+	#		self.entryShutterPositionOpenGCode.hide()
+	#		self.entryShutterPositionClosedGCode.hide()
+	#		self.entryShutterCloseGCode.hide()
+	#		self.entryShutterOpenGCode.hide()
+			self.tabMotionSettings.show()
+			self.checkbuttonProjectorControl.show()
+			self.entryProjectorPort.hide()
+			self.entryProjectorBaud.hide()
+		# Update the print process views.
+		self.listViewModules.updateModuleListModel()
+		self.listViewModules.updatePrintProcessListModel()
+		
 		
 	def callbackRaspiToggle(self, widget, data=None):
-		self.settings['Print from Raspberry Pi?'].value = self.radioButtonRaspiOn.get_active()
-		if self.settings['Print from Raspberry Pi?'].value == True:
+		self.settings['printOnRaspberry'].value = self.radioButtonRaspiOn.get_active()
+		if self.settings['printOnRaspberry'].value == True:
 			try:
 				self.boxSerialUsb.set_sensitive(False)
 				self.boxSerialPi.set_sensitive(True)
@@ -2749,20 +2859,20 @@ class dialogSettings(gtk.Window):
 
 	# Tilt enable function.
 	def setTiltSensitive(self):
-		self.checkbuttonTiltReverse.set_sensitive(self.settings['Enable tilt'].value)
-		self.entryTiltStepAngle.set_sensitive(self.settings['Enable tilt'].value)
-		self.entryTiltMicrostepping.set_sensitive(self.settings['Enable tilt'].value)
-		self.entryTiltAngle.set_sensitive(self.settings['Enable tilt'].value)
-		self.entryTiltGCode.set_sensitive(self.settings['Enable tilt'].value)
-		self.entryTiltDistanceGCode.set_sensitive(self.settings['Enable tilt'].value)
+		self.checkbuttonTiltReverse.set_sensitive(self.settings['tiltEnable'].value)
+		self.entryTiltStepAngle.set_sensitive(self.settings['tiltEnable'].value)
+		self.entryTiltMicrostepping.set_sensitive(self.settings['tiltEnable'].value)
+		self.entryTiltAngle.set_sensitive(self.settings['tiltEnable'].value)
+	#	self.entryTiltGCode.set_sensitive(self.settings['tiltEnable'].value)
+	#	self.entryTiltDistanceGCode.set_sensitive(self.settings['tiltEnable'].value)
 	
 	def setShutterSensitive(self):
-		self.entryShutterPositionOpen.set_sensitive(self.settings['Enable shutter servo'].value)
-		self.entryShutterPositionClosed.set_sensitive(self.settings['Enable shutter servo'].value)
-		self.entryShutterPositionOpenGCode.set_sensitive(self.settings['Enable shutter servo'].value)
-		self.entryShutterPositionClosedGCode.set_sensitive(self.settings['Enable shutter servo'].value)
-		self.entryShutterCloseGCode.set_sensitive(self.settings['Enable shutter servo'].value)
-		self.entryShutterOpenGCode.set_sensitive(self.settings['Enable shutter servo'].value)
+		self.entryShutterPositionOpen.set_sensitive(self.settings['enableShutterServo'].value)
+		self.entryShutterPositionClosed.set_sensitive(self.settings['enableShutterServo'].value)
+	#	self.entryShutterPositionOpenGCode.set_sensitive(self.settings['enableShutterServo'].value)
+	#	self.entryShutterPositionClosedGCode.set_sensitive(self.settings['enableShutterServo'].value)
+	#	self.entryShutterCloseGCode.set_sensitive(self.settings['enableShutterServo'].value)
+	#	self.entryShutterOpenGCode.set_sensitive(self.settings['enableShutterServo'].value)
 
 	
 	# Serial connect function.
@@ -2810,7 +2920,7 @@ class dialogSettings(gtk.Window):
 			return True
 	
 	def callbackDebug(self, widget, data=None):
-		self.settings['Debug'].value = str(self.checkboxDebug.get_active())
+		self.settings['debug'].value = str(self.checkboxDebug.get_active())
 	
 	def callbackProjectorControl(self, data=None):
 		self.settings['Projector control'].value = self.checkbuttonProjectorControl.get_active()
@@ -2842,21 +2952,404 @@ class dialogSettings(gtk.Window):
 		if (self.settings['calibrationImage'].value == False):
 			self.imageContainer.deleteImageFile()
 		# Restart the file transmission thread.
-		if self.settings['Print from Raspberry Pi?'].value:
-			ipFileClient = self.settings['IP address RasPi'].value
-			portFileClient = self.settings['File transmission port RasPi'].value
+		if self.settings['printOnRaspberry'].value:
+			ipFileClient = self.settings['ipAddressRaspi'].value
+			portFileClient = self.settings['fileTransmissionPortRaspi'].value
 			if self.parentWindow.threadFileTransmission != None:
 				self.parentWindow.threadFileTransmission.join(100)
 				self.parentWindow.threadFileTransmission.reset(ipFileClient, portFileClient)
 				self.parentWindow.threadFileTransmission.run()
 
 		# Restart the communication socket.
-		if self.settings['Print from Raspberry Pi?'].value:
-			ipCommClient = self.settings['IP address RasPi'].value
-			portCommClient = self.settings['Network port RasPi'].value
+		if self.settings['printOnRaspberry'].value:
+			ipCommClient = self.settings['ipAddressRaspi'].value
+			portCommClient = self.settings['networkPortRaspi'].value
 			self.parentWindow.socket.reset(ipCommClient, portCommClient)
+		
+		# Set print process modules to settings.
+		self.settings.setPrintProcessList(self.listViewModules.getPrintProcessList())
+		
+		# Set print resolution.
+		self.settings['pxPerMm'].value = self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value
+		
+		# Update parent window in response to changing boards.
+		self.parentWindow.updateAllModels()
+		self.parentWindow.updateAllEntries(render=True)
+		
 		# Close.
 		self.destroy()
+
+
+
+
+
+
+# Model list. ##################################################################
+class modulesListView(gtk.HBox):
+	def __init__(self, settings, parentWindow, console=None):
+	
+		# Init super class.
+		gtk.HBox.__init__(self)
+		self.show()
+
+		# Internalise settings.
+		self.settings = settings
+		self.console = console
+		self.parentWindow = parentWindow
+			
+		# Frame for print process.
+		self.framePrintProcess = gtk.Frame('Print process')
+		self.pack_start(self.framePrintProcess, expand=True, fill=True, padding=5)
+		self.framePrintProcess.show()
+		
+		# Create the print process scrolled window.
+		self.boxPrintProcess = gtk.VBox()
+		self.framePrintProcess.add(self.boxPrintProcess)
+		self.boxPrintProcess.show()
+		self.scrolledWindowPrintProcess = gtk.ScrolledWindow()
+		self.scrolledWindowPrintProcess.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_ALWAYS)
+		self.boxPrintProcess.pack_start(self.scrolledWindowPrintProcess, expand=True, fill=True, padding = 5)
+		self.scrolledWindowPrintProcess.show()
+		# Create view for model list.
+		self.viewPrintProcess = gtk.TreeView()
+		# Create model for print process view.
+		self.printProcessListModel = gtk.ListStore(str,str,str,str,bool)
+		self.updatePrintProcessListModel()
+		self.viewPrintProcess.show()
+	#	self.viewPrintProcess.set_headers_visible(False)	# Make column invisible.
+		self.viewPrintProcess.set_headers_clickable(False)
+		self.viewPrintProcess.set_reorderable(False)
+		self.scrolledWindowPrintProcess.add(self.viewPrintProcess)
+		# Add model name column and respective text cell renderer.
+		self.columnModelPrintProcess = gtk.TreeViewColumn('Module')
+		self.viewPrintProcess.append_column(self.columnModelPrintProcess)
+		self.cellModelPrintProcess = gtk.CellRendererText()
+	#	self.cellModelPrintProcess.set_property('editable', True)
+	#	self.cellModelPrintProcess.connect('edited', self.callbackPrintProcessNameEdited, self.printProcessListModel)
+		self.columnModelPrintProcess.pack_start(self.cellModelPrintProcess, True)
+		self.columnModelPrintProcess.add_attribute(self.cellModelPrintProcess, 'text', 0)
+	#	self.columnModelPrintProcess.set_sort_column_id(0)
+		# Add active? column and respective toggle cell renderer.
+		self.columnValuePrintProcess = gtk.TreeViewColumn('Value')
+		self.viewPrintProcess.append_column(self.columnValuePrintProcess)
+		self.cellValuePrintProcess = gtk.CellRendererText()
+	#	self.cellValuePrintProcess.set_property('editable', True)
+	#	self.cellValuePrintProcess.connect('edited', self.callbackPrintProcessValueEdited, self.printProcessListModel)
+		self.columnValuePrintProcess.pack_start(self.cellValuePrintProcess, False)
+		self.columnValuePrintProcess.add_attribute(self.cellValuePrintProcess, 'text', 1)
+	#	self.columnValuePrintProcess.set_sort_column_id(3)
+			
+		# Create button box that goes below print process list view.
+		self.boxButtons = gtk.HBox()
+		self.boxPrintProcess.pack_start(self.boxButtons, expand=False, fill=False, padding=5)
+		self.boxButtons.show()
+				
+		# Create drop down menu with available modules list.
+		self.dropdownModulesSimple = gtk.combo_box_new_text()
+		self.boxButtons.pack_start(self.dropdownModulesSimple, True, True, padding=5)
+		self.dropdownModulesSimple.connect('changed',self.callbackModuleDropdownSelectionChanged)
+		# Create the list model for the dropdown combo box.
+		self.moduleListModel = gtk.ListStore(str,str,str,str,bool)
+		self.updateModuleListModel()
+		# Set first item active.
+		self.dropdownModulesSimple.set_active(0)
+		self.dropdownModulesSimple.show()
+		
+		# Create buttons.
+		# Add button.
+		self.buttonAdd = gtk.Button("Add")
+		self.boxButtons.pack_start(self.buttonAdd, expand=True, fill=True, padding=5)
+		self.buttonAdd.show()
+		self.buttonAdd.connect("clicked", self.callbackPrintProcessAdd)
+		# Edit button.
+		self.buttonEdit = gtk.Button("Edit")
+		self.boxButtons.pack_start(self.buttonEdit)
+		self.buttonEdit.set_sensitive(False)
+		self.buttonEdit.show()
+		self.buttonEdit.connect("clicked", self.callbackPrintProcessEdit)
+		# Up button.
+		self.buttonUp = gtk.Button(u'\u2191')
+		self.boxButtons.pack_start(self.buttonUp, expand=True, fill=True, padding=5)
+		if len(self.printProcessListModel) == 0:
+			self.buttonUp.set_sensitive(False)
+		self.buttonUp.show()
+		self.buttonUp.connect("clicked", self.callbackPrintProcessUp)
+		# Down button.
+		self.buttonDown = gtk.Button(u'\u2193')
+		self.boxButtons.pack_start(self.buttonDown, expand=True, fill=True, padding=5)
+		if len(self.printProcessListModel) == 0:
+			self.buttonDown.set_sensitive(False)
+		self.buttonDown.show()
+		self.buttonDown.connect("clicked", self.callbackPrintProcessDown)
+		# Remove button.
+		self.buttonRemove = gtk.Button("Remove")
+		self.boxButtons.pack_start(self.buttonRemove, expand=True, fill=True, padding=5)
+		if len(self.printProcessListModel) == 0:
+			self.buttonRemove.set_sensitive(False)
+		self.buttonRemove.show()
+		self.buttonRemove.connect("clicked", self.callbackPrintProcessRemove)
+
+		# Create item selection.
+		self.printProcessModuleSelection = self.viewPrintProcess.get_selection()
+		# Avoid multiple selection.
+		self.printProcessModuleSelection.set_mode(gtk.SELECTION_SINGLE)
+		# Connect to selection change event function.
+		self.printProcessModuleSelection.connect('changed', self.onSelectionChangedPrintProcess)
+		# Select first item.
+		self.printProcessModuleSelection.select_iter(self.printProcessListModel.get_iter_first())
+		
+
+		
+	# Update list model for dropdown.
+	def updateModuleListModel(self):
+		# Get module list from settings.
+		model = gtk.ListStore(str,str,str,str,bool)
+		moduleList = self.settings.getModuleList()
+		for row in moduleList:
+			model.append(row)
+		self.moduleListModel = model
+		self.dropdownModulesSimple.set_model(self.moduleListModel)
+
+	
+	# Update list model for print process list.
+	def updatePrintProcessListModel(self):
+		# Get module list from settings.
+		model = gtk.ListStore(str,str,str,str,bool)
+		moduleList = self.settings.getPrintProcessList()
+		for row in moduleList:
+			model.append(row)
+		self.printProcessListModel = model
+		self.viewPrintProcess.set_model(self.printProcessListModel)
+		
+
+	def getPrintProcessList(self):
+		moduleList = []
+		for row in self.printProcessListModel:
+			rowList = []
+			for item in row:
+				rowList.append(item)
+			moduleList.append(rowList)
+		return moduleList
+
+	
+	def callbackModuleDropdownSelectionChanged(self, combobox):
+		pass # Noting happening here...
+		#print self.dropdownModulesSimple.get_active()
+
+
+	# Insert the module selected in drop down into the print process list.
+	def callbackPrintProcessAdd(self, widget, data=None):
+		# Get selected iter.
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		# Get item to add.
+		item = self.dropdownModulesSimple.get_active()
+		if item >= 0:
+			# If list is not empty...
+			if treeiter != None:
+				#... insert after selected iter.
+				path = self.printProcessListModel.get_path(treeiter)
+				newIter = self.printProcessListModel.insert(path[0]+1, self.moduleListModel[item])
+			# If list is empty...
+			else:
+				#... append item.
+				newIter = self.printProcessListModel.append(self.moduleListModel[item])
+			self.printProcessModuleSelection.select_iter(newIter)
+			
+			
+	# Delete the selected module from the print process list.
+	def callbackPrintProcessRemove(self, widget, data=None):
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		# Get the path of the current iter.
+		if len(self.printProcessListModel) > 0:
+			currentPath = self.printProcessListModel.get_path(treeiter)[0]
+			deletePath = currentPath
+			# Check what to select next.
+			# If current selection at end of list but not the last element remaining...
+			if currentPath == len(self.printProcessListModel) - 1 and len(self.printProcessListModel) > 1:
+				# ... select the previous item.
+				currentPath -= 1
+				self.printProcessModuleSelection.select_path(currentPath)		
+			# If current selection is somewhere in the middle...
+			elif currentPath < len(self.printProcessListModel) - 1 and len(self.printProcessListModel) > 1:
+				# ... selected the next item.
+				currentPath += 1
+				self.printProcessModuleSelection.select_path(currentPath)
+		# Remove the item and check if there's a next item.
+		iterValid = self.printProcessListModel.remove(treeiter)
+		# Set button sensitivities.
+		self.setButtonSensitivities()
+
+		
+	def callbackPrintProcessEdit(self, widget, data=None):
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		if treeiter != None:
+			editDialog = dialogEditPrintModule(parent=self.parentWindow, modelItem=model[treeiter])
+			editedModelItem = editDialog.run()
+			editDialog.destroy()
+			model[treeiter] = editedModelItem
+	
+	
+	def callbackPrintProcessUp(self, widget, data=None):
+		# Get iter of selected item and previous item.
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		path = model.get_path(treeiter)[0]
+		pathPrevious = path - 1
+		treeiterPrevious = model.get_iter(pathPrevious)
+		# Swap items.
+		model.swap(treeiter, treeiterPrevious)
+		# Reset sensitivities manually.
+		self.setButtonSensitivities()
+	
+	
+	def callbackPrintProcessDown(self, widget, data=None):
+		# Get iter of selected item and next item.
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		path = model.get_path(treeiter)[0]
+		pathNext = path + 1
+		treeiterNext = model.get_iter(pathNext)
+		# Swap the items.
+		model.swap(treeiter, treeiterNext)
+		# Reset sensitivities manually.
+		self.setButtonSensitivities()
+		
+
+	# Selection changed callback.
+	def onSelectionChangedPrintProcess(self, selection):
+		# Get selected iter.	
+		model, treeIter = selection.get_selected()
+		# If iter is valid...
+		if treeIter != None:
+			# Handle button sensitivities.
+			self.setButtonSensitivities()
+		# If iter is not valid (nothing selected) but list is not empty...
+		elif len(model) > 0:
+			# ... select first item.
+			self.printProcessModuleSelection.select_iter(model.get_iter(0)) # Does this invoke selection change event?
+
+
+	def setButtonSensitivities(self):
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		if treeiter != None:
+			# Add button is always sensitive.
+			# Set edit button sensitivity.
+			self.buttonEdit.set_sensitive(len(model)>0 and model[treeiter][-1])
+			# Set remove button sensitivity.
+			# Set up button sensitivity.
+			self.buttonUp.set_sensitive(model.get_path(treeiter)[0] != 0 and len(model) > 1)
+			# Set down button sensitivity.
+			self.buttonDown.set_sensitive(model.get_path(treeiter)[0] != len(model)-1 and len(model) > 1)
+			# Set remove button sensitivity.
+			self.buttonRemove.set_sensitive(len(model)>0)
+		else:
+			self.buttonEdit.set_sensitive(False)
+			self.buttonUp.set_sensitive(False)
+			self.buttonDown.set_sensitive(False)
+			self.buttonRemove.set_sensitive(False)
+		
+		
+
+class dialogEditPrintModule(gtk.Window):
+	# Override init function.
+	def __init__(self, parent, modelItem):
+		# Call super class init function.
+		gtk.Window.__init__(self, gtk.WINDOW_TOPLEVEL)
+#		self.show()
+		# Set title.
+		self.set_title("Edit print module")
+		# Set modal.
+		self.set_modal(True)
+		# Associate with parent window (no task bar icon, hide if parent is hidden etc)
+		self.set_transient_for(parent)
+		self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
+		self.set_default_size(10,10) # Window was too large, so let's make it small and resize by content.
+		self.show()
+		
+		self.modelItem = modelItem
+		
+		self.mainBox = gtk.VBox()
+		self.add(self.mainBox)
+		self.mainBox.show()
+		
+		# Add a short explanation.
+		self.labelExplanation = gtk.Label()
+		if modelItem[0] == 'Wait':
+			self.labelExplanation.set_text('Enter the wait interval in seconds.')
+		elif modelItem[3] == 'serialGCode':
+			self.labelExplanation.set_text('Enter a name and the G-Code command.')
+		self.mainBox.pack_start(self.labelExplanation, expand=False, fill=False, padding=5)
+		self.labelExplanation.show()
+		
+		# Create the text fields.
+		self.entryBoxName = gtk.HBox()
+		self.mainBox.pack_start(self.entryBoxName, expand=False, fill=False, padding=5)
+		self.entryBoxName.show()
+		self.entryBoxValue = gtk.HBox()
+		self.mainBox.pack_start(self.entryBoxValue, expand=False, fill=False, padding=5)
+		self.entryBoxValue.show()
+		
+		self.labelName = gtk.Label('Name')
+		self.entryBoxName.pack_start(self.labelName, expand=False, fill=False, padding=5)
+		self.entryName = gtk.Entry()
+		self.entryName.set_width_chars(50)
+		self.entryName.set_text(self.modelItem[0])
+		self.entryBoxName.pack_start(self.entryName, expand=False, fill=False, padding=5)
+			
+		if modelItem[3] == 'serialGCode':
+			self.labelName.show()
+			self.entryName.show()
+		
+		self.labelValue = gtk.Label('Value')
+		self.entryBoxValue.pack_start(self.labelValue, expand=False, fill=False, padding=5)
+		self.labelValue.show()
+		
+		self.entryValue = gtk.Entry()
+		self.entryValue.set_width_chars(50)
+		self.entryValue.set_text(self.modelItem[1])
+		self.entryBoxValue.pack_start(self.entryValue, expand=False, fill=False, padding=5)
+		self.entryValue.show()
+		
+		# OK and cancel buttons.
+		self.boxButtons = gtk.HBox()
+		self.mainBox.pack_start(self.boxButtons, expand=False, fill=False, padding=5)
+		self.boxButtons.show()
+		# Cancel button.
+		self.buttonCancel = gtk.Button('Cancel')
+		self.boxButtons.pack_start(self.buttonCancel, expand=True, fill=True, padding=5)
+		self.buttonCancel.show()
+		self.buttonCancel.connect('clicked', self.callbackCancel)
+		# OK button.
+		self.buttonOK = gtk.Button('OK')
+		self.boxButtons.pack_start(self.buttonOK, expand=True, fill=True, padding=5)
+		self.buttonOK.show()
+		self.buttonOK.connect('clicked', self.callbackOK)
+		
+		
+	def callbackOK(self, data=None):
+		if self.modelItem[0] == 'Wait':
+			try:
+				number=float(self.entryValue.get_text())
+			except ValueError:
+				number=1.0
+			self.modelItem[1] = str(number)
+		else:
+			self.modelItem[0] = self.entryName.get_text()
+			self.modelItem[1] = self.entryValue.get_text()
+		self.hide()
+		gtk.mainquit()
+		
+	def callbackCancel(self, data=None):
+		self.hide()
+		gtk.mainquit()
+
+	# Create run function to start own main loop.
+	# This will wait for button events from the current window.
+	def run(self):
+		gtk.mainloop()
+		return self.modelItem
+		
+	# Override destroy function.
+	def destroy(self):
+		del self
 
 
 

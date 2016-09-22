@@ -1,7 +1,7 @@
 #! /usr/bin/python
 # -*- coding: latin-1 -*-
-
-#	Copyright (c) 2015 Paul Bomke
+#
+#	Copyright (c) 2015-2016 Paul Bomke
 #	Distributed under the GNU GPL v2.
 #
 #	This file is part of monkeyprint.
@@ -18,6 +18,8 @@
 #
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
+
+
 import pygtk
 pygtk.require('2.0')
 import gtk, gobject

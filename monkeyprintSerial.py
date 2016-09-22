@@ -1,6 +1,6 @@
 # -*- coding: latin-1 -*-
-
-#	Copyright (c) 2015 Paul Bomke
+#
+#	Copyright (c) 2015-2016 Paul Bomke
 #	Distributed under the GNU GPL v2.
 #
 #	This file is part of monkeyprint.
@@ -20,6 +20,7 @@
 
 
 import serial
+import re
 import threading
 import time
 
@@ -40,7 +41,7 @@ class printer(threading.Thread):
 		
 		
 		# Get serial parameters from settings.
-		if self.settings['Print from Raspberry Pi?'].value:
+		if self.settings['printOnRaspberry'].value:
 			self.port=self.settings['Port RasPi'].value
 			self.baudrate=self.settings['Baud rate RasPi'].value
 		else:
@@ -190,121 +191,190 @@ class printer(threading.Thread):
 
 
 
-class printerStandalone():
+class printerStandalone:
 	def __init__(self, settings):
 
 		# Internalise parameters.
 		self.settings = settings
 		
-		# Get serial parameters from settings.
-		if self.settings['Print from Raspberry Pi?'].value:
-			self.port=self.settings['Port RasPi'].value
-			self.baudrate=self.settings['Baud rate RasPi'].value
-		else:
-			self.port=self.settings['Port'].value
-			self.baudrate=self.settings['Baud rate'].value
+		self.debug = self.settings['debug'].value
 		
-		# Configure and open serial.
-		try:
-			self.serial = serial.Serial(
-				port=self.port,
-				baudrate=self.baudrate,
-				bytesize = serial.EIGHTBITS, #number of bits per bytes
-				parity = serial.PARITY_NONE, #set parity check: no parity
-				stopbits = serial.STOPBITS_ONE,
-				timeout = 0	# Wait for incoming bytes forever.
-				)
-		# If serial port does not exist...
-		except serial.SerialException:
-			# ... define a dummy.
+		# Get serial parameters from settings.
+		if self.settings['printOnRaspberry'].value:
+			self.port=self.settings['portRaspi'].value
+			self.baudrate=self.settings['baudrateRaspi'].value
+		elif not self.settings['monkeyprintBoard'].value:
+			self.port=self.settings['port'].value
+			self.baudrate=self.settings['baudrateGCode'].value
+		else:
+			self.port=self.settings['port'].value
+			self.baudrate=self.settings['baudrate'].value
+		
+		if self.settings['monkeyprintBoard'].value:
+			self.terminator = ""
+		else:
+			self.terminator = "\n"
+		
+		if not self.debug:
+			print "Opening serial on port " + self.port + " at " + str(self.baudrate) + " baud."
+			# Configure and open serial.
+			try:
+				self.serial = serial.Serial(
+					port=self.port,
+					baudrate=self.baudrate,
+					bytesize = serial.EIGHTBITS, #number of bits per bytes
+					parity = serial.PARITY_NONE, #set parity check: no parity
+					stopbits = serial.STOPBITS_ONE,
+					timeout = 0	# Wait for incoming bytes forever.
+					)
+			# If serial port does not exist...
+			except serial.SerialException:
+				# ... define a dummy.
+				self.serial = None
+				print "Could not open serial on port " + str(self.port) + " with baud rate " + str(self.baudrate) + "."
+			else:
+				self.flush()
+		else:
+			print "Serial in debug mode: not sending."
 			self.serial = None
-			print "Could not open serial on port " + str(self.port) + " with baud rate " + str(self.baudrate) + "."
 
-	def send(self, command):
-		# Create return value.
-		returnValue = True
-		# Process command.
-		if len(command) < 4:
-			raise ValueError('Serial command has to contain four values.')
-		string = command[0]
+	def flush(self, timeout=1.):
+		oldTimeout = self.serial.timeout
+		self.serial.timeout = timeout
+		string = "Flushing incoming messages."
+		while string != "":
+			string = self.serial.readline()
+			print string
+		self.serial.timeout = oldTimeout
+		return string
+	
+	def waitForOk(self,timeout=.5):
+		oldTimeout = self.serial.timeout
+		self.serial.timeout = timeout
+		for i in range(20):
+			printerResponse = self.serial.readline()
+			print printerResponse
+			if printerResponse.strip() == "ok":
+				break
+			elif printerResponse.strip().split(':')[-1] == "processing":
+				i = 0
+				print "Processing..."
+		self.serial.timeout = oldTimeout
+		return printerResponse
+	
+	
+	# Divide command in parts beginning with G or M.
+	def splitGCode(self, command):
+		return filter(None,re.split("([M][^MG]*|[G][^MG]*)",command))
+
+	def sendGCode(self,command):
+		commandList = self.splitGCode(command[0])
 		value = command[1]
 		retry = command[2]
 		wait = command[3]
-		# Send command.
-		if self.serial != None:
-			# Cast inputs.
-		#	if value != None: value = int(value)
-			if wait != None: wait = int(wait)
-			# Start loop that sends and waits for ack until timeout five times.
-			# Set timeout to 5 seconds.
-			count = 0
-			self.serial.timeout = 5
-			while count < 5:
-				sendString = string
-				# Create command string from string and value.
-				# Separate string and value by space.
-				if value != None:
-					sendString = sendString + " " + str(value)
-				# Send command.
-				self.serial.write(sendString)
-				# If retry flag is set...
-				if retry:
-					# ... listen for ack until timeout.
-					printerResponse = self.serial.readline()
-					printerResponse = printerResponse.strip()
-					# Compare ack with sent string. If match...
-					if printerResponse == string:
-						# ... set the return value to success and...
-						returnValue = True
-						# ... exit the send loop.
-						break
-					# If ack does not match string...
-					else:
-						# ... set the return value to fail.
-						returnValue = False
-				# If retry flag is not set...
-				else:
-					# ... exit the loop.
-					break
-				# Increment counter.
-				count += 1
-				# Place giving up message in queue if necessary.
-			#	if count == 5:
-			#		self.queue.put("Printer not responding. Giving up...")
-								# Wait for response from printer that signals end of action.		
-			# If wait value is provided...
-			if wait != None:
-				# If wait value is 0...
-				if wait == 0:
-					#... set the timeout value to infinity.
-					self.serial.timeout=0
-				# Else...
-				else:
-					# ... set timeout to one second.
-					self.serial.timeout = 1
-				count = 0
-				while count < wait:
-					# ... and listen for "done" string until timeout.
-					printerResponse = self.serial.readline()
-					printerResponse = printerResponse.strip()
-					# Listen for "done" string.Check if return string is "done".
-					if printerResponse == "done":
-						#self.queue.put("Printer done.")
-						break
-					else:
-						count += 1
-				# In case of timeout...
-			#	if count == wait:
-					# ... place fail message.
-					#self.queue.put("Printer did not finish within timeout.")
-			# Reset the timeout.
-			self.serial.timeout = None
-			# Return success info.
-			return returnValue
+		for commandString in commandList:
+			self.send((commandString, value, retry, wait))
+		
+
+	def send(self, command):
+		if self.settings['debug'].value:
+			pass
 		else:
-			return False
+			# Create return value.
+			returnValue = True
+			# Process command.
+			if len(command) < 4:
+				raise ValueError('Serial command has to contain four values.')
+			string = command[0]
+			value = command[1]
+			retry = command[2]
+			wait = command[3]
+			# Send command.
+			if self.serial != None:
+				# Cast inputs.
+			#	if value != None: value = int(value)
+				if wait != None: wait = int(wait)
+				# Start loop that sends and waits for ack until timeout five times.
+				# Set timeout to 5 seconds.
+				count = 0
+				self.serial.timeout = 5
+				while count < 5:
+					sendString = string
+					# Create command string from string and value.
+					# Separate string and value by space.
+					if value != None:
+						sendString = sendString + " " + str(value)
+					print "Sending: " + sendString + "."
+					# Send command.
+					self.serial.write(sendString+self.terminator)
+					# If retry flag is set...
+					# In case fo GCode, flush input until ok is received.
+					printerResponse = ""
+					if not self.settings['monkeyprintBoard'].value:
+						printerResponse = self.waitForOk()
+					print "Printer response: " + printerResponse
+					if retry:
+						# ... listen for ack until timeout.
+						printerResponse = printerResponse.strip()
+						# Compare ack with sent string or with 'ok' in case of g-code board.
+						# If match...
+						if printerResponse == string or printerResponse == 'ok':
+							# ... set the return value to success and...
+							returnValue = True
+							# ... exit the send loop.
+						#	print "exiting"
+							break
+						# If ack does not match string...
+						else:
+							# ... set the return value to fail.
+							returnValue = False
+						#	print "resending"
+					# If retry flag is not set...
+					else:
+						# ... exit the loop.
+						break
+					# Increment counter.
+					count += 1
+					# Place giving up message in queue if necessary.
+				#	if count == 5:
+				#		self.queue.put("Printer not responding. Giving up...")
+									# Wait for response from printer that signals end of action.		
+				# If wait value is provided...
+				if wait != None:
+					# If wait value is 0...
+					if wait == 0:
+						#... set the timeout value to infinity.
+						self.serial.timeout=0
+					# Else...
+					else:
+						# ... set timeout to one second.
+						self.serial.timeout = 1
+					count = 0
+					while count < wait:
+						# ... and listen for "done" string until timeout.
+						printerResponse = self.serial.readline()
+						printerResponse = printerResponse.strip()
+						# Listen for "done" string.Check if return string is "done".
+						if printerResponse == "done":
+							#self.queue.put("Printer done.")
+							break
+						else:
+							count += 1
+					# In case of timeout...
+				#	if count == wait:
+						# ... place fail message.
+						#self.queue.put("Printer did not finish within timeout.")
+				# Reset the timeout.
+				self.serial.timeout = None
+				# Flush incoming messages.
+				self.flush()
+				# Return success info.
+				return returnValue
+			else:
+		#		self.flush()
+				return False
 
-
+	'''
 	# Override run function.
 	# Send a command string with optional value.
 	# Method allows to retry sending until ack is received as well
@@ -393,7 +463,8 @@ class printerStandalone():
 			else:
 				time.sleep(.1)
 	
-		
+	'''
+			
 	def close(self):
 		if self.serial != None:
 			self.serial.close()			
@@ -530,29 +601,37 @@ class projector:
 		
 		# Internalise settings.
 		self.settings = settings
+		
+		self.debug = self.settings['debug'].value
 	
 		# Configure and open serial.
-		try:
-			self.serial = serial.Serial(
-				port=self.settings['Projector port'].value,
-				baudrate=self.settings['Projector baud rate'].value,
-				bytesize = serial.EIGHTBITS, #number of bits per bytes
-				parity = serial.PARITY_NONE, #set parity check: no parity
-				stopbits = serial.STOPBITS_ONE
-				)
-		# If serial port does not exist...
-		except serial.SerialException:
-			# ... define a dummy.
+		if not self.debug:
+			try:
+				self.serial = serial.Serial(
+					port=self.settings['projectorPort'].value,
+					baudrate=self.settings['projectorBaudrate'].value,
+					bytesize = serial.EIGHTBITS, #number of bits per bytes
+					parity = serial.PARITY_NONE, #set parity check: no parity
+					stopbits = serial.STOPBITS_ONE
+					)
+			# If serial port does not exist...
+			except serial.SerialException:
+				# ... define a dummy.
+				self.serial = None
+		else:
+			print "Projector serial in debug mode: not sending."
 			self.serial = None
 		
 	
 	def activate(self):
-		command = self.settings['Projector ON command'].value
-		self.serial.write(command+'\r')
+		command = self.settings['projectorOnCommand'].value
+		if self.serial != None:
+			self.serial.write(command+'\r')
 
 	def deactivate(self):
-		command = self.settings['Projector OFF command'].value
-		self.serial.write(command+'\r')
+		command = self.settings['projectorOffCommand'].value
+		if self.serial != None:
+			self.serial.write(command+'\r')
 
 	def close(self):
 		if self.serial != None:
