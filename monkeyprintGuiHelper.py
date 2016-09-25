@@ -578,7 +578,7 @@ class entry(gtk.HBox):
 			self.tabKeyPressed = True
 			return
 		# If focus was lost and tab key was pressed or if return key was pressed, set the value.
-		if (event.type.value_name == "GDK_FOCUS_CHANGE" and self.entry.has_focus()==False and self.tabKeyPressed) or (event.type.value_name == "GDK_KEY_PRESS" and event.keyval == gtk.keysyms.Return):
+		if (event.type.value_name == "GDK_FOCUS_CHANGE" and self.entry.has_focus()==False and self.tabKeyPressed) or (event.type.value_name == "GDK_KEY_PRESS" and (event.keyval == gtk.keysyms.Return or event.keyval == gtk.keysyms.KP_Enter)):
 			# Set value.
 			# In case a model collection was provided...
 			if self.modelCollection != None:
