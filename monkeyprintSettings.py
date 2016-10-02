@@ -185,7 +185,7 @@ class programSettings(dict):
 		self['buildPlatformSpeed'] = setting(value='10', default='10', unit='mm/s',		name='Speed')
 		self['reverseBuild'] = setting(value=False, default=False,		name='Reverse build direction')
 		self['showFill'] = setting(value=True,		name='Show fill')
-		self['layerHeight'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm',		name='MCU')
+		self['layerHeight'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm',		name='Layer height')
 		self['modelSafetyDistance'] = setting(value=1.0, unit='mm')
 		self['debug'] = setting(value=False,		name='Debug')
 		self['exposureTimeBase'] = setting(value=14.0, lower=0.1, upper=15.0)
