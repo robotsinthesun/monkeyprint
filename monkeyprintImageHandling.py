@@ -22,7 +22,7 @@
 #from matplotlib import pyplot as plot
 import numpy
 from scipy import ndimage
-import Image
+from PIL import Image
 import math
 
 def array2image(a):

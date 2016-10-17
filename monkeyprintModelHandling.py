@@ -27,7 +27,7 @@ import cv2
 import numpy
 import time
 import random
-import Image#, ImageTk
+from PIL import Image#, ImageTk
 import Queue, threading
 import monkeyprintImageHandling as imageHandling
 import gtk
