@@ -195,7 +195,7 @@ class programSettings(dict):
 		self['camTriggerAfterExposure'] = setting(value=False, default=False)
 		self['calibrationImagePath'] = setting(value="./calibrationImage", default="./calibrationImage")
 		self['calibrationImage'] = setting(value=False, default=False)
-		self['showVtkErrors'] = setting(value=False, default=False)
+		self['showVtkErrors'] = setting(value=True, default=False)
 		self['runningOnRaspberry'] = setting(value=False, default=False)
 		self['printOnRaspberry'] = setting(value=False, default=False)
 		self['shutterPositionOpen'] = setting(value=4, default=4, lower=0, upper=10, 		name='Shutter position closed')
