@@ -885,7 +885,7 @@ class modelData:
 			if vtk.VTK_MAJOR_VERSION <= 5:
 				self.stlPolyDataNormals.SetInput(self.stlPolyData)	# Note: stlPolyData is a data object, hence no GetOutput() method is needed.
 			else:
-				self.stlPolyDataNormals.SetInputData(self.stlPolyData)
+				self.stlPolyDataNormals.SetInputConnection(self.stlReader.GetOutputPort())
 			self.stlPolyDataNormals.SplittingOff()	# Don't split sharp edges using feature angle.
 			self.stlPolyDataNormals.ComputePointNormalsOn()
 			self.stlPolyDataNormals.ComputeCellNormalsOff()
@@ -1221,13 +1221,10 @@ class modelData:
 
 	# Analyse normal Z component.
 	def getNormalZComponent(self, inputPolydata):
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			normalsZ = vtk.vtkFloatArray()
-			normalsZ.SetNumberOfValues(inputPolydata.GetPointData().GetArray('Normals').GetNumberOfTuples())
-			normalsZ.CopyComponent(0,inputPolydata.GetPointData().GetArray('Normals'),2)
-			inputPolydata.GetPointData().SetScalars(normalsZ)
-		else:
-			pass # TODO: implement for VTK 6
+		normalsZ = vtk.vtkFloatArray()
+		normalsZ.SetNumberOfValues(inputPolydata.GetPointData().GetArray('Normals').GetNumberOfTuples())
+		normalsZ.CopyComponent(0,inputPolydata.GetPointData().GetArray('Normals'),2)
+		inputPolydata.GetPointData().SetScalars(normalsZ)
 		return inputPolydata
 	
 	def getHeight(self):
