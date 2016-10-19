@@ -74,7 +74,7 @@ class modelSettings(dict):
 		# Create objects for all the settings and put them into dictionary.
 		self['filename'] = setting(value="")
 		self['active'] = setting(value=True)
-		self['scaling'] = setting(value=1, name='Scaling')
+		self['scaling'] = setting(value=1, name='Scaling', lower=0.0000000000001)
 		self['rotationX'] = setting(value=0,	lower=0,	upper=359,	unit='°',		name='Rotation X')
 		self['rotationY'] = setting(value=0,	lower=0,	upper=359,	unit='°',		name='Rotation Y')
 		self['rotationZ'] = setting(value=0,	lower=0,	upper=359,	unit='°',		name='Rotation Z')
@@ -195,7 +195,7 @@ class programSettings(dict):
 		self['camTriggerAfterExposure'] = setting(value=False, default=False)
 		self['calibrationImagePath'] = setting(value="./calibrationImage", default="./calibrationImage")
 		self['calibrationImage'] = setting(value=False, default=False)
-		self['showVtkErrors'] = setting(value=False, default=False)
+		self['showVtkErrors'] = setting(value=True, default=False)
 		self['runningOnRaspberry'] = setting(value=False, default=False)
 		self['printOnRaspberry'] = setting(value=False, default=False)
 		self['shutterPositionOpen'] = setting(value=4, default=4, lower=0, upper=10, 		name='Shutter position closed')
