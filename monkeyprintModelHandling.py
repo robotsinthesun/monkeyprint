@@ -939,6 +939,8 @@ class modelData:
 			# Create supports polydata.
 			self.supports = vtk.vtkAppendPolyData()
 			self.supports.AddObserver('ErrorEvent', self.errorObserver)
+			if vtk.VTK_MAJOR_VERSION >= 6:
+				self.supports.UserManagedInputsOn()
 
 			# Create bottom plate polydata. Edge length 1 mm, place outside of build volume by 1 mm.	
 			self.bottomPlate = vtk.vtkCubeSource()
@@ -984,9 +986,11 @@ class modelData:
 				self.combinedClipModels.AddInput(self.clipFilterSupports.GetOutput())
 				self.combinedClipModels.AddInput(self.clipFilterBottomPlate.GetOutput())
 			else:
-				self.combinedClipModels.AddInputData(self.clipFilterModel.GetOutput())
-				self.combinedClipModels.AddInputData(self.clipFilterSupports.GetOutput())
-				self.combinedClipModels.AddInputData(self.clipFilterBottomPlate.GetOutput())
+				self.combinedClipModels.UserManagedInputsOn()
+				self.combinedClipModels.SetNumberOfInputs(3)
+				self.combinedClipModels.SetInputConnectionByNumber(0, self.clipFilterModel.GetOutputPort())
+				self.combinedClipModels.SetInputConnectionByNumber(1, self.clipFilterSupports.GetOutputPort())
+				self.combinedClipModels.SetInputConnectionByNumber(2, self.clipFilterBottomPlate.GetOutputPort())
 			# Create cutting filter for model.
 			self.cuttingFilterModel = vtk.vtkCutter()
 			self.cuttingFilterModel.SetCutFunction(self.cuttingPlane)
@@ -1036,9 +1040,11 @@ class modelData:
 				self.combinedCutlines.AddInput(self.sectionStripperSupports.GetOutput())
 				self.combinedCutlines.AddInput(self.sectionStripperBottomPlate.GetOutput())
 			else:
-				self.combinedCutlines.AddInputData(self.sectionStripperModel.GetOutput())
-				self.combinedCutlines.AddInputData(self.sectionStripperSupports.GetOutput())
-				self.combinedCutlines.AddInputData(self.sectionStripperBottomPlate.GetOutput())
+				self.combinedCutlines.UserManagedInputsOn()
+				self.combinedCutlines.SetNumberOfInputs(4)
+				self.combinedCutlines.SetInputConnectionByNumber(0, self.sectionStripperModel.GetOutputPort())
+				self.combinedCutlines.SetInputConnectionByNumber(1, self.sectionStripperSupports.GetOutputPort())
+				self.combinedCutlines.SetInputConnectionByNumber(2, self.sectionStripperBottomPlate.GetOutputPort())
 
 			# Create a small cone to have at least one input
 			# to the slice line vtkAppendPolyData in case no
@@ -1051,7 +1057,7 @@ class modelData:
 			if vtk.VTK_MAJOR_VERSION <= 5:
 				self.combinedCutlines.AddInput(cone.GetOutput())
 			else:
-				self.combinedCutlines.AddInputData(cone.GetOutput())
+				self.combinedCutlines.SetInputConnectionByNumber(3, cone.GetOutputPort())
 			
 			# Bounding box. Create cube and set outline filter.
 			self.modelBoundingBox = vtk.vtkCubeSource()
@@ -1408,7 +1414,12 @@ class modelData:
 			self.updateOverhang()
 
 			# Clear all inputs from cones data.
-			self.supports.RemoveAllInputs()
+			if vtk.VTK_MAJOR_VERSION <= 5:
+				self.supports.RemoveAllInputs()
+			else:
+				support_inputs = 1
+				self.supports.SetNumberOfInputs(0)
+				self.supports.SetNumberOfInputs(support_inputs)
 			
 			# Create one super small cone to have at least one input
 			# to the vtkAppendPolyData in case no model intersections
@@ -1422,7 +1433,7 @@ class modelData:
 			if vtk.VTK_MAJOR_VERSION <= 5:
 				self.supports.AddInput(cone.GetOutput())
 			else:
-				self.supports.AddInputData(cone.GetOutput())
+				self.supports.SetInputConnectionByNumber(0, cone.GetOutputPort())
 
 	#TODO: Add support regions using	overhangRegionFilter.Update();
 	
@@ -1551,14 +1562,16 @@ class modelData:
 						if vtk.VTK_MAJOR_VERSION <= 5:
 							self.supports.AddInput(coneGeomFilter.GetOutput())
 						else:
-							self.supports.AddInputData(coneGeomFilter.GetOutput())
+							support_inputs += 2
+							self.supports.SetNumberOfInputs(support_inputs)
+							self.supports.SetInputConnectionByNumber(support_inputs - 2, coneGeomFilter.GetOutputPort())
 						# Delete the cone. Vtk delete() method does not work in python because of garbage collection.
 						del cone
 						# Append the cylinder to the cones polydata.
 						if vtk.VTK_MAJOR_VERSION <= 5:
 							self.supports.AddInput(cylinderGeomFilter.GetOutput())
 						else:
-							self.supports.AddInputData(cylinderGeomFilter.GetOutput())
+							self.supports.SetInputConnectionByNumber(support_inputs - 1, cylinderGeomFilter.GetOutputPort())
 						del cylinder
 		#				i += 1
 		#	print "Created " + str(i) + " supports."
