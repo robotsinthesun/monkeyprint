@@ -2200,7 +2200,7 @@ class backgroundSlicer(threading.Thread):
 				stencilModel.SetStencil(extruderStencilModel.GetOutput())
 			else:
 				stencilModel.SetInputData(image)
-				stencilModel.SetStencilData(extruderStencilModel.GetOutput())
+				stencilModel.SetStencilConnection(extruderStencilModel.GetOutputPort())
 			stencilModel.ReverseStencilOff()
 			stencilModel.SetBackgroundValue(0.0)
 			# Cut white image with stencil.
@@ -2210,7 +2210,7 @@ class backgroundSlicer(threading.Thread):
 				stencilSupports.SetStencil(extruderStencilSupports.GetOutput())
 			else:
 				stencilSupports.SetInputData(image)
-				stencilSupports.SetStencilData(extruderStencilSupports.GetOutput())
+				stencilSupports.SetStencilConnection(extruderStencilSupports.GetOutputPort())
 			stencilSupports.ReverseStencilOff()
 			stencilSupports.SetBackgroundValue(0.0)
 			# Cut white image with stencil.
@@ -2220,7 +2220,7 @@ class backgroundSlicer(threading.Thread):
 				stencilBottomPlate.SetStencil(extruderStencilBottomPlate.GetOutput())
 			else:
 				stencilBottomPlate.SetInputData(image)
-				stencilBottomPlate.SetStencilData(extruderStencilBottomPlate.GetOutput())
+				stencilBottomPlate.SetStencilConnection(extruderStencilBottomPlate.GetOutputPort())
 			stencilBottomPlate.ReverseStencilOff()
 			stencilBottomPlate.SetBackgroundValue(0.0)
 
