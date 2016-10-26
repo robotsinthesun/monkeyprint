@@ -34,7 +34,7 @@ import os.path
 import shutil
 import numpy
 import random
-import Image
+from PIL import Image
 import inspect	# Provides methdos to check arguments of a function.
 import monkeyprintImageHandling as imageHandling
 import monkeyprintPrintProcess
