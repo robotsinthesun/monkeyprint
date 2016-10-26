@@ -86,6 +86,7 @@ def runGui(filename=None, debug=False):
 	print "Starting Monkeyprint with GUI."
 	# Create a debug console text buffer.
 	console = monkeyprintGuiHelper.consoleText()
+#	console = None
 
 	# Create settings dictionary object for machine and program settings.
 	programSettings = monkeyprintSettings.programSettings(console)
@@ -111,7 +112,7 @@ def runGui(filename=None, debug=False):
 	# Create splash screen for given interval.
 	# Get version string first.
 	versionString = "Monkeyprint version " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value)
-	splash = monkeyprintGuiHelper.splashWindow(imageFile='./logo.png', duration=1, infoString = versionString)
+#	splash = monkeyprintGuiHelper.splashWindow(imageFile='./logo.png', duration=1, infoString = versionString)
 	
 	# Create gui.
 	gui = monkeyprintGui.gui(modelCollection, programSettings, console, filename)
