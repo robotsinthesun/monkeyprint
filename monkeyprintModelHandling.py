@@ -2368,7 +2368,7 @@ class backgroundSlicer(threading.Thread):
 						interval = time.time() - interval
 						print "Slice to image time: " + str(interval) + " s."
 						interval = time.time()
-					'''
+					
 					# Create fill pattern. #####################################
 					# Get pixel values from 10 slices above and below.
 					# We need to analyse these to be able to generate closed bottom and top surfaces.
@@ -2444,7 +2444,7 @@ class backgroundSlicer(threading.Thread):
 						if self.programSettings['debug'].value:
 							interval = time.time() - interval
 							print "Fill pattern time: " + str(interval) + "."
-					'''	
+						
 					# Combine model, supports and bottom plate images.
 					imageModel = cv2.add(imageModel, imageSupports)
 					imageModel = cv2.add(imageModel, imageBottomPlate)
