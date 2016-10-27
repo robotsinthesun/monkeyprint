@@ -129,7 +129,7 @@ class programSettings(dict):
 		self['currentFolder'] = setting(value='./models')
 		self['versionMajor'] = setting(value=0, isConstant=True)
 		self['versionMinor'] = setting(value=11, isConstant=True)
-		self['revision'] = setting(value=2, isConstant=True)
+		self['revision'] = setting(value=3, isConstant=True)
 		self['projectorSizeX'] = setting(value=1024, default=1024,		name='Projector size X')
 		self['projectorSizeY'] = setting(value=768, default=768,		name='Projector size Y')
 		self['projectorPositionX'] = setting(value=1920, default=1920,		name='Projector position X')
