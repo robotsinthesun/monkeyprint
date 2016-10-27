@@ -20,7 +20,7 @@
 
 
 class setting:
-	def __init__(self, value, lower=None, upper=None, unit='', default=None, valType=None, name=None):
+	def __init__(self, value, lower=None, upper=None, unit='', default=None, valType=None, name=None, isConstant=False):
 		self.value = value
 		self.upper = upper
 		self.lower = lower
@@ -30,36 +30,41 @@ class setting:
 			self.unit = unit
 		self.default = default
 		self.name = name
+		self.isConstant = isConstant
 
 
 	# Set value and control bounds.
 	def setValue(self, inVal):
-		self.value = inVal
-		# Type cast to float or int if number.
-		if type(inVal) == str and self.isnumber(inVal):
-#			print inVal.isdigit()
-			if inVal.isdigit():
-				self.value = int(inVal)
-#				print "Int: " + inVal
-			else:
-				self.value = float(inVal)
-#				print "Float: " + inVal
-		# Cast to bool if "True" or "False"
-		elif inVal == "True" or inVal == "False":
-			self.value = eval(inVal)
-#			print "String: " + inVal
-		# Correct for upper bound.
-		if self.upper != None:
-			if self.value > self.upper:
-				self.value = self.upper
-		# Correct for lower bound.
-		if self.lower != None:
-			if self.value < self.lower:
-				self.value = self.lower
+		if not self.isConstant:
+			self.value = inVal
+			# Type cast to float or int if number.
+			if type(inVal) == str and self.isnumber(inVal):
+	#			print inVal.isdigit()
+				if inVal.isdigit():
+					self.value = int(inVal)
+	#				print "Int: " + inVal
+				else:
+					self.value = float(inVal)
+	#				print "Float: " + inVal
+			# Cast to bool if "True" or "False"
+			elif inVal == "True" or inVal == "False":
+				self.value = eval(inVal)
+	#			print "String: " + inVal
+			# Correct for upper bound.
+			if self.upper != None:
+				if self.value > self.upper:
+					self.value = self.upper
+			# Correct for lower bound.
+			if self.lower != None:
+				if self.value < self.lower:
+					self.value = self.lower
+
+
+
 
 	def isnumber(self,s):
 		try:
-			float(s)      
+			float(s)
 		except ValueError:
 			return False
 		else:
@@ -107,13 +112,13 @@ class jobSettings(dict):
 		# Create objects for all the settings and put them into dictionary.
 		# Load defaults from program settings to get settings saved from last session.
 		self['layerHeight'] = setting(value=0.1, lower=.01, upper=0.3, unit='mm')
-		self['projectPath'] = programSettings['currentFolder']#setting(value="")		
+		self['projectPath'] = programSettings['currentFolder']#setting(value="")
 		self['exposureTimeBase'] = programSettings['exposureTimeBase']#setting(value=14.0, lower=1.0, upper=15.0)
 		self['exposureTime'] = programSettings['exposureTime']#setting(value=9.0, lower=1.0, upper=15.0)
 	#	self['Resin settle time'] = programSettings['Resin settle time']#setting(value=1.0, lower=0.1, upper=3.0)
-		
-		
-class programSettings(dict):	
+
+
+class programSettings(dict):
 	# Override init function.
 	def __init__(self, console=None):
 		# Call super class init function.
@@ -122,9 +127,9 @@ class programSettings(dict):
 		self.console = console
 		# Create objects for all the settings and put them into dictionary.
 		self['currentFolder'] = setting(value='./models')
-		self['versionMajor'] = setting(value=0)
-		self['versionMinor'] = setting(value=11)	
-		self['revision'] = setting(value=0)
+		self['versionMajor'] = setting(value=0, isConstant=True)
+		self['versionMinor'] = setting(value=11, isConstant=True)
+		self['revision'] = setting(value=3, isConstant=True)
 		self['projectorSizeX'] = setting(value=1024, default=1024,		name='Projector size X')
 		self['projectorSizeY'] = setting(value=768, default=768,		name='Projector size Y')
 		self['projectorPositionX'] = setting(value=1920, default=1920,		name='Projector position X')
@@ -141,7 +146,7 @@ class programSettings(dict):
 		self['port'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0',		name='Port')
 		self['baudrate'] = setting(value='57600', default=57600,		name='Baud rate')
 		self['baudrateGCode'] = setting(value='115200', default=115200,		name='Baud rate')
-		
+
 		self['avrdudeMcu'] = setting(value='atmega32u4', default='atmega32u4',		name='MCU')
 		self['avrdudeMcuGCode'] = setting(value='atmega2560', default='atmega2560',		name='MCU')
 		self['avrdudeProgrammer'] = setting(value='avr109', default='avr109',		name='Programmer')
@@ -215,7 +220,7 @@ class programSettings(dict):
 #		self['Top GCode'] = setting(value='G28 Z0', default='G28 Z0')
 		# Modules for print process. Values are: Type, Display name, Value, Unit, Editable.
 		self['printModulesMonkeyprint'] = setting(value=	'Initialise printer,,,internal,False;Wait,1.0,,internal,True;Build platform layer up,,buildUp,serialMonkeyprint,False;Build platform to home,,buildHome,serialMonkeyprint,False;Build platform to top,,buildTop,serialMonkeyprint,False;Tilt,,tilt,serialMonkeyprint,False;Shutter open,,shutterOpen,serialMonkeyprint,False;Shutter close,,shutterClose,serialMonkeyprint,False;Expose,,,internal,False;Projector on,,projectorOn,serialMonkeyprint,False;Projector off,,projectorOff,serialMonkeyprint,False;Start loop,,,internal,False;End loop,,,internal,False')
-		self['printModulesGCode'] = setting(value='Wait,1.0,,internal,True;Initialise printer,G21 G91 M17,,serialGCode,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True;Build platform to home,G28 X Z,,serialGCode,True;Build platform to top,G162 Z F100,,serialGCode,True;Tilt down,G1 X20 F1000,,serialGCode,True;Tilt up,G1 X-20 F1000,,serialGCode,True;Shutter open,M280 P0 S500,,serialGCode,True;Shutter close,M280 P0 S2500,,serialGCode,True;Expose,,,internal,False;Projector on,,,internal,False;Projector off,,,internal,False;Start loop,,,internal,False;End loop,,,internal,False;Shut down printer,M18,,serialGCode,True;Set steps per unit,M92 X 20.8 Z 10.2,,serialGCode,True;Emergency stop,M112,,serialGCode,True;Beep,M300 S440 P500,,serialGCode,True;Custom G-Code,G91,,serialGCode,True')		
+		self['printModulesGCode'] = setting(value='Wait,1.0,,internal,True;Initialise printer,G21 G91 M17,,serialGCode,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True;Build platform to home,G28 X Z,,serialGCode,True;Build platform to top,G162 Z F100,,serialGCode,True;Tilt down,G1 X20 F1000,,serialGCode,True;Tilt up,G1 X-20 F1000,,serialGCode,True;Shutter open,M280 P0 S500,,serialGCode,True;Shutter close,M280 P0 S2500,,serialGCode,True;Expose,,,internal,False;Projector on,,,internal,False;Projector off,,,internal,False;Start loop,,,internal,False;End loop,,,internal,False;Shut down printer,M18,,serialGCode,True;Set steps per unit,M92 X 20.8 Z 10.2,,serialGCode,True;Emergency stop,M112,,serialGCode,True;Beep,M300 S440 P500,,serialGCode,True;Custom G-Code,G91,,serialGCode,True')
 		self['printProcessMonkeyprint'] = setting(value='Initialise printer,,,internal,False;Projector on,,projectorOn,serialMonkeyprint,False;Build platform to home,,buildHome,serialMonkeyprint,False;Start loop,,,internal,False;Shutter open,,shutterOpen,serialMonkeyprint,False;Expose,,,internal,False;Shutter close,,shutterClose,serialMonkeyprint,False;Tilt,,tilt,serialMonkeyprint,False;Wait,1.0,,internal,True;End loop,,,internal,False;Build platform to top,,buildTop,serialMonkeyprint,False')
 		self['printProcessGCode'] = setting(value='Initialise printer,G21 G91 M17,,serialGCode,True;Projector on,---,,internal,False;Build platform to home,G28 X Z,,serialGCode,True;Start loop,---,,internal,False;Shutter open,M280 P0 S500,,serialGCode,True;Expose,---,,internal,False;Shutter close,M280 P0 S2500,,serialGCode,True;Tilt down,G1 X20 F1000,,serialGCode,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True;Tilt up,G1 X-20 F1000,,serialGCode,True;Wait,1.0,,internal,True;End loop,---,,internal,False;Build platform to top,G162 F100,,serialGCode,True;Shut down printer,M18,,serialGCode,True')
 		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
@@ -233,7 +238,7 @@ class programSettings(dict):
 	def setting2String(self,setting):
 		string = setting + ":" + str(self[setting].value) + "\n"
 		return string
-	
+
 	def string2Setting(self, string):
 		string = string.strip()
 		strSplit = string.split(':')
@@ -247,7 +252,7 @@ class programSettings(dict):
 			for setting in self:
 				# Convert to string and write to file.
 				f.write(self.setting2String(setting))
-	
+
 	# Read program settings from file.
 	def readFile(self, filename=None):
 		if filename==None:
@@ -265,7 +270,7 @@ class programSettings(dict):
 			if self.console != None:
 				self.console.addLine("No settings file found. Using defaults.")
 
-	
+
 	def getModuleList(self):
 		if self['monkeyprintBoard'].value == True:
 			moduleList = self['printModulesMonkeyprint'].value.split(';')
@@ -279,18 +284,18 @@ class programSettings(dict):
 				moduleList[i] = moduleList[i].split(',')
 				moduleList[i][-1] = eval(moduleList[i][-1])
 			return moduleList
-	
+
 	def setModuleList(self, moduleList):
 		settingString = ''
 		for row in range(len(moduleList)):
 			settingString += str(moduleList[row])
 			if row < len(moduleList)-1:
 				settingString += ';'
-		if self['monkeyprintBoard'].value == True:		
+		if self['monkeyprintBoard'].value == True:
 			self['printModulesMonkeyprint'].value = moduleList
 		else:
 			self['printModulesGCode'].value = settingString
-	
+
 	def getPrintProcessList(self):
 		if self['monkeyprintBoard'].value == True:
 			printProcessList = self['printProcessMonkeyprint'].value.split(';')
@@ -319,7 +324,7 @@ class programSettings(dict):
 					settingString += ','
 			if row < len(moduleList)-1:
 				settingString += ';'
-		if self['monkeyprintBoard'].value == True:		
+		if self['monkeyprintBoard'].value == True:
 			self['printProcessMonkeyprint'].value = settingString
 		else:
 			self['printProcessGCode'].value = settingString

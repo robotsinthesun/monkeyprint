@@ -30,7 +30,7 @@ import monkeyprintPiServer
 
 
 
-	
+
 def main(argv):
 
 	if __name__ == "__main__":
@@ -47,13 +47,13 @@ def main(argv):
 
 		# Act according to commandline options.
 		if len(opts) != 0:
-		
+
 			# Check if debug option was given.
 			debugOption = False
 			for opt, arg in opts:
 				if (opt=="-d"):
 					debugOption = True
-					
+
 			# If debug flag was the only option...
 			if len(opts) == 1 and debugOption:
 				# ...start with debug flag.
@@ -75,11 +75,11 @@ def main(argv):
 					elif (opt in ("-s", "--server")):
 						# Start server that listens for commands via socket.
 						runServerNoGui(debug=debugOption)
-					
+
 		# If no options present, just run with GUI.
 		else:
 			runGui()
-	
+
 
 def runGui(filename=None, debug=False):
 
@@ -89,13 +89,13 @@ def runGui(filename=None, debug=False):
 
 	# Create settings dictionary object for machine and program settings.
 	programSettings = monkeyprintSettings.programSettings(console)
-	
+
 	# Create version message.
 	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value))
 
-	# Update settings from file.	
+	# Update settings from file.
 	programSettings.readFile()
-	
+
 	# Set debug mode if specified.
 	if debug:
 		print "Debug mode active."
@@ -111,8 +111,9 @@ def runGui(filename=None, debug=False):
 	# Create splash screen for given interval.
 	# Get version string first.
 	versionString = "Monkeyprint version " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value)
+	print versionString
 	splash = monkeyprintGuiHelper.splashWindow(imageFile='./logo.png', duration=1, infoString = versionString)
-	
+
 	# Create gui.
 	gui = monkeyprintGui.gui(modelCollection, programSettings, console, filename)
 
@@ -126,8 +127,8 @@ def runNoGui(filename=None, debug=False):
 	print "Starting without Gui."
 	# Create settings dictionary object for machine and program settings.
 	programSettings = monkeyprintSettings.programSettings()
-	
-	# Update settings from file.	
+
+	# Update settings from file.
 	programSettings.readFile()
 
 	# Set debug mode if specified.
@@ -136,18 +137,18 @@ def runNoGui(filename=None, debug=False):
 		print "Debug mode active."
 	else:
 		programSettings['debug'].value = False
-	
+
 	# Create model collection object.
 	# This object contains model data and settings data for each model.
 	# Pass program settings.
 	modelCollection = monkeyprintModelHandling.modelCollection(programSettings)
-	
-	
+
+
 	#TODO disable this...
 	modelCollection.jobSettings['exposureTime'].value = 0.1
 	print ("Exposure time: " + str(modelCollection.jobSettings['exposureTime'].value) + ".")
-	
-	
+
+
 	# Load project file.
 	# TODO: test if file is mkp.
 	modelCollection.loadProject(filename)
@@ -156,7 +157,7 @@ def runNoGui(filename=None, debug=False):
 	for model in modelCollection:
 		if model != 'default':
 			print ("   " + model)
-	
+
 	# Start the slicer.
 	modelCollection.updateSliceStack()
 	print ("Starting slicer.")
@@ -167,20 +168,20 @@ def runNoGui(filename=None, debug=False):
 		time.sleep(.2)
 		sys.stdout.write('.')
 		sys.stdout.flush()
-	
+
 	# Start print process when slicers are done.
 	print "\nSlicer done. Starting print process."
-	
+
 	# Create the projector window.
-	gui = monkeyprintGui.noGui(programSettings, modelCollection)	
-	
-	
+	gui = monkeyprintGui.noGui(programSettings, modelCollection)
+
+
 	print "Print process done. Thank you for using Monkeyprint."
 
 
 def runServerNoGui(port="5553", debug=False):
 	printerServer = monkeyprintPiServer.monkeyprintPiServer(port, debug)
-	
+
 
 def usage():
 	print "\nCommand line option not recognized.\n"
