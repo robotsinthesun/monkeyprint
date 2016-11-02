@@ -1673,7 +1673,9 @@ class modelData:
 			# ... get it.
 			if self.console != None:
 				self.console.addLine('Slicer done.')
-			self.sliceStack[:] = self.queueSlicerOut.get()
+			self.sliceStack[:], warningSlices = self.queueSlicerOut.get()
+			if len(warningSlices) > 0:
+					self.console.addLine("Warning: Open polylines in slices " + str(warningSlices))
 			self.flagSlicerRunning = False
 
 
@@ -2150,7 +2152,8 @@ class backgroundSlicer(threading.Thread):
 			# Check if new input is in queue. If not...
 			if not self.newInputInQueue():
 				# ...do the slicing.
-				self.sliceStackNew = self.updateSlices(inputModel)
+				self.sliceStackNew, warningSlices = self.updateSlices(inputModel)
+				print warningSlices
 				if self.programSettings['debug'].value:
 					print "Slicer done."
 
@@ -2159,7 +2162,7 @@ class backgroundSlicer(threading.Thread):
 				# Break the loop, return to idle mode and restart from there.
 				break
 			# Write the model to the output queue.
-			self.queueSlicerOut.put(self.sliceStackNew)
+			self.queueSlicerOut.put((self.sliceStackNew, warningSlices))
 			break
 		# Go back to idle mode.
 		self.idle()
@@ -2396,6 +2399,7 @@ class backgroundSlicer(threading.Thread):
 			extruderStencilBottomPlate.SetOutputWholeExtent(image.GetExtent())
 			extruderStencilBottomPlate.SetOutputSpacing(spacing)
 			"""
+			warningSlices = []
 
 			# Loop through slices.
 			for sliceNumber in range(numberOfSlices):
@@ -2403,7 +2407,7 @@ class backgroundSlicer(threading.Thread):
 				if not self.newInputInQueue() and not self.stopThread.isSet():
 					# Sleep for a very short period to allow GUI thread some CPU usage.
 					time.sleep(0.001)
-					print "Slice " + str(sliceNumber) + "."
+#					print "Slice " + str(sliceNumber) + "."
 
 					imageSlice = numpy.zeros((height, width), numpy.uint8)
 
@@ -2434,7 +2438,7 @@ class backgroundSlicer(threading.Thread):
 					# End timer.
 					if self.programSettings['debug'].value:
 						interval = time.time() - interval
-						print "Cut time: " + str(interval) + " s."
+#						print "Cut time: " + str(interval) + " s."
 
 
 					# Sort intersection line segments into polylines.
@@ -2454,17 +2458,18 @@ class backgroundSlicer(threading.Thread):
 					# End timer.
 					if self.programSettings['debug'].value:
 						interval = time.time() - interval
-						print "Cut segments to polyline time: " + str(interval) + " s."
+#						print "Cut segments to polyline time: " + str(interval) + " s."
 
 
-					# Turn VTK polylines into numpy point arrays.
+					# Turn VTK polylines into numpy point arrays. **************
 					# Start timer.
 					if self.programSettings['debug'].value:
 						interval = time.time()
-					allPolylines = []
+					polylinesClosedAll = []
+					polylinesCorruptedAll = []
 					# Do this for model, supports and bottom plate.
 					for sectionStripper in [sectionStripperModel, sectionStripperSupports, sectionStripperBottomPlate]:
-						print "Sorting polyline pieces. ************************"
+#						print "Sorting polyline pieces. ************************"
 						# Get the polyline points. These are not ordered.
 						if vtk.VTK_MAJOR_VERSION <= 5:
 							points = sectionStripper.GetOutput().GetPoints().GetData()
@@ -2489,19 +2494,15 @@ class backgroundSlicer(threading.Thread):
 							lines = sectionStripper.GetOutputPort().GetLines()#.GetData()
 						numberOfPolylines = lines.GetNumberOfCells()
 						if numberOfPolylines < 1:
-							print "   No polylines found."
+#							print "   No polylines found."
+							pass
 						else:
-							print "   Found " + str(numberOfPolylines) + " polylines."
+#							print "   Found " + str(numberOfPolylines) + " polylines."
 							lines = lines.GetData()
 							# Convert to numpy array.
 							lines = numpy_support.vtk_to_numpy(lines)
 
-							# Sort points using the indices given in lines array. **************************
-							# The lines array can contain multiple polylines.
-							# The data is structured like this:
-							# numPointsPolyline0 p0 p1 p2 ... numPointsPolyline1 p0 p1 p2 ...
-							# Loop through the single polylines.
-							polylineIndicesAll = []
+
 							polylineIndicesClosed = []
 							polylineIndicesOpen = []
 							startIndex = 0
@@ -2511,128 +2512,201 @@ class backgroundSlicer(threading.Thread):
 							# Two polylines are connected if the start or end point indices are equal.
 							# Test for start/start, end/end, start/end, end/start.
 							for polyline in range(numberOfPolylines):
-								print "   Polyline " + str(polyline) + ". *********"
+			#					print "Polyline " + str(polyline) + ". ****************"
 								numberOfPoints = lines[startIndex]
-								#print "Number of points: " + str(numberOfPoints) + "."
-								print "     Start point: " + str(points[lines[startIndex+1]]) + "."
-								print "     End point: " + str(points[lines[startIndex+numberOfPoints]]) + "." # -1
+					#			print "   Start point: " + str(points[lines[startIndex+1]]) + "."
+					#			print "   End point: " + str(points[lines[startIndex+numberOfPoints]]) + "." # -1
 								# Get the indices starting just behind the start index.
 								polylineInd = lines[startIndex+1:startIndex+1+numberOfPoints]
-							#	print polylineInd
 
 								# Check if polyline is closed. If yes, append to closed list.
 								if polylineInd[0] == polylineInd[-1]:
-									print "     Found closed polyline. Appending."
+					#				print "   Found closed polyline."
 									polylineIndicesClosed.append(polylineInd)
 								# If not, check if this is the first open one. If yes, append.
 								else:# len(polylineIndicesOpen) == 0:
-									print "     Found open polyline. Appending."
+					#				print "   Found open polyline."
 									polylineIndicesOpen.append(polylineInd)
 
 								# Set start index to next polyline.
 								startIndex += numberOfPoints+1
 
-							# Loop over open polyline parts and pick the ones that connect.
-							# Do this until everything is connected.
-							print "   Trying to connect open parts."
-							while len(polylineIndicesOpen) > 0:
-								# Get first piece.
-								currentPiece = polylineIndicesOpen[0]
-								del polylineIndicesOpen[0]
-								i = 0
-								# Security loop counter to avoid locking if no match is found.
-								# TODO: handle event of non matching open piece.
-								loopCounter = 0
-								loopMax = 20
-								while True:
-									nextPiece = polylineIndicesOpen[i]
-									# Start points equal: flip new array and prepend.
-									if nextPiece[0] == currentPiece[0]:
-										print "     Start-start match."
-										currentPiece = numpy.insert(currentPiece, 0, numpy.flipud(nextPiece[1:]), axis=0)
-										del polylineIndicesOpen[i]
-										i = i-1
-										loopCounter = 0
-										# Check if this closes the line.
-										if currentPiece[0] == currentPiece[-1]:
-											print "        Polyline now closed."
-											polylineIndicesClosed.append(currentPiece)
-											break
-									elif nextPiece[0] == currentPiece[-1]:
-										print "     Start-end match."
-										currentPiece = numpy.append(currentPiece, nextPiece[1:])
-										del polylineIndicesOpen[i]
-										i = i-1
-										loopCounter = 0
-										# Check if this closes the line.
-										if currentPiece[0] == currentPiece[-1]:
-											print "        Polyline now closed."
-											polylineIndicesClosed.append(currentPiece)
-											break
-									elif nextPiece[-1] == currentPiece[0]:
-										print "     End-start match."
-										currentPiece = numpy.insert(currentPiece, 0, nextPiece[:-1], axis=0)
-										del polylineIndicesOpen[i]
-										i = i-1
-										loopCounter = 0
-										# Check if this closes the line.
-										if currentPiece[0] == currentPiece[-1]:
-											print "        Polyline now closed."
-											polylineIndicesClosed.append(currentPiece)
-											break
-									elif nextPiece[-1] == currentPiece[-1]:
-										print "     End-end match."
-										currentPiece = numpy.append(currentPiece, numpy.flipud(nextPiece[:-1]), axis=0)
-										del polylineIndicesOpen[i]
-										i = i-1
-										loopCounter = 0
-										# Check if this closes the line.
-										if currentPiece[0] == currentPiece[-1]:
-											print "        Polyline now closed."
-											polylineIndicesClosed.append(currentPiece)
-											break
-									if loopCounter == loopMax:
-										break
-									else:
-										loopCounter += 1
-									if i == len(polylineIndicesOpen)-1:
-										i = 0
-									else:
-										i += 1
-
-								print "Closed polylines: " + str(len(polylineIndicesClosed)) + "."
-								print "Open polylines: " + str(len(polylineIndicesOpen)) + "."
-
 
 							# Get polyline points according to indices.
-							polylines = []
+							polylinesClosed = []
 							for polyline in polylineIndicesClosed:
 								polylinePoints = points[polyline]
 								# Convert to numpy array.
-								polylinePoints = numpy.array([polylinePoints], dtype=numpy.int32)
-								# Check if new polyline connects to existing one.
-								# This is necessary because some polylines from the stripper output may still be segmented.
-
+								polylinePoints = numpy.array(polylinePoints, dtype=numpy.int32)
 								# Save as integers.
-								polylines.append(polylinePoints) #= polylinePoints
-							allPolylines.append(polylines)
+								polylinesClosed.append(polylinePoints)
+
+
+							# Get polyline points according to indices.
+							polylinesOpen = []
+							for polyline in polylineIndicesOpen:
+								polylinePoints = points[polyline]
+								# Convert to numpy array.
+								polylinePoints = numpy.array(polylinePoints, dtype=numpy.int32)
+								# Save as integers.
+								polylinesOpen.append(polylinePoints)
+
+							if sectionStripper == sectionStripperModel:
+								print "##########################################################"
+
+								print "Found " + str(len(polylinesClosed)) + " closed segments."
+								print "Found " + str(len(polylinesOpen)) + " open segments."
+
+		#					print "##########################################################"
+
+							# Loop over open polyline parts and pick the ones that connect.
+							# Do this until everything is connected.
+					#		print "Trying to connect open segments."
+							polylinesCorrupted = []
+							# Create list of flags for matched segments.
+							matched = [False for i in range(len(polylinesOpen))]
+							# Loop through open segments.
+							for i in range(len(polylinesOpen)):
+					#			print "Testing open segment " + str(i) + ". ********************************"
+
+								# Get a segment and try to match it to any other segment.
+								# Only do this if the segment has not been matched before.
+								if matched[i] == True:
+									pass
+					#				print "   Segment was matched before. Skipping."
+								else:
+									segmentA = polylinesOpen[i]
+
+									#print (segmentA[0] == segmentA[0]).all()
+
+									# Flag that signals if any of the other segments was a match.
+									runAgain = True # Set true to start first loop.
+									while runAgain == True:
+										# Set false to stop loop if no match is found.
+										runAgain = False
+										isClosed = False
+										# Loop through all other segments check for matches.
+										for j in range(len(polylinesOpen)):
+											# Only if this is not segmentA and if it still unmatched.
+											if j != i and matched[j] == False:
+
+												# Get next piece to match to current piece.
+												segmentB = polylinesOpen[j]
+
+												# Compare current piece and next piece start and end points.
+												# If a match is found, add next piece to current piece.
+												# Loop over next pieces until no match is found or the piece is closed.
+												# Start points equal: flip new array and prepend.
+												if (segmentB[0] == segmentA[0]).all():
+								#					print "   Start-start match with segment " + str(j) + "."
+													segmentA = numpy.insert(segmentA, 0, numpy.flipud(segmentB[1:]), axis=0)
+													matched[j] = True
+													# Check if this closes the line.
+													if (segmentA[0] == segmentA[-1]).all():
+								#						print "      Polyline now is closed."
+														polylinesClosed.append(segmentA)
+														isClosed = True
+														runAgain = False
+														break
+													else:
+														runAgain = True
+
+
+												elif (segmentB[0] == segmentA[-1]).all():
+								#					print "   Start-end match with segment " + str(j) + "."
+													segmentA = numpy.append(segmentA, segmentB[1:])
+													segmentA = segmentA.reshape(-1,2)
+													matched[j] = True
+													# Check if this closes the line.
+													if (segmentA[0] == segmentA[-1]).all():
+								#						print "      Polyline now closed."
+														polylinesClosed.append(segmentA)
+														isClosed = True
+														runAgain = False
+														break
+													else:
+														runAgain = True
+
+												elif (segmentB[-1] == segmentA[0]).all():
+								#					print "   End-start match with segment " + str(j) + "."
+													segmentA = numpy.insert(segmentA, 0, segmentB[:-1], axis=0)
+													matched[j] = True
+													# Check if this closes the line.
+													if (segmentA[0] == segmentA[-1]).all():
+								#						print "      Polyline now closed."
+														polylinesClosed.append(segmentA)
+														isClosed = True
+														runAgain = False
+														break
+													else:
+														runAgain = True
+
+												elif (segmentB[-1] == segmentA[-1]).all():
+								#					print "   End-end match with segment " + str(j) + "."
+													segmentA = numpy.append(segmentA, numpy.flipud(segmentB[:-1]), axis=0)
+													segmentA = segmentA.reshape(-1,2)
+													matched[j] = True
+													# Check if this closes the line.
+													if (segmentA[0] == segmentA[-1]).all():
+								#						print "      Polyline now closed."
+														polylinesClosed.append(segmentA)
+														isClosed = True
+														runAgain = False
+														break
+													else:
+														runAgain = True
+
+										# If no match was found and segmentA is still open,
+										# copy it to defective segments array.
+										if runAgain == False and isClosed == False:
+											endPointDistance = math.sqrt( pow((segmentA[0][0] -segmentA[-1][0]), 2) + pow((segmentA[0][1] -segmentA[-1][1]), 2) )
+											if endPointDistance < (self.programSettings['polylineClosingThreshold'].value * self.programSettings['pxPerMm'].value):
+								#				print "      End point distance below threshold. Closing manually."
+												polylinesClosed.append(segmentA)
+											else:
+								#				print "      Giving up on this one..."
+												polylinesCorrupted.append(segmentA)
+										elif runAgain == False and isClosed == True:
+											pass
+								#			print "   Segment is closed. Advancing to next open segment."
+										else:
+											pass
+								#			print "   Matches were found. Restarting loop to find more..."
+
+							if sectionStripper == sectionStripperModel:
+								print "Closed polylines: " + str(len(polylinesClosed)) + "."
+								print "Open polylines: " + str(len(polylinesCorrupted)) + "."
+
+							polylinesClosedAll.append(polylinesClosed)
+
+							if len(polylinesCorrupted) != 0:
+								if sectionStripper == sectionStripperModel:
+									print "!!! Warning: there are " + str(len(polylinesCorrupted)) + " open polyline segments. Check if you model is watertight."
+								polylinesCorruptedAll.append(polylinesCorrupted)
+
+					if len(polylinesCorruptedAll) > 0:
+						warningSlices.append(sliceNumber)
 					# End timer.
 					if self.programSettings['debug'].value:
 						interval = time.time() - interval
 						print "Polyline point sort time: " + str(interval) + " s."
 
 
-					# Add each polyline to slice image.
+					# Add polylines to image. **********************************
 					# Start timer.
 					if self.programSettings['debug'].value:
 						interval = time.time()
-					for polylines in allPolylines:
+					for polylines in polylinesClosedAll:
 						cv2.fillPoly(imageSlice, polylines, color=255)
 						#cv2.polylines(imageSlice, polylines, isClosed=True, color=255)
+
+
+
+
 					# End timer.
 					if self.programSettings['debug'].value:
 						interval = time.time() - interval
-						print "Polyline point sort time: " + str(interval) + " s."
+						print "Polyline to image time: " + str(interval) + " s."
 
 
 
@@ -2763,8 +2837,7 @@ class backgroundSlicer(threading.Thread):
 						self.console.addLine("Restarting slicer.")
 					break
 					#return self.sliceStack
-			print "Slicer done."
-			return sliceStack
+			return sliceStack, warningSlices
 
 
 
