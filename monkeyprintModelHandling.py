@@ -2387,58 +2387,58 @@ class backgroundSlicer(threading.Thread):
 						if bounds[5] > layerHeight*sliceNumber+wallThickness and bounds[4] < layerHeight*sliceNumber-wallThickness:	
 						
 							# Set cutting plane + wall thickness for top mask.
-							self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber+wallThickness)
-							self.extruderModel.SetVector(0,0,-sliceNumber+wallThickness*layerHeight-1)
-							self.stencilModel.Update()
+							cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber+wallThickness)
+							extruderModel.SetVector(0,0,-sliceNumber+wallThickness*layerHeight-1)
+							stencilModel.Update()
 				
 							# Get mask image data as numpy array.
-							self.imageTopMask = numpy_support.vtk_to_numpy(self.stencilModel.GetOutput().GetPointData().GetScalars())
+							imageTopMask = numpy_support.vtk_to_numpy(stencilModel.GetOutput().GetPointData().GetScalars())
 				
 							# Set cutting plate - wall thickness for bottom mask.
-							self.cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber-wallThickness)
-							self.extruderModel.SetVector(0,0,-sliceNumber+wallThickness*layerHeight-1)
-							self.stencilModel.Update()
+							cuttingPlane.SetOrigin(0,0,layerHeight*sliceNumber-wallThickness)
+							extruderModel.SetVector(0,0,-sliceNumber+wallThickness*layerHeight-1)
+							stencilModel.Update()
 				
 							# Get mask image data as numpy array.
-							self.imageBottomMask = numpy_support.vtk_to_numpy(self.stencilModel.GetOutput().GetPointData().GetScalars())
+							imageBottomMask = numpy_support.vtk_to_numpy(stencilModel.GetOutput().GetPointData().GetScalars())
 						
 							# Now we have the pixel values in a long list. Transform them into a 2d array.
-							self.imageTopMask = self.imageTopMask.reshape(1, height, width)
-							self.imageTopMask = self.imageTopMask.transpose(1,2,0)
-							self.imageBottomMask = self.imageBottomMask.reshape(1, height, width)
-							self.imageBottomMask = self.imageBottomMask.transpose(1,2,0)
+							imageTopMask = imageTopMask.reshape(1, height, width)
+							imageTopMask = imageTopMask.transpose(1,2,0)
+							imageBottomMask = imageBottomMask.reshape(1, height, width)
+							imageBottomMask = imageBottomMask.transpose(1,2,0)
 						
 							# Cast to uint8.
-							self.imageTopMask = numpy.uint8(self.imageTopMask)
-							self.imageBottomMask = numpy.uint8(self.imageBottomMask)
+							imageTopMask = numpy.uint8(imageTopMask)
+							imageBottomMask = numpy.uint8(imageBottomMask)
 					
 						# If cutting plane is inside top or bottom wall...
 						else:
 							# ... set masks black.
-							self.imageTopMask = self.imageBlack
-							self.imageBottomMask = self.imageBlack
+							imageTopMask = imageBlack
+							imageBottomMask = imageBlack
 	
 
 						# Erode model image to create wall thickness.
-						self.imageEroded = cv2.erode(self.imageModel, numpy.ones((wallThicknessPx,wallThicknessPx), numpy.uint8), iterations=1)
+						imageEroded = cv2.erode(imageModel, numpy.ones((wallThicknessPx,wallThicknessPx), numpy.uint8), iterations=1)
 						
 						# Multiply mask images with eroded image to prevent wall where mask images are black.
-						self.imageEroded = cv2.multiply(self.imageEroded, self.imageTopMask)
-						self.imageEroded = cv2.multiply(self.imageEroded, self.imageBottomMask)
+						imageEroded = cv2.multiply(imageEroded, imageTopMask)
+						imageEroded = cv2.multiply(imageEroded, imageBottomMask)
 		
 						# Add internal pattern to wall. Write result to original slice image.
 						if self.settings['fill'].value == True:
 					
 							# Shift internal pattern 1 pixel to prevent burning in the pdms coating.
 							patternShift = 1	# TODO: implement setting for pattern shift.
-							self.imageFill = numpy.roll(self.imageFill, patternShift, axis=0)
-							self.imageFill = numpy.roll(self.imageFill, patternShift, axis=1)
+							imageFill = numpy.roll(imageFill, patternShift, axis=0)
+							imageFill = numpy.roll(imageFill, patternShift, axis=1)
 			
 							# Mask internal pattern using the eroded image.
-							self.imageEroded = cv2.multiply(self.imageEroded, self.imageFill)
+							imageEroded = cv2.multiply(imageEroded, imageFill)
 
 						# Subtract cavity with our without fill pattern from model.
-						self.imageModel = cv2.subtract(self.imageModel, self.imageEroded)
+						imageModel = cv2.subtract(imageModel, imageEroded)
 						
 						# End time measurement.
 						if self.programSettings['debug'].value:
