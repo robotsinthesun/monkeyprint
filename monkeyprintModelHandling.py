@@ -2471,10 +2471,7 @@ class backgroundSlicer(threading.Thread):
 					for sectionStripper in [sectionStripperModel, sectionStripperSupports, sectionStripperBottomPlate]:
 #						print "Sorting polyline pieces. ************************"
 						# Get the polyline points. These are not ordered.
-						if vtk.VTK_MAJOR_VERSION <= 5:
-							points = sectionStripper.GetOutput().GetPoints().GetData()
-						else:
-							points = sectionStripper.GetOutputPort().GetPoints().GetData()
+						points = sectionStripper.GetOutput().GetPoints().GetData()
 						# Convert to  numpy array.
 						points = numpy_support.vtk_to_numpy(points)
 						# Remove Z dimension.
@@ -2488,10 +2485,7 @@ class backgroundSlicer(threading.Thread):
 						points[:,1] = abs(points[:,1] - height)
 
 						# Get the lines. These contain point indices in the right order for each polyline.
-						if vtk.VTK_MAJOR_VERSION <= 5:
-							lines = sectionStripper.GetOutput().GetLines()#.GetData()
-						else:
-							lines = sectionStripper.GetOutputPort().GetLines()#.GetData()
+						lines = sectionStripper.GetOutput().GetLines()#.GetData()
 						numberOfPolylines = lines.GetNumberOfCells()
 						if numberOfPolylines < 1:
 #							print "   No polylines found."
