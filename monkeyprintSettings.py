@@ -85,6 +85,8 @@ class modelSettings(dict):
 		self['rotationZ'] = setting(value=0,	lower=0,	upper=359,	unit='°',		name='Rotation Z')
 		self['positionX'] = setting(value=50,	lower=0,	upper=100,	unit='%',		name='Position X')
 		self['positionY'] = setting(value=50,	lower=0,	upper=100,	unit='%',		name='Position Y')
+		self['createBottomPlate'] = setting(value=True, default=True, name='Create bottom plate')
+		self['createSupports'] = setting(value=True, default=True, name='Create supports')
 		self['bottomPlateThickness'] = setting(value=0.5,	lower=0.1,	upper=1.0,	unit='mm',		name='Bottom plate thickness')
 		self['bottomClearance'] = setting(value=5,	lower=self['bottomPlateThickness'].lower, unit='mm',		name='Bottom clearance')
 		# bottomClearanceMax must be set by model position, rotation and size
