@@ -36,6 +36,7 @@ import time
 import signal
 import zmq
 import os
+import shutil
 
 
 
@@ -139,6 +140,8 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 				del runningThreads[-1]
 		# Save settings to file.
 		self.programSettings.saveFile()
+		# Remove temp directory.on_closing(
+		shutil.rmtree(self.programSettings['tmpDir'].value, ignore_errors=True)
 		# Terminate the gui.
 		gtk.main_quit()
 		return False # returning False makes "destroy-event" be signalled to the window
@@ -381,6 +384,8 @@ class gui(gtk.Window):
 				# Clean up files.
 				if os.path.isfile(self.programSettings['localMkpPath'].value):
 					os.remove(self.programSettings['localMkpPath'].value)
+				# Remove temp directory.
+				shutil.rmtree(self.programSettings['tmpDir'].value, ignore_errors=True)
 				# Save settings to file.
 				self.programSettings.saveFile()
 				# Terminate the gui.

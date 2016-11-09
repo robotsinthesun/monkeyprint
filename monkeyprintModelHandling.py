@@ -55,7 +55,7 @@ import monkeyprintSettings
 
 
 class modelContainer:
-	def __init__(self, filenameOrSettings, programSettings, console=None):
+	def __init__(self, filenameOrSettings, modelId, programSettings, queueSlicerToCombiner, console=None):
 
 		# Check if a filename has been given or an existing model settings object.
 		# If filename was given...
@@ -74,10 +74,15 @@ class modelContainer:
 			filename = self.settings['filename'].value
 
 		# Internalise remaining data.
+		self.queueSlicerToCombiner = queueSlicerToCombiner
 		self.console=console
 
+		# Get the slice path where slice images are saved.
+		self.slicePath = programSettings['tmpDir'].value + '/' + modelId
+		self.slicePath = self.slicePath.replace(' ', '') + '.d'
+
 		# Create model object.
-		self.model = modelData(filename, self.settings, programSettings, self.console)
+		self.model = modelData(filename, self.slicePath, self.settings, programSettings, queueSlicerToCombiner, self.console)
 
 		# active flag. Only do updates if model is active.
 		self.flagactive = True
@@ -121,6 +126,12 @@ class modelContainer:
 	def sliceThreadListener(self):
 #		self.model.setChanged()
 		self.model.checkBackgroundSlicer()
+
+	# Delete slice images.
+	def cleanUp(self):
+		# Empty the slicer temp directory.
+		shutil.rmtree(self.slicePath, ignore_errors=True)
+
 
 	def getAllActors(self):
 		return (	self.getActor(),
@@ -372,6 +383,17 @@ class modelCollection(dict):
 		self.sliceImage = imageHandling.createImageGray(self.programSettings['projectorSizeX'].value, self.programSettings['projectorSizeY'].value, 0)
 		self.sliceImageBlack = numpy.empty_like(self.sliceImage)
 
+		# Preview slice stack. ********************************
+		self.sliceStackPreview = sliceStack()
+		self.stackHeightOld = self.sliceStackPreview.getStackHeight()
+		# Queue for transferring slice images from model slicer threads
+		# to slice combiner thread.
+		self.queueSlicerToCombiner = Queue.Queue()
+		self.queueCombinerToModelCollection = Queue.Queue()
+		# Slice combiner thread.
+		self.threadSliceCombiner = sliceCombiner(self.programSettings, self.queueSlicerToCombiner, self.queueCombinerToModelCollection, self.console)
+		self.threadSliceCombiner.start()
+
 		# Create calibration image. ***************************
 		self.calibrationImage = None#numpy.empty_like(self.sliceImage)
 
@@ -389,11 +411,14 @@ class modelCollection(dict):
 		# Create job settings object. *************************
 		self.jobSettings = monkeyprintSettings.jobSettings(self.programSettings)
 
+
+
+
 	# Reload calibration image.
 	def subtractCalibrationImage(self, inputImage):
 		# Get the image if it does not exist.
 		if self.calibrationImage == None and self.programSettings['calibrationImage'].value:
-	#		print "Loading calibration image."
+			print "Loading calibration image."
 			calibrationImage = None
 			try:
 				if os.path.isfile('./calibrationImage.png'):
@@ -516,8 +541,9 @@ class modelCollection(dict):
 
 	# Load a compressed model collection from disk.
 	def loadProject(self, filename):
-		# Create temporary working directory.
-		tmpPath = os.getcwd()+'/tmp'
+		# Create temporary working directory path.
+		#tmpPath = os.getcwd()+'/tmp'
+		tmpPath = self.programSettings['tmpDir'].value
 		# Delete the tmp directory, just in case it is there already.
 		shutil.rmtree(tmpPath, ignore_errors=True)
 		# Extract project files to tmp directory.
@@ -572,7 +598,7 @@ class modelCollection(dict):
 
 	# Add a model to the collection.
 	def add(self, modelId, filenameOrSettings):
-		self[modelId] = modelContainer(filenameOrSettings, self.programSettings, self.console)
+		self[modelId] = modelContainer(filenameOrSettings, modelId, self.programSettings, self.queueSlicerToCombiner, self.console)
 		# Set new model as current model.
 		self.currentModelId = modelId
 
@@ -580,6 +606,7 @@ class modelCollection(dict):
 	def remove(self, modelId):
 		if self[modelId]:
 			self[modelId].model.killBackgroundSlicer()
+			self[modelId].cleanUp()
 			# Explicitly delete model data to free memory from slice images.
 			del self[modelId].model
 			del self[modelId]
@@ -620,12 +647,28 @@ class modelCollection(dict):
 		numberOfSlices = int(math.floor(height / self.programSettings['layerHeight'].value))
 		return numberOfSlices
 
-	# Update the slice stack. Set it's height according to max model
+	def stackHeightChanged(self):
+		if self.stackHeightOld != self.getNumberOfSlices():
+			self.stackHeightOld = self.getNumberOfSlices()
+			return True
+		else:
+			return False
+
+	# Update the slice stack.
+	# This is called from the GUI and starts all model slicers.
+	# Set it's height according to max model
 	# height and layerHeight.
 	def updateSliceStack(self):
+		# Check if the stack height has changed.
+		# This makes it necessary to reslice all models.
+		#forceReslicePreview = self.stackHeightChanged() and self.sliceStackPreview.getStackHeight > self.programSettings['previewSlicesMax'].value
+#		if forceReslicePreview:
+#			print "Reslicing all models."
 		# Update all models' slice stacks.
 		for model in self:
 			self[model].updateSliceStack()
+		# Update preview slice stack.
+#		self.queueSlicerToCombiner.put([self.getNumberOfSlices()])
 
 
 
@@ -868,9 +911,9 @@ class buildVolume:
 
 
 
-
-
-
+################################################################################
+# Model data. ##################################################################
+################################################################################
 class modelData:
 	""" Create a model object containing the whole 3d data, the preview
 	slice stack as well as all the methods for changing (scaling etc.)
@@ -878,7 +921,7 @@ class modelData:
 	includes actors for rendering and the preview slice stack.
 	"""
 
-	def __init__(self, filename, settings, programSettings, console=None):
+	def __init__(self, filename, slicePath, settings, programSettings, queueSlicerToCombiner, console=None):
 
 
 		# Create VTK error observer to catch errors.
@@ -889,8 +932,10 @@ class modelData:
 		self.filenameStl = ""
 		self.filename = filename
 		self.flagactive = True
+		self.slicePath = slicePath
 		self.settings = settings
 		self.programSettings = programSettings
+		self.queueSlicerToCombiner = queueSlicerToCombiner
 		self.console = console
 
 		# Set up values for model positioning.
@@ -905,6 +950,7 @@ class modelData:
 		# Set up the slice stack. Has one slice only at first...
 		self.sliceStack = sliceStack()
 		self.slicePosition = (0,0)
+
 
 
 		# Set up pipeline. ###################################################
@@ -1126,7 +1172,7 @@ class modelData:
 			# Initialise the thread.
 			if self.console!=None:
 				self.console.addLine("Starting slicer thread")
-			self.slicerThread = backgroundSlicer(self.settings, self.programSettings, self.stlPositionFilter.GetOutput(), self.supports.GetOutput(), self.bottomPlate.GetOutput(), self.queueSlicerIn, self.queueSlicerOut, self.console)
+			self.slicerThread = backgroundSlicer(self.settings, self.programSettings, self.slicePath, self.stlPositionFilter.GetOutput(), self.supports.GetOutput(), self.bottomPlate.GetOutput(), self.queueSlicerIn, self.queueSlicerOut, self.queueSlicerToCombiner, self.console)
 			self.slicerThread.start()
 
 		######################################################################
@@ -1651,7 +1697,8 @@ class modelData:
 	def startBackgroundSlicer(self):
 		# Only update if this is not default flag and the
 		# model or supports have been changed before.
-		if self.filename!="" and self.flagChanged and self.isactive():
+		# Also update in preview mode if forced.
+		if self.filename!="" and self.isactive() and (self.flagChanged or forceReslicePreview):
 			if self.console != None:
 				self.console.addLine('Slicer started.')
 			# Reset the slice stack.
@@ -1662,7 +1709,7 @@ class modelData:
 				#test = vtk.vtkPolyData()
 				#test.DeepCopy(self.stlPositionFilter.GetOutput())
 				#print self.stlPositionFilter.GetOutput()
-				self.queueSlicerIn.put([self.stlPositionFilter.GetOutput(), self.supports.GetOutput(), self.bottomPlate.GetOutput()])
+				self.queueSlicerIn.put("foo")
 			self.flagChanged = False
 			self.flagSlicerRunning = True
 
@@ -2058,6 +2105,18 @@ class sliceStack(list):
 			self[i] = imageHandling.insert(self[i], img, position)#self.sliceArray[i][bounds[0]:bounds[1],bounds[2]:bounds[3]] = img
 
 
+	def updateHeight(self, height):
+		while(self.getStackHeight() < height):
+			self.append(numpy.copy(self.imageBlack))
+		if self.getStackHeight() > height:
+			del self[height:]
+		print "New stack height: " + str(self.getStackHeight()) + "."
+
+
+	def deleteRegion(self, position, size):
+		for imageSlice in self:
+			pass#imageSlice[]
+
 	# Return stack height.
 	def getStackHeight(self):
 		return len(self)
@@ -2088,6 +2147,105 @@ class sliceStack(list):
 
 
 
+  ##### ##     ###### ####   #####    ####   ####  ##  ## ##### ###### ##  ##  ##### #####
+ ##     ##       ##  ##  ## ##       ##  ## ##  ## ###### ##  ##  ##   ### ## ##     ##  ##
+  ####  ##       ##  ##     ####     ##     ##  ## ###### #####   ##   ###### ####   ##  ##
+     ## ##       ##  ##     ##       ##     ##  ## ##  ## ##  ##  ##   ## ### ##     #####
+     ## ##       ##  ##  ## ##       ##  ## ##  ## ##  ## ##  ##  ##   ##  ## ##     ## ##
+ #####  ###### ###### ####   #####    ####   ####  ##  ## ##### ###### ##  ##  ##### ##  ##
+
+
+
+################################################################################
+# A thread that checks the slicer temp directories an combines the slices. #####
+################################################################################
+class sliceCombiner(threading.Thread):
+	def __init__(self, programSettings, queueSlicerToCombiner, queueCombinerToModelCollection, console=None):
+
+		# Internalise parameters.
+		self.programSettings = programSettings
+		self.queueSlicerToCombiner = queueSlicerToCombiner
+		self.queueCombinerToModelCollection = queueCombinerToModelCollection
+		self.console = console
+
+		self.sliceStackPreview = sliceStack(self.programSettings)
+
+
+		# Thread stop event.
+		self.stopThread = threading.Event()
+		# Call super class init function.
+		super(sliceCombiner, self).__init__()
+
+
+	def run(self):
+		if self.console:
+			self.console.addLine("Slice combiner thread initialised.")
+		# Go straight into idle mode.
+		self.idle()
+
+
+	# Check if input queue holds new items.
+	def newInputInQueue(self):
+		if self.queueSlicerToCombiner.qsize():
+			return True
+		else:
+			return False
+
+
+	# Idle and wait for queue data to arrive.
+	# Call slicer if new data has arrived.
+	def idle(self):
+		# Loop until termination.
+		while not self.stopThread.isSet():
+			# Do nothing as long as nothing is in the queue.
+			while not self.newInputInQueue() and not self.stopThread.isSet():
+				time.sleep(0.01)
+			# If input has arrived get the input run slicer function.
+			if not self.stopThread.isSet():
+				newInput = self.queueSlicerToCombiner.get()
+				self.processInput(newInput)
+
+
+	def processInput(self, newInput):
+		# Input is a list of listscontaining the following info for each model.
+		# Slice directory name, number of slices, slice position, slice size.
+		# Get the stack height.
+		# Check if this is more than the specified amount of preview slices.
+		# Create slice number list that reduces number of slices so the max
+		# number is not surpassed.
+		# While loop that gets the slices from the list until all are there.
+		# Not all slices might have been created, add a noisy image for
+		# missing slices and come back to that slice later.
+		pass
+
+		'''
+		if len(newInput) == 1:
+			if newInput[0] == 'delete':
+				self.sliceStackPreview
+			elif newInput[0] == 'updateHeight':
+				self.sliceStackPreview.updateHeight(newInput[0])
+		if len(newInput) == 3:
+			imageSlice, sliceNumber, position = newInput
+			print sliceNumber
+		'''
+
+	# Stop thread.
+	def stop(self):
+		if self.console != None:
+			self.console.addLine("Stopping combiner thread")
+		self.stopThread.set()
+
+
+	# Stop thread and wait for it to finish.
+	def join(self, timeout=None):
+		if self.console != None:
+			self.console.addLine("Stopping combiner thread")
+		self.stopThread.set()
+		threading.Thread.join(self, timeout)
+
+
+
+
   ##### ##     ###### ####   ##### #####    ###### ##  ## #####   #####  ####  #####
  ##     ##       ##  ##  ## ##     ##  ##     ##   ##  ## ##  ## ##     ##  ## ##  ##
   ####  ##       ##  ##     ####   ##  ##     ##   ###### ##  ## ####   ##  ## ##  ##
@@ -2103,15 +2261,16 @@ class sliceStack(list):
 class backgroundSlicer(threading.Thread):
 
 	# Overload init function.
-	def __init__(self, settings, programSettings, polyDataModel, polyDataSupports, polyDataBottomPlate, queueSlicerIn, queueSlicerOut, console=None):
+	def __init__(self, settings, programSettings, slicePath, polyDataModel, polyDataSupports, polyDataBottomPlate, queueSlicerIn, queueSlicerOut, queueSlicerToCombiner, console=None):
 
 		# Internalise inputs. ******************************
 		self.settings = settings
 		self.programSettings = programSettings
 		self.queueSlicerIn = queueSlicerIn
 		self.queueSlicerOut = queueSlicerOut
-		#self.queueSlicerOutNew = queueSlicerOutNew
+		self.queueSlicerToCombiner = queueSlicerToCombiner
 		self.console = console
+		self.slicePath = slicePath
 		self.polyDataModel = polyDataModel
 		self.polyDataSupports = polyDataSupports
 		self.polyDataBottomPlate = polyDataBottomPlate
@@ -2178,6 +2337,8 @@ class backgroundSlicer(threading.Thread):
 		# Call super class init function.
 		super(backgroundSlicer, self).__init__()
 
+		print "Slicer thread running at " + self.slicePath + "."
+
 
 	# Overload the run method.
 	# This will automatically run once the init function is done.
@@ -2200,25 +2361,27 @@ class backgroundSlicer(threading.Thread):
 	# Idle and wait for queue data to arrive.
 	# Call slicer if new data has arrived.
 	def idle(self):
-		# Do nothing as long as nothing is in the queue.
-		while not self.newInputInQueue() and not self.stopThread.isSet():
-			time.sleep(0.1)
-		# If input has arrived get the input run slicer function.
-		if not self.stopThread.isSet():
-			newInput = self.queueSlicerIn.get()
-			self.runSlicer(newInput)
+		# Loop this until termination.
+		while not self.stopThread.isSet():
+			# Do nothing as long as nothing is in the queue.
+			while not self.newInputInQueue() and not self.stopThread.isSet():
+				time.sleep(0.1)
+			# If input has arrived get the input run slicer function.
+			if not self.stopThread.isSet():
+				forcePreview = self.queueSlicerIn.get()
+				self.runSlicer(forcePreview)
 
 
 	# Run the slicer, send back data through the output queue
 	# and return to idle mode when done.
-	def runSlicer(self, inputModel):
+	def runSlicer(self, forcePreview):
 		sliceStackNew = []
 		# Don't run if stop condition is set.
 		while not self.stopThread.isSet():
 			# Check if new input is in queue. If not...
 			if not self.newInputInQueue():
 				# ...do the slicing.
-				sliceStackNew, warningSlices = self.updateSlices()
+				sliceStackNew, warningSlices = self.updateSlices(forcePreview)
 				if self.programSettings['debug'].value:
 					print "Slicer done."
 			# If new input has arrivied...
@@ -2228,8 +2391,6 @@ class backgroundSlicer(threading.Thread):
 			# Write the model to the output queue.
 			self.queueSlicerOut.put((sliceStackNew, warningSlices))
 			break
-		# Go back to idle mode.
-		self.idle()
 
 
 	# Stop thread.
@@ -2249,12 +2410,20 @@ class backgroundSlicer(threading.Thread):
 
 	# Update the slice stack. This will run on any new input in the
 	# input queue.
-	def updateSlices(self):
+	# If preview is set, this will only generate the preview slices.
+	def updateSlices(self, preview):
 
 		if not self.stopThread.isSet():
 
 			# Set up slice stack as list.
 			sliceStack = []
+
+			# Empty the slicer temp directory.
+			shutil.rmtree(self.slicePath, ignore_errors=True)
+			# Create slicer temp directory.
+			if not os.path.isdir(self.slicePath):
+				os.makedirs(self.slicePath)
+			print os.path.isdir(self.slicePath)
 
 			# Deep copy the model data into thread internal objects.
 			self.polyDataModelInternal.DeepCopy(self.polyDataModel)
@@ -2312,8 +2481,11 @@ class backgroundSlicer(threading.Thread):
 							elif useBottomPlate:
 								imageSupports, imageCorrupted = self.createSliceImage(sliceNumber-self.wallThicknessLayers, bottomPlate=True)
 							currentSlice = cv2.add(currentSlice, imageSupports)
-						# Write slice image to slice stack.
+						# Write slice image to disk.
+						self.writeSliceToDisk(currentSlice, sliceNumber-self.wallThicknessLayers)
 						sliceStack.append(currentSlice)
+						# Send slice to combiner thread.
+						self.queueSlicerToCombiner.put([currentSlice, sliceNumber-self.wallThicknessLayers, self.position])
 					else:
 						if self.programSettings['debug'].value:
 							print "Filling slice buffer."
@@ -2323,6 +2495,18 @@ class backgroundSlicer(threading.Thread):
 						self.console.addLine("Restarting slicer.")
 					break
 			return (sliceStack, warningSlices)
+
+
+	# Write a slice image to the given path.
+	def writeSliceToDisk(self, imageSlice, sliceNumber):
+		# Format number string.
+		digits = 6
+		numberString = str(int(sliceNumber)).zfill(digits)
+		print numberString
+		# Create image file string.
+		fileString = self.slicePath + "/slice" + numberString + ".png"
+		image = Image.fromarray(imageSlice)
+		image.save(fileString)
 
 
 	# Calculate slice stack parameters like image size etc.

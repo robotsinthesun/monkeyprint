@@ -18,6 +18,7 @@
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 
 class setting:
 	def __init__(self, value, lower=None, upper=None, unit='', default=None, valType=None, name=None, isConstant=False):
@@ -78,6 +79,7 @@ class modelSettings(dict):
 		dict.__init__(self)
 		# Create objects for all the settings and put them into dictionary.
 		self['filename'] = setting(value="")
+	#	self['id'] = setting(value="")
 		self['active'] = setting(value=True)
 		self['scaling'] = setting(value=1, name='Scaling', lower=0.0000000000001)
 		self['rotationX'] = setting(value=0,	lower=0,	upper=359,	unit='°',		name='Rotation X')
@@ -129,6 +131,7 @@ class programSettings(dict):
 		self.console = console
 		# Create objects for all the settings and put them into dictionary.
 		self['currentFolder'] = setting(value='./models')
+		self['tmpDir'] = setting(value=os.getcwd()+'/tmp', isConstant=True)
 		self['versionMajor'] = setting(value=0, isConstant=True)
 		self['versionMinor'] = setting(value=11, isConstant=True)
 		self['revision'] = setting(value=3, isConstant=True)
@@ -139,6 +142,7 @@ class programSettings(dict):
 		self['buildSizeX'] = setting(value=102.4, default=102.4, unit='mm',		name='Build size X')
 		self['buildSizeY'] = setting(value=76.8, default=76.8, unit='mm',		name='Build size Y')
 		self['buildSizeZ'] = setting(value=150.0, default=150.0, unit='mm',		name='Build size Z')
+		self['previewSlicesMax'] = setting(value=500, default=500, name='Number of preview slices')
 #		self['projectorSizeXY'] = setting(value=[1024,768])
 #		self['projectorPositionXY'] = setting(value=[1280,0])
 #		self['buildSizeXYZ'] = setting(value=[102.4,76.8,150.0])
