@@ -231,6 +231,7 @@ class programSettings(dict):
 		self['printProcessGCode'] = setting(value='Initialise printer,G21 G91 M17,,serialGCode,True;Projector on,---,,internal,False;Build platform to home,G28 X Z,,serialGCode,True;Start loop,---,,internal,False;Shutter open,M280 P0 S500,,serialGCode,True;Expose,---,,internal,False;Shutter close,M280 P0 S2500,,serialGCode,True;Tilt down,G1 X20 F1000,,serialGCode,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True;Tilt up,G1 X-20 F1000,,serialGCode,True;Wait,1.0,,internal,True;End loop,---,,internal,False;Build platform to top,G162 F100,,serialGCode,True;Shut down printer,M18,,serialGCode,True')
 		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
 		self['polylineClosingThreshold'] = setting(value=0.1, default=0.1, lower=0.0, upper=1.0)
+		self['sliceStackMemory'] = setting(value=50, default=500, lower=100, unit='MB', name='Slicer memory')
 
 	# Load default settings.
 	def loadDefaults(self):

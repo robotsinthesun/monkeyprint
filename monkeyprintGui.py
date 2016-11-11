@@ -262,6 +262,8 @@ class gui(gtk.Window):
 		# ********************************************************************
 		# Check if the slicer threads have finished.
 		slicerListenerId = gobject.timeout_add(100, self.modelCollection.checkSlicerThreads)
+		# Check if slice combiner has finished.
+		sliceCombinerListenerId = gobject.timeout_add(100, self.modelCollection.checkSliceCombinerThread)
 		# Update the progress bar, projector image and 3d view. during prints.
 		pollPrintQueuesId = gobject.timeout_add(50, self.pollPrintQueues)
 		# Request status info from raspberry pi.
