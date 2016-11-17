@@ -144,7 +144,7 @@ class modelContainer:
 				self.getSlicesActor()
 				)
 	def hideAllActors(self):
-		print "bar"
+#		print "bar"
 		self.hideModel(),
 		self.hideBox(),
 		self.hideOverhang(),
@@ -413,7 +413,7 @@ class modelCollection(dict):
 		self.modelList = gtk.ListStore(str, str, str, bool)
 
 		# Create job settings object. *************************
-		self.jobSettings = monkeyprintSettings.jobSettings(self.programSettings)
+		#self.jobSettings = monkeyprintSettings.jobSettings(self.programSettings)
 
 
 
@@ -448,7 +448,7 @@ class modelCollection(dict):
 				# Darkest pixel should be black now.
 				self.calibrationImage -= minVal
 
-				print calibrationImage.shape
+	#			print calibrationImage.shape
 
 		# If the image exists now...
 		if self.calibrationImage != None and self.programSettings['calibrationImage'].value:
@@ -485,7 +485,8 @@ class modelCollection(dict):
 				rowData.append(dat)
 			listStoreList.append(rowData)
 		# Combine model settings with job settings.
-		data = [self.jobSettings, modelSettings, listStoreList]#TODO
+		jobSettings = monkeyprintSettings.jobSettings(self.programSettings)
+		data = [jobSettings, modelSettings, listStoreList]#TODO
 		# Write the data into a pickled binary file.
 		picklePath = os.getcwd() + '/pickle.bin'
 		with open(picklePath, 'wb') as pickleFile:
@@ -514,7 +515,7 @@ class modelCollection(dict):
 
 			# Add the stl files. Use file name without path as name.
 			for path in modelPathList:
-				print path.split('/')[-1]
+	#			print path.split('/')[-1]
 				try:
 					mkpFile.add(path, arcname=path.split('/')[-1])
 				except IOError, OSError:
@@ -543,7 +544,8 @@ class modelCollection(dict):
 		self.removeAll()
 		# Get the relevant parts from the object.
 		# First is job settings, second is list of model settings.
-		self.jobSettings = data[0]
+		jobSettings = data[0]
+		jobSettings.set(self.programSettings)
 		settingsList = data[1]
 		# Import the model settings from the file into the model collection.
 		for model in settingsList:
@@ -2186,12 +2188,12 @@ class sliceStack(list):
 		rim = 0
 		# Get position. Add rim.
 		position = [int(bounds[0] * self.programSettings['pxPerMm'].value - rim), int(bounds[2] * self.programSettings['pxPerMm'].value - rim)]
-		print position
+	#	print position
 		# Get size in pixels. Add rim twice.
 		width = math.ceil((bounds[1]-bounds[0]) * self.programSettings['pxPerMm'].value) + rim*2
-		print width
+	#	print width
 		height = math.ceil((bounds[3]-bounds[2]) * self.programSettings['pxPerMm'].value) + rim*2
-		print height
+	#	print height
 
 		for i in range(start, stackHeight):
 			img = imageHandling.createImageGray(width, height, 0)	# 0=black, 255=white
@@ -2350,7 +2352,7 @@ class sliceCombiner(threading.Thread):
 			sliceNumbers = [0]
 			sliceNumbers += [int(round((previewSlice)*sliceMultiplier)) for previewSlice in range(1, numberOfPreviewSlices-1)]
 			sliceNumbers += [stackHeight-1]
-			print sliceNumbers
+		#	print sliceNumbers
 		elif mode == "full":
 			sliceNumbers = range(stackHeight)
 		elif mode == "single":#type(eval(mode)) == int or type(eval(mode)) == float:
@@ -2645,7 +2647,7 @@ class backgroundSlicer(threading.Thread):
 			# Create slicer temp directory.
 			if not os.path.isdir(self.slicePath):
 				os.makedirs(self.slicePath)
-			print os.path.isdir(self.slicePath)
+		#	print os.path.isdir(self.slicePath)
 
 			# Deep copy the model data into thread internal objects.
 			self.polyDataModelInternal.DeepCopy(self.polyDataModel)

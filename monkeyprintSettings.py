@@ -115,12 +115,18 @@ class jobSettings(dict):
 		self.console = console
 		# Create objects for all the settings and put them into dictionary.
 		# Load defaults from program settings to get settings saved from last session.
-		self['layerHeight'] = setting(value=0.1, lower=.01, upper=0.3, unit='mm', name='Layer height')
-		self['projectPath'] = programSettings['currentFolder']#setting(value="")
+		self['layerHeight'] = programSettings['layerHeight']#setting(value=0.1, lower=.01, upper=0.3, unit='mm', name='Layer height')
+		self['currentFolder'] = programSettings['currentFolder']#setting(value="")
 		self['exposureTimeBase'] = programSettings['exposureTimeBase']#setting(value=14.0, lower=1.0, upper=15.0)
 		self['exposureTime'] = programSettings['exposureTime']#setting(value=9.0, lower=1.0, upper=15.0)
-	#	self['Resin settle time'] = programSettings['Resin settle time']#setting(value=1.0, lower=0.1, upper=3.0)
 
+	def get(self, programSettings):
+		for setting in self:
+			programSettings[setting] = self[setting]
+
+	def set(self, programSettings):
+		for setting in self:
+			self[setting] = programSettings[setting]
 
 class programSettings(dict):
 	# Override init function.
