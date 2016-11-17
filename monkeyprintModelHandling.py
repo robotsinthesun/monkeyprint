@@ -386,6 +386,7 @@ class modelCollection(dict):
 		# Preview slice stack. ********************************
 		self.sliceStackPreview = sliceStack()
 		self.sliceNumbers = [0]
+		self.sliceMode = "preview"
 		#self.numberOfPreviewSlices = self.getMaxNumberOfPreviewSlices()
 		#print "Maximum number of preview slices: " + str(self.numberOfPreviewSlices) + "."
 		#self.stackHeightOld = self.sliceStackPreview.getStackHeight()
@@ -463,26 +464,6 @@ class modelCollection(dict):
 			self.calibrationImage = None
 
 		return inputImage
-
-
-	# Save slice stack.
-	def saveSliceStack(self, path, updateFunction=None):
-		# Get number of slices.
-		nSlices = self.getNumberOfSlices()
-		digits = len(str(nSlices))
-		for i in range(nSlices):
-			# Update progress bar.
-			if updateFunction != None:
-				updateFunction(i)
-				while gtk.events_pending():
-					gtk.main_iteration(False)
-			# Format number string.
-			numberString = str(i).zfill(digits)
-			# Create image file string.
-			fileString = path[:-4] + numberString + path[-4:]
-			print "Saving image " + fileString + "."
-			image = Image.fromarray(self.updateSliceImage(i))
-			image.save(fileString)
 
 
 	# Save model collection to compressed disk file. Works well with huge objects.
@@ -671,14 +652,6 @@ class modelCollection(dict):
 			return self.getNumberOfSlices()
 		else:
 			return self.getMaxNumberOfPreviewSlices()
-		'''
-	def stackHeightChanged(self):
-		if self.stackHeightOld != self.getNumberOfSlices():
-			self.stackHeightOld = self.getNumberOfSlices()
-			return True
-		else:
-			return False
-		'''
 
 	def getPreviewSliceHeight(self):
 		# Calc number of preview slices from settings.
@@ -689,25 +662,39 @@ class modelCollection(dict):
 			sliceMultiplier = (self.getNumberOfSlices()) / float(self.getMaxNumberOfPreviewSlices())
 		return sliceMultiplier
 
+	# Gather slicer input info.
+	def createSlicerInputInfo(self, mode="preview", savePath=None):
+		assert mode == "preview" or mode == "full" or mode.split(' ')[0] == "single"
+		# Create model height list.
+		# Data: create preview, number of prev slices, prev slice height,
+		# slice paths, number of model slices, model position, model size.
+		# Mode can be preview, full or slice number.
+		modelNamesAndHeights = [self.getMaxNumberOfPreviewSlices(), self.getPreviewSliceHeight(), [],[],[],[], mode, savePath]
+		# Update all models' slice stacks.
+		for model in self:
+			if model != 'default':
+				self[model].updateSliceStack()
+				modelNamesAndHeights[2].append(self[model].slicePath)
+				modelNamesAndHeights[3].append(self[model].model.getNumberOfSlices())
+				modelNamesAndHeights[4].append(self[model].model.getSlicePosition())
+				modelNamesAndHeights[5].append(self[model].model.getSliceSize())
+		return modelNamesAndHeights
 
 	# Update the slice stack.
-	# This is called from the GUI and starts all model slicers.
+	# This is called from the GUI and starts all model
+	# slicers if the respective model has changed.
 	# Set it's height according to max model
 	# height and layerHeight.
 	def updateSliceStack(self):
-		# Check if the stack height has changed.
-		# This makes it necessary to reslice all models.
-		#forceReslicePreview = self.stackHeightChanged() and self.sliceStackPreview.getStackHeight > self.programSettings['previewSlicesMax'].value
-#		if forceReslicePreview:
-#			print "Reslicing all models."
 		# Reset slice stack.
 		self.sliceStackPreview.update(1)#self.getPreviewStackHeight())
 		self.sliceNumbers = [0]
 		# Create model height list.
 		# Data: create preview, number of prev slices, prev slice height,
 		# slice paths, number of model slices, model position, model size.
-		preview = True
-		modelNamesAndHeights = [self.getMaxNumberOfPreviewSlices(), self.getPreviewSliceHeight(), [],[],[],[], preview]
+		# Mode can be preview, full or slice number.
+		mode = "preview"
+		modelNamesAndHeights = [self.getMaxNumberOfPreviewSlices(), self.getPreviewSliceHeight(), [],[],[],[], mode]
 		# Update all models' slice stacks.
 		for model in self:
 			if model != 'default':
@@ -717,8 +704,52 @@ class modelCollection(dict):
 				modelNamesAndHeights[4].append(self[model].model.getSlicePosition())
 				modelNamesAndHeights[5].append(self[model].model.getSliceSize())
 		# Update preview slice stack.
-		self.queueModelCollectionToCombiner.put(modelNamesAndHeights)
+		self.queueModelCollectionToCombiner.put(self.createSlicerInputInfo(mode="preview"))
 
+
+	# Save slice stack.
+	# Update function is a gui function that moves a progress bar.
+	def saveSliceStack(self, path, updateFunction=None):
+		# Set slice mode to full to block slice combiner checker
+		# timeout function to read slicer status from the slice
+		# combiner output queue.
+		self.sliceMode = "full"
+		# Get number of slices.
+		nSlices = self.getNumberOfSlices()
+		# Update preview slice stack. This will automatically
+		# save the images to the temp directory.
+		self.queueModelCollectionToCombiner.put(self.createSlicerInputInfo(mode="full", savePath=path))
+		# Update the status bar.
+		while True:
+			while not self.queueCombinerToModelCollection.qsize():
+				time.sleep(0.1)
+			status = self.queueCombinerToModelCollection.get()
+			# Update progress bar.
+			if updateFunction != None:
+				updateFunction(int(status))
+				while gtk.events_pending():
+					gtk.main_iteration(False)
+			if int(status) == 100:
+				break
+		# Reset slice mode to preview.
+		self.sliceMode = "preview"
+
+		'''
+		digits = len(str(nSlices))
+		for i in range(nSlices):
+			# Update progress bar.
+			if updateFunction != None:
+				updateFunction(i)
+				while gtk.events_pending():
+					gtk.main_iteration(False)
+			# Format number string.
+			numberString = str(i).zfill(digits)
+			# Create image file string.
+			fileString = path[:-4] + numberString + path[-4:]
+			print "Saving image " + fileString + "."
+			image = Image.fromarray(self.updateSliceImage(i))
+			image.save(fileString)
+		'''
 
 
 	# Create the projector frame from the model slice stacks.
@@ -826,12 +857,13 @@ class modelCollection(dict):
 		return True
 
 	def checkSliceCombinerThread(self):
-		if self.queueCombinerToModelCollection.qsize():
-			sliceCombinerOutput = self.queueCombinerToModelCollection.get()
-			if type(sliceCombinerOutput) == str:
-				self.console.addLine('Slicer progress: ' + sliceCombinerOutput + '%.')
-			else:
-				self.sliceStackPreview, self.sliceNumbers = sliceCombinerOutput
+		if self.sliceMode == "preview":
+			if self.queueCombinerToModelCollection.qsize():
+				sliceCombinerOutput = self.queueCombinerToModelCollection.get()
+				if type(sliceCombinerOutput) == str:
+					self.console.addLine('Slicer progress: ' + sliceCombinerOutput + '%.')
+				else:
+					self.sliceStackPreview, self.sliceNumbers = sliceCombinerOutput
 		return True
 
 	def slicerRunning(self):
@@ -2222,12 +2254,13 @@ class sliceStack(list):
 # A thread that checks the slicer temp directories an combines the slices. #####
 ################################################################################
 class sliceCombiner(threading.Thread):
-	def __init__(self, programSettings, queueIn, queueOut, console=None):
+	def __init__(self, programSettings, queueIn, queueOut, queueOutSingle=None, console=None):
 
 		# Internalise parameters.
 		self.programSettings = programSettings
 		self.queueIn = queueIn
 		self.queueOut = queueOut
+		self.queueOutSingle = queueOutSingle
 		self.console = console
 
 		#self.numberOfPreviewSlices = 1
@@ -2282,7 +2315,10 @@ class sliceCombiner(threading.Thread):
 		os.makedirs(self.sliceOutputPath)
 
 		# Check if preview stack or full stack.
-		preview = modelNamesAndHeights[6]
+		mode = modelNamesAndHeights[6].split(' ')[0]
+
+		# Get path for saving slices in full mode.
+		savePath = modelNamesAndHeights[7]
 
 		# Get number of preview slices.
 		numberOfPreviewSlices = modelNamesAndHeights[0]
@@ -2309,14 +2345,16 @@ class sliceCombiner(threading.Thread):
 
 		# Create slice number list that reduces number of slices so the max
 		# number is not surpassed.
-		if preview:
+		if mode == "preview":
 			# First and last index are fixed, all in between are approximated.
 			sliceNumbers = [0]
 			sliceNumbers += [int(round((previewSlice)*sliceMultiplier)) for previewSlice in range(1, numberOfPreviewSlices-1)]
 			sliceNumbers += [stackHeight-1]
 			print sliceNumbers
-		else:
+		elif mode == "full":
 			sliceNumbers = range(stackHeight)
+		elif mode == "single":#type(eval(mode)) == int or type(eval(mode)) == float:
+			sliceNumbers = int(modelNamesAndHeights[6].split(' ')[1])
 
 		# Create slice stack.
 		sliceStackPreview = sliceStack(self.programSettings, empty=True)
@@ -2366,12 +2404,18 @@ class sliceCombiner(threading.Thread):
 							except IOError:
 								pass
 				# Once the slice image is complete...
-				if preview:#i in sliceNumbers:
+				if mode == "preview":#i in sliceNumbers:
 					# ... send it to the preview stack if this is a preview slice.
 					sliceStackPreview.append(imageSlice)
-				else:
+					# TODO: scale down according to settings.
+				elif mode == "full":
 					# ... or, write it to file.
-					self.writeSliceToDisk(imageSlice, i)
+					self.writeSliceToDisk(imageSlice, i, savePath)
+				elif mode == "single" and self.queueOutSingle != None:
+					while not self.queueOutSingle.qsize():
+						time.sleep(0.1)
+					self.queueOutSingle.put(imageSlice)
+
 				# Send progress string.
 				if int((i/float(stackHeight))*100) > readyPercentage:
 					readyPercentage = int((i/float(stackHeight))*100)
@@ -2386,57 +2430,25 @@ class sliceCombiner(threading.Thread):
 			return None
 		else:
 			print "Slicer run time: " + str(time.time() - interval) + " s."
-			return [sliceStackPreview, sliceNumbers]
+			if mode != "full":
+				return [sliceStackPreview, sliceNumbers]
 
-
-		'''
-		# While loop that gets the slices from the list until all are there.
-		# Not all slices might have been created yet, come back to that slice later.
-		while not allDone and not self.newInputInQueue():
-			# Set all done flag.
-			allDone = True
-			# Then, walk through slices and check if they are complete.
-			for i in range(len(sliceNumbers)):
-				if i > stackHeight:
-					break
-				time.sleep(0.001)
-				if numberOfModelsPerSlice[i] > 0:
-					#print "Slice number " + str(i) + " with missing models: " + str(numberOfModelsPerSlice[i]) + "."
-					for modelIndex in range(len(modelSlicePaths)):
-						if sliceFlagStack[i][modelIndex] == False:
-							slicePath = modelSlicePaths[modelIndex] + '/slice' + str(int(sliceNumbers[i])).zfill(6) + '.png'
-							if os.path.exists(slicePath):
-								try:
-									# Load the image from file.
-									imageSlice = Image.open(slicePath)
-									imageSlice = numpy.array(imageSlice.getdata())
-									imageSlice = imageSlice.reshape(modelSliceSizes[modelIndex][0], modelSliceSizes[modelIndex][1],-1).squeeze()
-									sliceStackPreview.addSliceRegion(i, imageSlice, modelSlicePositions[modelIndex])
-									numberOfModelsPerSlice[i] -= 1
-									sliceFlagStack[i][modelIndex] = True
-									print sliceNumbers[i]
-								except IOError:
-									pass
-				# Set flag if no models left for current slice.
-				if numberOfModelsPerSlice[i] > 0:
-					allDone = False
-			# Loop will break if allDone is true.
-		if self.newInputInQueue():
-			return None
-		else:
-			return sliceStackPreview
-		'''
 
 	def addModelSliceImage(self, imageSlice, imageSliceModel, position):
 		return imageHandling.imgAdd(imageSlice, imageSliceModel, position)
 
 	# Write a slice image to the given path.
-	def writeSliceToDisk(self, imageSlice, sliceNumber):
+	def writeSliceToDisk(self, imageSlice, sliceNumber, savePath=None):
 		# Format number string.
 		digits = 6
 		numberString = str(int(sliceNumber)).zfill(digits)
 		# Create image file string.
-		fileString = self.sliceOutputPath + "/slice" + numberString + ".png"
+		if savePath != None:
+			# Save path comes with full file name.
+			# Squeeze slice number between name and postfix.
+			fileString = savePath[:-4] + numberString + ".png"
+		else:
+			fileString = self.sliceOutputPath + "/slice" + numberString + ".png"
 		image = Image.fromarray(imageSlice)
 		image.save(fileString)
 
@@ -2669,7 +2681,7 @@ class backgroundSlicer(threading.Thread):
 						imageSlice, imageSliceCorrupted = self.createSliceImage(sliceNumber, model=True)
 						# Handle corrupted polylines.
 						if imageSliceCorrupted is not None:
-							print "Slice " + str(sliceNumber) + ": Warning: there are open polyline segments. Please check if you model is watertight."
+							print "Slice " + str(sliceNumber) + ": Warning: there are open polyline segments. Please check if your model is watertight."
 							warningSlices.append(sliceNumber)
 							# TODO: display this in GUI.
 						# Append image to slice stack buffer.

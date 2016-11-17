@@ -1299,7 +1299,7 @@ class gui(gtk.Window):
 			# ... get file name.
 			path = dialog.get_filename()
 			dialog.destroy()
-			#... add *.mkp file extension if necessary.
+			#... add *.png file extension if necessary.
 			if len(path) < 4 or path[-4:] != ".png":
 				path += ".png"
 			# Console message.
@@ -1321,7 +1321,8 @@ class gui(gtk.Window):
 			infoLabel.show()
 			progressBar = monkeyprintGuiHelper.printProgressBar()
 			infoBox.pack_start(progressBar, padding=5)
-			progressBar.setLimit(self.modelCollection.getNumberOfSlices())
+			# We work in percent here...
+			progressBar.setLimit(100)#self.modelCollection.getNumberOfSlices())
 			progressBar.show()
 			# Update the gui.
 			while gtk.events_pending():
