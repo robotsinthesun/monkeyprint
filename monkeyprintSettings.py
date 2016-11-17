@@ -120,11 +120,11 @@ class jobSettings(dict):
 		self['exposureTimeBase'] = programSettings['exposureTimeBase']#setting(value=14.0, lower=1.0, upper=15.0)
 		self['exposureTime'] = programSettings['exposureTime']#setting(value=9.0, lower=1.0, upper=15.0)
 
-	def get(self, programSettings):
+	def setProgramSettings(self, programSettings):
 		for setting in self:
 			programSettings[setting] = self[setting]
 
-	def set(self, programSettings):
+	def getProgramSettings(self, programSettings):
 		for setting in self:
 			self[setting] = programSettings[setting]
 

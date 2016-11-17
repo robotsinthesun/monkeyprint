@@ -806,6 +806,10 @@ class gui(gtk.Window):
 			'''
 			# Close dialog.
 			dialog.destroy()
+
+			# Update notebook to set sensitivities.
+			self.updateAllEntries(state=2)
+
 		# If cancel was pressed...
 		elif response == gtk.RESPONSE_CANCEL:
 			#... do nothing.
@@ -1551,6 +1555,11 @@ class gui(gtk.Window):
 			self.entryShellThickness.update()
 			self.checkboxFill.update()
 			self.checkboxHollow.update()
+		# Update job settings.
+		self.entryLayerHeight.update()
+		self.entryExposure.update()
+		self.entryExposureBase.update()
+		# Update menu sensitivities.
 		self.updateMenu()
 		if state != None:
 			self.setGuiState(state)

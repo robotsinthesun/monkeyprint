@@ -545,7 +545,7 @@ class modelCollection(dict):
 		# Get the relevant parts from the object.
 		# First is job settings, second is list of model settings.
 		jobSettings = data[0]
-		jobSettings.set(self.programSettings)
+		jobSettings.setProgramSettings(self.programSettings)
 		settingsList = data[1]
 		# Import the model settings from the file into the model collection.
 		for model in settingsList:
