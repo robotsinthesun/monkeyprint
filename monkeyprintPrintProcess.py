@@ -81,14 +81,13 @@ class printProcess(threading.Thread):
 
 
 	def run(self):
-
 		# Get the print process command list.
 		self.printProcessList = self.settings.getPrintProcessList()
 
 		# Index of current position in print process command list.
 		commandIndex = 0
 
-		self.slice = 1
+		self.slice = 0
 		self.numberOfSlices = self.modelCollection.getNumberOfSlices()
 
 
@@ -113,7 +112,7 @@ class printProcess(threading.Thread):
 		# Run loop commands for each slice. **********************************
 		print "Running loop commands. ****************************************"
 		# Loop through slices.
-		while self.slice <= self.numberOfSlices and not self.stopThread.isSet():
+		while self.slice < self.numberOfSlices and not self.stopThread.isSet():
 			print "Printing slice " + str(self.slice) + " of " + str(self.numberOfSlices) + ". *********"
 			self.queueStatus.put("printing:nSlices:" + str(self.numberOfSlices))
 			self.queueStatus.put("printing:slice:" + str(self.slice))
@@ -122,7 +121,7 @@ class printProcess(threading.Thread):
 				if self.printProcessList[commandIndex][0] == "End loop":
 					print "End loop found."
 					# If number of slices is reached or stop flag was set...
-					if self.slice == self.numberOfSlices or self.stopThread.isSet():
+					if self.slice == self.numberOfSlices - 1 or self.stopThread.isSet():
 						#... set command index to first post loop command.
 						commandIndex += 1
 					# If ordinary loop end...
@@ -195,9 +194,9 @@ class printProcess(threading.Thread):
 	# Start exposure by writing slice number to queue.
 	def expose(self):
 		# Get exposure time.
-		if self.slice == 1:
+		if self.slice == 0:
 			self.exposureTime = self.settings['exposureTimeBase'].value
-		elif self.slice > 1:
+		elif self.slice > 0:
 			self.exposureTime = self.settings['exposureTime'].value
 		self.queueConsole.put("   Exposing with " + str(self.exposureTime) + " s.")
 		self.setGuiSlice(self.slice)

@@ -148,7 +148,6 @@ class programSettings(dict):
 		self['buildSizeX'] = setting(value=102.4, default=102.4, unit='mm',		name='Build size X')
 		self['buildSizeY'] = setting(value=76.8, default=76.8, unit='mm',		name='Build size Y')
 		self['buildSizeZ'] = setting(value=150.0, default=150.0, unit='mm',		name='Build size Z')
-		self['previewSlicesMax'] = setting(value=500, default=500, name='Number of preview slices')
 #		self['projectorSizeXY'] = setting(value=[1024,768])
 #		self['projectorPositionXY'] = setting(value=[1280,0])
 #		self['buildSizeXYZ'] = setting(value=[102.4,76.8,150.0])
@@ -221,7 +220,7 @@ class programSettings(dict):
 #		self['Shutter position closed GCode'] = setting(value=2450, default=2450, lower=500, upper=2500)
 		self['enableShutterServo'] = setting(value=False, default=False, 	name='Enable shutter servo')
 		self['localMkpPath'] = setting(value='./currentPrint.mkp', default='./currentPrint.mkp')
-		self['monkeyprintBoard'] = setting(value=True, default=True)
+		self['monkeyprintBoard'] = setting(value=False, default=False)
 #		self['Tilt GCode']	 = setting(value='G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10', default = 'G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10')
 #		self['Build platform GCode'] = setting(value='G1 Z{$layerHeight*$buildDir} F10', default='G1 Z{$layerHeight*$buildDir} F10')
 #		self['Shutter open GCode'] = setting(value='M280 P0 S{$shutterPosOpen}', default='M280 P0 S{$shutterPosOpen}')
@@ -238,6 +237,8 @@ class programSettings(dict):
 		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
 		self['polylineClosingThreshold'] = setting(value=0.1, default=0.1, lower=0.0, upper=1.0)
 		self['sliceStackMemory'] = setting(value=50, default=500, lower=100, unit='MB', name='Slicer memory')
+		self['previewSlicesMax'] = setting(value=300, default=300, lower=100, upper=1000, name='Max. preview slices')
+		self['previewSliceWidth'] = setting(value=200, default=200)
 
 	# Load default settings.
 	def loadDefaults(self):

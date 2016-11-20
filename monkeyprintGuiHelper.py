@@ -308,7 +308,7 @@ class imageFromFile(gtk.VBox):
 
 
 
-# Slider that takes image which has to be update externally.
+# Slider that takes image which has to be updated externally.
 class imageSlider(gtk.VBox):
 	def __init__(self, modelCollection, programSettings, width=250, console=None, customFunctions=None):
 		# Call super class init function.
@@ -369,13 +369,14 @@ class imageSlider(gtk.VBox):
 	# Update image if the slider is at the given position in the stack.
 	def updateImage(self):
 		# Call function to update the image.
-		img = self.modelCollection.updateSliceImage(self.slider.get_value()-1)
+		img = self.modelCollection.updateSliceImage(self.slider.get_value()-1, mode="preview")
 		# Get the image from the slice buffer and convert it to 3 channels.
 		img = imageHandling.convertSingle2RGB(img)
 		# Write image to pixbuf.
 		self.pixbuf = gtk.gdk.pixbuf_new_from_array(img, gtk.gdk.COLORSPACE_RGB, 8)
 		# Resize the image.
-		self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
+		if img.shape[1] != self.width:
+			self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
 		# Set image to viewer.
 		self.imageView.set_from_pixbuf(self.pixbuf)
 
@@ -385,13 +386,14 @@ class imageSlider(gtk.VBox):
 	# from the image stack.
 	def callbackScroll(self, widget=None, event=None):
 		# Call function to update the image. Zero based indexing!
-		img = self.modelCollection.updateSliceImage(self.slider.get_value()-1)
+		img = self.modelCollection.updateSliceImage(self.slider.get_value()-1, mode="preview")
 		# Get the image from the slice buffer and convert it to 3 channels.
 		img = imageHandling.convertSingle2RGB(img)
 		# Write image to pixbuf.
 		self.pixbuf = gtk.gdk.pixbuf_new_from_array(img, gtk.gdk.COLORSPACE_RGB, 8)
 		# Resize the pixbuf.
-		self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)#INTERP_NEAREST)
+		if img.shape[1] != self.width:
+			self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)#INTERP_NEAREST)
 		# Set image to viewer.
 		self.imageView.set_from_pixbuf(self.pixbuf)
 		# Set current page label.
@@ -916,14 +918,14 @@ class imageView(gtk.Image):
 	# Check if a new slice number is in the queue.
 	def updateImage(self, sliceNumber):
 		if sliceNumber != -1:
-			image = self.modelCollection.updateSliceImage(sliceNumber)
+			image = self.modelCollection.updateSliceImage(sliceNumber, mode="full")
 			# Get the image from the slice buffer and convert it to 3 channels.
 			image = imageHandling.convertSingle2RGB(image)
 			# Write image to pixbuf.
 			self.pixbuf = gtk.gdk.pixbuf_new_from_array(image, gtk.gdk.COLORSPACE_RGB, 8)
 			# Resize the image if in debug mode.
 			#if self.settings['debug'].value:
-			if self.resizeFlag:
+			if self.resizeFlag and image.shape[1] != self.settings['previewSliceWidth'].value:
 				self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
 		else:
 			# Create pixbuf from numpy.
@@ -984,7 +986,7 @@ class projectorDisplay(gtk.Window):
 	def updateImage(self, sliceNumber):
 #		print "3: Started image update at " + str(time.time()) + "."
 		if sliceNumber != -1:
-			image = self.modelCollection.updateSliceImage(sliceNumber)
+			image = self.modelCollection.updateSliceImage(sliceNumber, mode="full")
 			# Get the image from the slice buffer and convert it to 3 channels.
 			image = imageHandling.convertSingle2RGB(image)
 			# Write image to pixbuf.

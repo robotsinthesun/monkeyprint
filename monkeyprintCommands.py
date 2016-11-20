@@ -158,7 +158,7 @@ class stringEvaluator:
 #		print "      Processing variable: " + variable
 		variableValid = True
 		if variable == "layerHeight":
-			value = str(self.programSettings['layerHeight'].value)
+			value = str(self.settings['layerHeight'].value)
 		elif variable == "buildDir":
 			if self.settings['Reverse build'].value:
 				value = "-1"

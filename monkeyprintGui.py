@@ -327,7 +327,9 @@ class gui(gtk.Window):
 		self.projectorDisplay = None
 
 		# Set print progress values.
-		self.queueSliceOut.put(0)
+		# Request black image in print preview.
+		self.queueSliceOut.put(-1)
+		# Set progress bar to 0.
 		self.queueStatus.put("idle:slice:0")
 
 
@@ -475,7 +477,6 @@ class gui(gtk.Window):
 				else:
 					self.processStatusMessage(message)
 	#				print message
-
 		# Poll the command queue.
 		# Only do this when running on Raspberry Pi.
 		# If command queue has info...
@@ -1094,7 +1095,7 @@ class gui(gtk.Window):
 		self.boxPreview = gtk.HBox()
 		self.framePreview.add(self.boxPreview)
 		self.boxPreview.show()
-		self.sliceSlider = monkeyprintGuiHelper.imageSlider(modelCollection=self.modelCollection, programSettings=self.programSettings, width = 200, console=self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
+		self.sliceSlider = monkeyprintGuiHelper.imageSlider(modelCollection=self.modelCollection, programSettings=self.programSettings, width=self.programSettings['previewSliceWidth'].value, console=self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
 		self.boxPreview.pack_start(self.sliceSlider, expand=True, fill=True, padding=5)
 		self.sliceSlider.show()
 		# Register slice image update function to GUI main loop.
@@ -1214,7 +1215,7 @@ class gui(gtk.Window):
 		self.boxPreviewPrint.show()
 
 		# Create slice image.
-		self.sliceView = monkeyprintGuiHelper.imageView(settings=self.programSettings, modelCollection=self.modelCollection, width=200)
+		self.sliceView = monkeyprintGuiHelper.imageView(settings=self.programSettings, modelCollection=self.modelCollection, width=self.programSettings['previewSliceWidth'].value)
 		self.boxPreviewPrint.pack_start(self.sliceView, expand=True, fill=True)
 		self.sliceView.show()
 
@@ -2295,6 +2296,9 @@ class dialogSettings(gtk.Window):
 		self.notebookSettings.append_page(self.tabPrintProcessSettings, gtk.Label('Print process'))
 		self.tabPrintProcessSettings.show()
 
+		# Set slicer memory label.
+		self.updateSlicerMemoryUsage()
+
 		# Set sensitivities according to toggle buttons in main settings tab.
 		self.callbackRaspiToggle(None, None)
 
@@ -2394,6 +2398,20 @@ class dialogSettings(gtk.Window):
 		self.boxBuildVolume.pack_start(self.entryBuildSizeZ, expand=False, fill=False)
 		self.entryBuildSizeZ.show()
 
+		# Frame for slicer memory usage settings.
+		self.frameSlicerMemory = gtk.Frame('Slicer settings')
+		boxMainSettings.pack_start(self.frameSlicerMemory, expand=False, fill=False, padding=5)
+		self.frameSlicerMemory.show()
+		self.boxSlicerMemory = gtk.HBox()
+		self.frameSlicerMemory.add(self.boxSlicerMemory)
+		self.boxSlicerMemory.show()
+		self.entryNumberOfPreviewSlices = monkeyprintGuiHelper.entry('previewSlicesMax', settings=self.settings, width=5, customFunctions=[self.updateSlicerMemoryUsage])
+		self.boxSlicerMemory.pack_start(self.entryNumberOfPreviewSlices, expand=False, fill=False)
+		self.entryNumberOfPreviewSlices.show()
+		self.labelSlicerMemory = gtk.Label()
+		self.boxSlicerMemory.pack_start(self.labelSlicerMemory, expand=False, fill=False)
+	#	self.labelSlicerMemory.show()
+
 		# Frame for build volume settings.
 		self.frameDebug = gtk.Frame('Debug')
 		boxMainSettings.pack_start(self.frameDebug, expand=False, fill=False, padding=5)
@@ -2419,6 +2437,17 @@ class dialogSettings(gtk.Window):
 		boxMainSettings.show()
 
 		return boxMainSettings
+
+
+	def updateSlicerMemoryUsage(self):
+		aspect = float(self.settings['projectorSizeY'].value) / float(self.settings['projectorSizeX'].value)
+		height = self.settings['previewSliceWidth'].value * aspect
+		# Calc memory for one slice in MB. Plus 112 byte for numpy array overhead.
+		sliceMemory = (self.settings['previewSliceWidth'].value * height + 112) / 1000000.
+		stackMemory = self.settings['previewSlicesMax'].value * sliceMemory
+		# Display in label.
+		self.labelSlicerMemory.set_text('Memory usage: ~' + str(int(stackMemory)) + " MB.")
+		return stackMemory
 
 	# Communication tab.
 	def createCommunicationTab(self):
