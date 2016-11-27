@@ -194,6 +194,7 @@ class gui(gtk.Window):
 		# Queue for setting print progess bar.
 		self.queueSliceOut  = Queue.Queue(maxsize=1)
 		self.queueSliceIn = Queue.Queue(maxsize=1)
+		self.slicerFinished = False
 		# Queues for controlling the file transmission thread.
 		self.queueFileTransferIn = Queue.Queue(maxsize=1)
 		self.queueFileTransferOut = Queue.Queue(maxsize=1)
@@ -407,7 +408,18 @@ class gui(gtk.Window):
 	# This runs every 100 ms as a gobject timeout function.
 	def pollSlicerStatus(self):
 		if self.modelCollection != None:
-			self.buttonSaveSlices.set_sensitive(not self.modelCollection.slicerRunning())
+			self.buttonSaveSlices.set_sensitive(self.modelCollection.sliceCombinerFinished)
+			if self.modelCollection.sliceCombinerFinished and len(self.modelCollection) > 1:
+				if not self.slicerFinished:
+					self.updateSlider()
+					self.slicerFinished = True
+					self.setGuiState(3)
+			else:
+				self.slicerFinished = False
+				if self.notebook.getCurrentPage() == 3:
+					self.notebook.setCurrentPage(2)
+				if self.getGuiState() == 3:
+					self.setGuiState(2)
 		return True
 
 
@@ -1061,7 +1073,7 @@ class gui(gtk.Window):
 		self.frameSlicing.add(self.boxSlicingParameters)
 		self.boxSlicingParameters.show()
 		# layerHeight entry.
-		self.entryLayerHeight = monkeyprintGuiHelper.entry('layerHeight', settings=self.programSettings, customFunctions=[self.updateAllModels, self.updateSlider, self.renderView.render, self.updateAllEntries])
+		self.entryLayerHeight = monkeyprintGuiHelper.entry('layerHeight', settings=self.programSettings, customFunctions=[self.modelCollection.updateSliceStack, self.updateSlider, self.renderView.render, self.updateAllEntries])
 		self.boxSlicingParameters.pack_start(self.entryLayerHeight, expand=False, fill=False)
 
 		# Create hollow and fill frame.
@@ -1075,17 +1087,17 @@ class gui(gtk.Window):
 		self.boxFill.pack_start(self.boxFillCheckbuttons)
 		self.boxFillCheckbuttons.show()
 		# Checkbox for hollow prints.
-		self.checkboxHollow = monkeyprintGuiHelper.toggleButton(string='printHollow', settings=None, modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel])#gtk.CheckButton(label="Print hollow?")
+		self.checkboxHollow = monkeyprintGuiHelper.toggleButton(string='printHollow', settings=None, modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack])
 		self.boxFillCheckbuttons.pack_start(self.checkboxHollow, expand=True, fill=True)
 		# Checkbox for fill structures.
-		self.checkboxFill = monkeyprintGuiHelper.toggleButton(string='fill', settings=None, modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel])#gtk.CheckButton(label="Print hollow?")
+		self.checkboxFill = monkeyprintGuiHelper.toggleButton(string='fill', settings=None, modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack])
 		self.boxFillCheckbuttons.pack_start(self.checkboxFill, expand=True, fill=True)
 		# Entries.
-		self.entryShellThickness = monkeyprintGuiHelper.entry('fillShellWallThickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryShellThickness = monkeyprintGuiHelper.entry('fillShellWallThickness', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryShellThickness, expand=True, fill=True)
-		self.entryFillSpacing = monkeyprintGuiHelper.entry('fillSpacing', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryFillSpacing = monkeyprintGuiHelper.entry('fillSpacing', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryFillSpacing, expand=True, fill=True)
-		self.entryFillThickness = monkeyprintGuiHelper.entry('fillPatternWallThickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+		self.entryFillThickness = monkeyprintGuiHelper.entry('fillPatternWallThickness', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack, self.renderView.render, self.updateAllEntries])
 		self.boxFill.pack_start(self.entryFillThickness, expand=True, fill=True)
 
 		# Create preview frame.
@@ -1255,7 +1267,8 @@ class gui(gtk.Window):
 		self.renderView.render()
 		# Activate print tab if not already activated.
 		if self.getGuiState() == 2:
-			self.setGuiState(3)
+			pass
+			#self.setGuiState(3)	# Is activated or deactivated in slicer status poll method.
 		# Disable model management load and remove buttons.
 		self.modelListView.setSensitive(False,False)
 
@@ -1470,24 +1483,31 @@ class gui(gtk.Window):
 	# Updates model supports or slicing dependent on
 	# the current page of the settings notebook.
 	def updateCurrentModel(self):
+		# Update model.
 		if self.notebook.getCurrentPage() == 0:
-			self.modelCollection.getCurrentModel().updateModel()
-			self.modelCollection.getCurrentModel().updateSupports()
+			changed = self.modelCollection.getCurrentModel().updateModel()
+			# If model has changed, set gui state to supports.
+			if changed:
+				self.setGuiState(1)
+		# Update supports
 		elif self.notebook.getCurrentPage() == 1:
-			self.modelCollection.getCurrentModel().updateSupports()
+			changed = self.modelCollection.getCurrentModel().updateSupports()
+			# If supports have changed, set gui state to slicer.
+			if changed:
+				self.setGuiState(2)
 		elif self.notebook.getCurrentPage() == 2:
-			self.modelCollection.getCurrentModel().setChanged()
 			self.modelCollection.getCurrentModel().updateSliceStack()
-		elif self.notebook.getCurrentPage() == 3:
-			self.modelCollection.getCurrentModel().updatePrint()
+			# Don't set gui state, this will be done by a timeout method
+			# that polls the slicer thread.
 
 
 
 	def updateAllModels(self):
-		if self.notebook.getCurrentPage() in [2,3]:
-			self.modelCollection.updateAllModels()
+		if self.notebook.getCurrentPage() == 2:
 			self.modelCollection.updateSliceStack()
-		elif self.notebook.getCurrentPage() in [0,1]:
+		elif self.notebook.getCurrentPage() == 1:
+			self.modelCollection.updateAllSupports()
+		elif self.notebook.getCurrentPage() == 0:
 			self.modelCollection.updateAllModels()
 
 
@@ -1583,6 +1603,7 @@ class gui(gtk.Window):
 
 	def updateSlider(self):
 		self.sliceSlider.updateSlider()
+		self.sliceSlider.updateImage()
 
 
 
@@ -2258,6 +2279,10 @@ class dialogSettings(gtk.Window):
 		# Save settings in case of cancelling.
 		#self.settingsBackup = settings
 
+		self.reslice = False
+		self.restartMonkeyprint = False
+		self.resetGui = False
+
 		# Tooltips object.
 		self.tooltips = gtk.Tooltips()
 
@@ -2388,13 +2413,13 @@ class dialogSettings(gtk.Window):
 		self.frameBuildVolume.add(self.boxBuildVolume)
 		self.boxBuildVolume.show()
 		# Add entries.
-		self.entryBuildSizeX= monkeyprintGuiHelper.entry('buildSizeX', self.settings, width=15)#, displayString="Build size X")
+		self.entryBuildSizeX= monkeyprintGuiHelper.entry('buildSizeX', self.settings, width=15, customFunctions=[self.setResetGuiFlag])#, displayString="Build size X")
 		self.boxBuildVolume.pack_start(self.entryBuildSizeX, expand=False, fill=False)
 		self.entryBuildSizeX.show()
-		self.entryBuildSizeY= monkeyprintGuiHelper.entry('buildSizeY', self.settings, width=15)#, displayString="Build size Y")
+		self.entryBuildSizeY= monkeyprintGuiHelper.entry('buildSizeY', self.settings, width=15, customFunctions=[self.setResetGuiFlag])#, displayString="Build size Y")
 		self.boxBuildVolume.pack_start(self.entryBuildSizeY, expand=False, fill=False)
 		self.entryBuildSizeY.show()
-		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('buildSizeZ', self.settings, width=15)#, displayString="Build size Z")
+		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('buildSizeZ', self.settings, width=15, customFunctions=[self.setResetGuiFlag])#, displayString="Build size Z")
 		self.boxBuildVolume.pack_start(self.entryBuildSizeZ, expand=False, fill=False)
 		self.entryBuildSizeZ.show()
 
@@ -2405,7 +2430,7 @@ class dialogSettings(gtk.Window):
 		self.boxSlicerMemory = gtk.HBox()
 		self.frameSlicerMemory.add(self.boxSlicerMemory)
 		self.boxSlicerMemory.show()
-		self.entryNumberOfPreviewSlices = monkeyprintGuiHelper.entry('previewSlicesMax', settings=self.settings, width=5, customFunctions=[self.updateSlicerMemoryUsage])
+		self.entryNumberOfPreviewSlices = monkeyprintGuiHelper.entry('previewSlicesMax', settings=self.settings, width=5, customFunctions=[self.updateSlicerMemoryUsage, self.setResliceFlag])
 		self.boxSlicerMemory.pack_start(self.entryNumberOfPreviewSlices, expand=False, fill=False)
 		self.entryNumberOfPreviewSlices.show()
 		self.labelSlicerMemory = gtk.Label()
@@ -2545,10 +2570,10 @@ class dialogSettings(gtk.Window):
 		self.frameProjector.add(self.boxProjector)
 		self.boxProjector.show()
 
-		self.entryProjectorSizeX= monkeyprintGuiHelper.entry('projectorSizeX', self.settings, width=15)#, displayString="Projector size X")
+		self.entryProjectorSizeX= monkeyprintGuiHelper.entry('projectorSizeX', self.settings, width=15, customFunctions=[self.setResliceFlag])#, displayString="Projector size X")
 		self.boxProjector.pack_start(self.entryProjectorSizeX, expand=False, fill=False)
 		self.entryProjectorSizeX.show()
-		self.entryProjectorSizeY= monkeyprintGuiHelper.entry('projectorSizeY', self.settings, width=15)#, displayString="Projector size Y")
+		self.entryProjectorSizeY= monkeyprintGuiHelper.entry('projectorSizeY', self.settings, width=15, customFunctions=[self.setResliceFlag])#, displayString="Projector size Y")
 		self.boxProjector.pack_start(self.entryProjectorSizeY, expand=False, fill=False)
 		self.entryProjectorSizeY.show()
 		self.entryProjectorPositionX= monkeyprintGuiHelper.entry('projectorPositionX', self.settings, width=15)#, displayString="Projector position X")
@@ -2610,7 +2635,7 @@ class dialogSettings(gtk.Window):
 		self.frameCalImage.add(self.boxCalImage)
 		self.boxCalImage.show()
 		# Image container to load from file.
-		self.imageContainer = monkeyprintGuiHelper.imageFromFile(self.settings, 200)
+		self.imageContainer = monkeyprintGuiHelper.imageFromFile(self.settings, 200, customFunctions=[self.setResliceFlag])
 		self.boxCalImage.pack_start(self.imageContainer)
 		self.imageContainer.show()
 
@@ -2760,6 +2785,16 @@ class dialogSettings(gtk.Window):
 		return boxPrintProcessSettings
 
 
+	def setRestartFlag(self):
+		self.restartMonkeyprint = True
+
+
+	def setResetGuiFlag(self):
+		self.resetGui = True
+
+
+	def setResliceFlag(self):
+		self.reslice = True
 
 
 	def toggleGCodeEntries(self):
@@ -3004,6 +3039,7 @@ class dialogSettings(gtk.Window):
 		# Delete the calibration image in case it was just added.
 		if (self.settings['calibrationImage'].value == False):
 			self.imageContainer.deleteImageFile()
+
 		# Restart the file transmission thread.
 		if self.settings['printOnRaspberry'].value:
 			ipFileClient = self.settings['ipAddressRaspi'].value
@@ -3026,8 +3062,25 @@ class dialogSettings(gtk.Window):
 		self.settings['pxPerMm'].value = self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value
 
 		# Update parent window in response to changing boards.
-		self.parentWindow.updateAllModels()
 		self.parentWindow.updateAllEntries(render=True)
+		if self.resetGui:
+			# Reset build volume box.
+			self.parentWindow.renderView.buildVolume.resize((self.settings['buildSizeX'].value, self.settings['buildSizeY'].value, self.settings['buildSizeZ'].value))
+			self.parentWindow.notebook.setCurrentPage(0)
+			if len(self.parentWindow.modelCollection) > 1:
+				self.parentWindow.setGuiState(1)
+			else:
+				self.parentWindow.setGuiState(0)
+			self.parentWindow.updateAllModels()
+		elif self.reslice:
+			# Set to slicer page if currently in print page.
+			if self.parentWindow.notebook.getCurrentPage() == 3:
+				self.parentWindow.notebook.setCurrentPage(2)
+			# Set gui state if more than the empty default model exists.
+			if len(self.parentWindow.modelCollection) > 1:
+				self.parentWindow.setGuiState(2)
+			self.parentWindow.updateAllModels()
+			self.parentWindow.updateSlider()
 
 		# Close.
 		self.destroy()

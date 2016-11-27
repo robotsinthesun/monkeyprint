@@ -169,13 +169,14 @@ class notebook(gtk.Notebook):
 
 # Pix buf for calibration image display.
 class imageFromFile(gtk.VBox):
-	def __init__(self, programSettings, width = 100):
+	def __init__(self, programSettings, width = 100, customFunctions=[]):
 		# Init super class.
 		gtk.VBox.__init__(self)
 
 		# Internalise data.
 		self.programSettings = programSettings
 		self.width = width
+		self.customFunctions = customFunctions
 
 		# Get projector width and set height according to projector aspect ratio.
 		aspect = float(self.programSettings['projectorSizeY'].value) / float(self.programSettings['projectorSizeX'].value)
@@ -269,6 +270,9 @@ class imageFromFile(gtk.VBox):
 				self.programSettings['calibrationImage'].value = True
 				# Update the image.
 				self.updateImage()
+				# Run custom functions.
+				for fnc in self.customFunctions:
+					fnc()
 
 			# Close dialog.
 			dialog.destroy()
@@ -292,6 +296,9 @@ class imageFromFile(gtk.VBox):
 		self.buttonRemove.set_sensitive(False)
 		# Update the image.
 		self.updateImage()
+		# Run custom functions.
+		for fnc in self.customFunctions:
+			fnc()
 
 	def deleteImageFile(self):
 		# Delete the current file.
@@ -369,9 +376,13 @@ class imageSlider(gtk.VBox):
 	# Update image if the slider is at the given position in the stack.
 	def updateImage(self):
 		# Call function to update the image.
-		img = self.modelCollection.updateSliceImage(self.slider.get_value()-1, mode="preview")
-		# Get the image from the slice buffer and convert it to 3 channels.
-		img = imageHandling.convertSingle2RGB(img)
+		try:
+			# Get the image from the slice buffer and convert it to 3 channels.
+			img = self.modelCollection.updateSliceImage(self.slider.get_value()-1, mode="preview")
+			img = imageHandling.convertSingle2RGB(img)
+		except IndexError:
+			img = self.imageBlack
+
 		# Write image to pixbuf.
 		self.pixbuf = gtk.gdk.pixbuf_new_from_array(img, gtk.gdk.COLORSPACE_RGB, 8)
 		# Resize the image.
@@ -385,19 +396,35 @@ class imageSlider(gtk.VBox):
 	# Handle the scroll event by displaying the respective imageArray
 	# from the image stack.
 	def callbackScroll(self, widget=None, event=None):
-		# Call function to update the image. Zero based indexing!
-		img = self.modelCollection.updateSliceImage(self.slider.get_value()-1, mode="preview")
-		# Get the image from the slice buffer and convert it to 3 channels.
-		img = imageHandling.convertSingle2RGB(img)
-		# Write image to pixbuf.
-		self.pixbuf = gtk.gdk.pixbuf_new_from_array(img, gtk.gdk.COLORSPACE_RGB, 8)
-		# Resize the pixbuf.
-		if img.shape[1] != self.width:
-			self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)#INTERP_NEAREST)
-		# Set image to viewer.
-		self.imageView.set_from_pixbuf(self.pixbuf)
-		# Set current page label.
-		self.currentLabel.set_text(str(int(self.modelCollection.sliceNumbers[int(self.slider.get_value()-1)])+1))#(self.slider.get_value()-1) * self.modelCollection.getPreviewSliceHeight())))
+		currentSliceNumber = 0
+		if len(self.modelCollection.sliceStackPreview) > 1:
+			# Call function to update the image. Zero based indexing!
+			# Catch index out of bounds exception and display black image instead.
+			try:
+				# Get the image from the slice buffer and convert it to 3 channels.
+				img = self.modelCollection.updateSliceImage(self.slider.get_value()-1, mode="preview")
+				img = imageHandling.convertSingle2RGB(img)
+				# Get current slice number.
+				currentSliceNumber = int(self.modelCollection.sliceNumbers[int(self.slider.get_value()-1)])
+				# Set current page label.
+				self.currentLabel.set_text(str(currentSliceNumber+1))
+			except IndexError:
+				img = self.imageBlack
+				self.currentLabel.set_text("Please wait.")
+				currentSliceNumber = 0
+			# Write image to pixbuf.
+			self.pixbuf = gtk.gdk.pixbuf_new_from_array(img, gtk.gdk.COLORSPACE_RGB, 8)
+			# Resize the pixbuf.
+			if img.shape[1] != self.width:
+				self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)#INTERP_NEAREST)
+			# Set image to viewer.
+			self.imageView.set_from_pixbuf(self.pixbuf)
+
+		else:
+			img = self.imageBlack
+			self.currentLabel.set_text("Please wait.")
+			currentSliceNumber = 0
+
 		# Call custom functions if specified.
 		if self.customFunctions != None:
 			for function in self.customFunctions:
@@ -405,24 +432,24 @@ class imageSlider(gtk.VBox):
 				val = None
 				for arg in inspect.getargspec(function)[0]:
 					if arg == 'sliceNumber':
-						val = self.modelCollection.sliceNumbers[int(self.slider.get_value()-1)]# * self.modelCollection.getPreviewSliceHeight()
+						val = currentSliceNumber#self.modelCollection.sliceNumbers[int(self.slider.get_value()-1)]# * self.modelCollection.getPreviewSliceHeight()
 				# Run function.
 				if val != None: function(val)
 				else: function()
+
+
 
 	# Change the slider range according to input.
 	def updateSlider(self):
 		height = self.modelCollection.getPreviewStackHeight()
 		displayHeight = self.modelCollection.getNumberOfSlices()
-		if self.console != None:
-			self.console.addLine('Resizing layer slider to ' + str(height) + ' slices.')
 		# Change slider value to fit inside new range.
 		if self.slider.get_value() > height:
 			self.slider.set_value(height)
 		# Resize slider.
-		if height > 0:
+		if height > 1:
 			self.slider.set_range(1,height)
-		self.maxLabel.set_text(str(displayHeight))
+			self.maxLabel.set_text(str(displayHeight))
 
 
 
