@@ -821,7 +821,7 @@ class gui(gtk.Window):
 			dialog.destroy()
 
 			# Update notebook to set sensitivities.
-			self.updateAllEntries(state=2)
+			self.updateAllEntries(state=1)
 
 		# If cancel was pressed...
 		elif response == gtk.RESPONSE_CANCEL:
@@ -3059,7 +3059,9 @@ class dialogSettings(gtk.Window):
 		self.settings.setPrintProcessList(self.listViewModules.getPrintProcessList())
 
 		# Set print resolution.
-		self.settings['pxPerMm'].value = self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value
+#		self.settings['pxPerMm'].value = self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value
+		self.settings['pxPerMmX'] =  self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value
+		self.settings['pxPerMmY'] =  self.settings['projectorSizeY'].value / self.settings['buildSizeZ'].value
 
 		# Update parent window in response to changing boards.
 		self.parentWindow.updateAllEntries(render=True)

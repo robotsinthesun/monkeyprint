@@ -684,8 +684,8 @@ class modelCollection(dict):
 			if model != 'default':
 				modelNamesAndHeights[2].append(self[model].slicePath)
 				modelNamesAndHeights[3].append(self[model].model.getNumberOfSlices())
-				modelNamesAndHeights[4].append(self[model].model.getSlicePosition())
-				modelNamesAndHeights[5].append(self[model].model.getSliceSize())
+				modelNamesAndHeights[4].append(self[model].model.getSlicePositionPx(border=False))
+				modelNamesAndHeights[5].append(self[model].model.getSliceSizePx(border=True))
 		return modelNamesAndHeights
 
 
@@ -1515,6 +1515,13 @@ class modelData:
 	def getBounds(self):
 		return self.__getBounds(self.stlPositionFilter)
 
+	def getHeightSupports(self):
+		if self.filename != "":
+			return self.__getBounds(self.supports)[5]
+		else:
+			return 0
+
+
 	def getBoundsSafety(self):
 		bounds = self.__getBounds(self.stlPositionFilter)
 		dist = self.programSettings['modelSafetyDistance'].value
@@ -1864,15 +1871,36 @@ class modelData:
 				print "UPDATING SLICES"
 				if self.console != None:
 					self.console.addLine('Slicer started.')
-				# Reset the slice stack.
-			#	self.sliceStack.reset(self.getSliceSize()[0], self.getSliceSize()[1], self.getNumberOfSlices())
+
+				print "Bounds: " + str(self.getBounds())
+				# Assemble the slicer info.
+				slicerInputInfo = {}
+				slicerInputInfo['pxPerMmX'] = self.programSettings['pxPerMmX'].value
+				slicerInputInfo['pxPerMmY'] = self.programSettings['pxPerMmY'].value
+				slicerInputInfo['layerHeight'] = self.programSettings['layerHeight'].value
+				slicerInputInfo['numberOfSlices'] = self.getNumberOfSlices()#int(math.floor(self.bounds[5] / self.layerHeight))
+				slicerInputInfo['position'] = self.getSlicePositionPx(border=True)
+				slicerInputInfo['size'] = self.getSliceSizePx(border=True)
+				slicerInputInfo['wallThickness'] = self.settings['fillShellWallThickness'].value
+				slicerInputInfo['fillPatternSpacingPxX'] = self.settings['fillSpacing'].value
+				slicerInputInfo['fillPatternSpacingPxY'] = self.settings['fillSpacing'].value
+				slicerInputInfo['fillPatternWallThickness'] = self.settings['fillPatternWallThickness'].value
+				#slicerInputInfo['wallThicknessPxX'] * self.programSettings['wallThickness'].value * self.programSettings['pxPerMmX'].value
+				#slicerInputInfo['wallThicknessPxY'] * self.programSettings['wallThickness'].value * self.programSettings['pxPerMmY'].value
+				slicerInputInfo['supportHeight'] = self.getHeightSupports()
+				slicerInputInfo['createSupports'] = self.settings['createSupports'].value
+				slicerInputInfo['createBottomPlate'] = self.settings['createBottomPlate'].value
+				slicerInputInfo['debug'] = self.programSettings['debug'].value
+				slicerInputInfo['printHollow'] = self.settings['printHollow'].value
+				slicerInputInfo['fill'] = self.settings['fill'].value
+				slicerInputInfo['showVtkErrors'] = self.programSettings['showVtkErrors'].value
+				slicerInputInfo['polylineClosingThreshold'] = self.programSettings['polylineClosingThreshold'].value
+			#	slicerInputInfo['sliceBorderWidth'] = self.programSettings['sliceBorderWidth'].value
+
 				# If there's nothing in the queue...
 				if self.queueSlicerIn.empty():
-					# ... write the model polydata to the queue.
-					#test = vtk.vtkPolyData()
-					#test.DeepCopy(self.stlPositionFilter.GetOutput())
-					#print self.stlPositionFilter.GetOutput()
-					self.queueSlicerIn.put("foo")
+					# ... write the slicer info to the queue.
+					self.queueSlicerIn.put(slicerInputInfo)
 				self.flagChanged = False
 				self.flagUpdateSlices = False
 				self.flagSlicerRunning = True
@@ -2002,7 +2030,7 @@ class modelData:
 			self.combinedCutlines.Update()
 			self.combinedClipModels.Update()
 
-
+	'''
 	def getSizePxXY(self):
 		# Get bounds.
 		bounds = self.getBounds()
@@ -2019,19 +2047,23 @@ class modelData:
 		height = int(math.ceil((bounds[3]-bounds[2]) * self.programSettings['pxPerMm'].value) + rim*2)
 
 		return (width, height, numberOfSlices, position)
-
+	'''
 
 
 	# Return slice size (width, height).
-	def getSliceSize(self):
+	def getSliceSizePx(self, border=False):
 		# Get bounds.
 		bounds = self.getBounds()
 		# Get rim size in pixels.
-		rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
+		#rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
 		# Get size in pixels. Add rim twice.
-		width = int(math.ceil((bounds[1]-bounds[0]) * self.programSettings['pxPerMm'].value) + rim*2)
-		height = int(math.ceil((bounds[3]-bounds[2]) * self.programSettings['pxPerMm'].value) + rim*2)
-		size = (width, height)
+		#width = int(math.ceil((bounds[1]-bounds[0]) * self.programSettings['pxPerMm'].value) + rim*2)
+		#height = int(math.ceil((bounds[3]-bounds[2]) * self.programSettings['pxPerMm'].value) + rim*2)
+		#size = (width, height)
+		# Limit size so that slice cannot protrude over projector limits.
+		size = (   int(min([math.ceil(bounds[1] * self.programSettings['pxPerMmX'].value), self.programSettings['projectorSizeX'].value]) - self.getSlicePositionPx()[0]),   int(min([math.ceil(bounds[3] * self.programSettings['pxPerMmY'].value), self.programSettings['projectorSizeY'].value]) - self.getSlicePositionPx()[1])   )
+		if border:
+			size = tuple([int(dim + self.programSettings['sliceBorderWidth'].value * 2) for dim in size])
 		return size
 
 
@@ -2051,11 +2083,23 @@ class modelData:
 		# Get bounds.
 		bounds = self.getBounds()
 		# Get rim size in pixels.
-		rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
+	#	rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
 		# Get position in pixels. Include rim.
 		position = (bounds[0]*self.programSettings['pxPerMm'].value-rim, bounds[2]*self.programSettings['pxPerMm'].value-rim)
 		return position
 
+	def getSlicePositionPx(self, border=False):
+		# Get bounds.
+		bounds = self.getBounds()
+		# Get rim size in pixels.
+	#	rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
+		# Get position in pixels. Include rim.
+	#	position = (bounds[0]*self.programSettings['pxPerMm'].value-rim, bounds[2]*self.programSettings['pxPerMm'].value-rim)
+		# Limit position to (0,0), just in case the model slightly protrudes out of the build volume.
+		positionPx = (   int(max([0, math.floor(bounds[0] * self.programSettings['pxPerMmX'].value)])),   int(max([0, math.floor(bounds[2] * self.programSettings['pxPerMmY'].value)]))   )
+		if border:
+			positionPx = tuple([int(dim - self.programSettings['sliceBorderWidth'].value) for dim in positionPx])
+		return positionPx
 
 
 	###########################################################################
@@ -2352,7 +2396,7 @@ class sliceStack(list):
 			else:
 				noisyImageIndex = 0
 
-
+	'''
 	# Add new image stack at given position.
 	def newModelStack(self, bounds, start=0):
 		# Get layerHeight from settings.
@@ -2373,7 +2417,7 @@ class sliceStack(list):
 			img = imageHandling.createImageGray(width, height, 0)	# 0=black, 255=white
 			img = img + i # Just for testing...
 			self[i] = imageHandling.insert(self[i], img, position)#self.sliceArray[i][bounds[0]:bounds[1],bounds[2]:bounds[3]] = img
-
+	'''
 
 	def updateHeight(self, height):
 		while(self.getStackHeight() < height):
@@ -2401,7 +2445,7 @@ class sliceStack(list):
 		else:
 			return self.imageError
 
-
+	'''
 	# Function to add an image to a specific slice and at a specific position.
 	def addSliceRegion(self, index, image, position):
 	#	position = [	position[0] * self.programSettings['pxPerMm'].value,
@@ -2410,11 +2454,10 @@ class sliceStack(list):
 		if index < len(self):
 			# Get the image.
 			self[int(index)] =  imageHandling.imgAdd(self[int(index)], image, position)
+	'''
 
 
 
-
-''' '''
 
 
   ##### ##     ###### ####   #####    ####   ####  ##  ## ##### ###### ##  ##  ##### #####
@@ -2514,11 +2557,14 @@ class sliceCombiner(threading.Thread):
 		# Slice size.
 		sliceHeight = self.programSettings['projectorSizeY'].value
 		sliceWidth = self.programSettings['projectorSizeX'].value
+		sliceBorderWidth = self.programSettings['sliceBorderWidth'].value
 
 		aspectRatio = float(sliceHeight) / float(sliceWidth)
 		previewHeight = self.programSettings['previewSliceWidth'].value * aspectRatio
 		previewDimensions = (int(self.programSettings['previewSliceWidth'].value), int(previewHeight))
 
+		sliceHeight += 2 * self.programSettings['sliceBorderWidth'].value
+		sliceWidth +=  2 * self.programSettings['sliceBorderWidth'].value
 
 		# Get model slice positions and sizes.
 		modelSlicePositions = modelNamesAndHeights[4]
@@ -2618,7 +2664,8 @@ class sliceCombiner(threading.Thread):
 							del currentPositions[0]
 							del currentSizes[0]
 				imageSlice = numpy.flipud(imageSlice)
-
+				# Clip border.
+				imageSlice = imageSlice[sliceBorderWidth:sliceHeight-sliceBorderWidth, sliceBorderWidth:sliceWidth-sliceBorderWidth]
 
 				# Once the slice image is complete, subtract the calibration image.
 				if self.calibrationImage != None:
@@ -2814,20 +2861,20 @@ class backgroundSlicer(threading.Thread):
 				time.sleep(0.1)
 			# If input has arrived get the input run slicer function.
 			if not self.stopThread.isSet():
-				forcePreview = self.queueSlicerIn.get()
-				self.runSlicer(forcePreview)
+				slicerInputInfo = self.queueSlicerIn.get()
+				self.runSlicer(slicerInputInfo)
 
 
 	# Run the slicer, send back data through the output queue
 	# and return to idle mode when done.
-	def runSlicer(self, forcePreview):
+	def runSlicer(self, slicerInputInfo):
 		# Don't run if stop condition is set.
 		while not self.stopThread.isSet():
 			# Check if new input is in queue. If not...
 			if not self.newInputInQueue():
 				# ...do the slicing.
-				warningSlices = self.updateSlices()
-				if self.programSettings['debug'].value:
+				warningSlices = self.updateSlices(slicerInputInfo)
+				if self.debug:
 					print "Slicer done."
 			# If new input has arrivied...
 			else:
@@ -2855,7 +2902,7 @@ class backgroundSlicer(threading.Thread):
 
 	# Update the slice stack. This will run on any new input in the
 	# input queue.
-	def updateSlices(self):
+	def updateSlices(self, slicerInputInfo):
 
 		if not self.stopThread.isSet():
 
@@ -2871,7 +2918,66 @@ class backgroundSlicer(threading.Thread):
 			self.polyDataBottomPlateInternal.DeepCopy(self.polyDataBottomPlate)
 
 			# Update slice image width, position, number of slices etc.
-			self.calculateStackParameters()
+			self.pxPerMmX = slicerInputInfo['pxPerMmX']
+			self.pxPerMmY = slicerInputInfo['pxPerMmY']
+			print "Pixels per mm X:"  + str(self.pxPerMmX)
+			print "Pixels per mm Y:"  + str(self.pxPerMmY)
+			#self.bounds = slicerInputInfo['bounds']
+			#print "Bounds: " + self.bounds
+			#self.polyDataModelInternal.GetBounds(self.bounds)
+			#self.center = [(self.bounds[0]+self.bounds[1])/2, (self.bounds[2]+self.bounds[3])/2]
+			# Get layerHeight in mm.
+			self.layerHeight = 	slicerInputInfo['layerHeight']
+			print "Layer height:"  + str(self.layerHeight)
+			# Calc number of layers.
+			self.numberOfSlices = slicerInputInfo['numberOfSlices']#int(math.floor(self.bounds[5] / self.layerHeight))
+			print "Number of slices:"  + str(self.numberOfSlices)
+			# Get rim size in pixels.
+			#self.rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
+			# Get position in pixels.
+			self.position = slicerInputInfo['position']#tuple([dim - slicerInputInfo['sliceBorderWidth'] for dim in slicerInputInfo['position']])
+			#self.position = (   int(max([0, math.floor(self.bounds[0] * self.pxPerMmX)])),   int(max([0, math.floor(self.bounds[2] * self.pxPerMmY)]))   )
+			print "Position: " + str(self.position)
+			#self.position = (int(self.bounds[0]*self.programSettings['pxPerMm'].value-self.rim), int(self.bounds[2]*self.programSettings['pxPerMm'].value-self.rim), 0)
+			#self.positionMm = (self.bounds[0]-self.rim/self.programSettings['pxPerMm'].value, self.bounds[2]-self.rim/self.programSettings['pxPerMm'].value, 0)
+			self.size = slicerInputInfo['size']#tuple([dim + slicerInputInfo['sliceBorderWidth'] * 2 for dim in slicerInputInfo['size']])
+			#self.size = (   int(min([math.ceil(self.bounds[1] * self.pxPerMmX, self.programSettings['projectorSizeX'].value]) - self.position[0]),   int(min([math.ceil(self.bounds[3] * self.pxPerMmY, self.programSettings['projectorSizeY'].value]) - self.position[1])   )
+			print "Size: " + str(self.size)
+			# Get size in pixels. Add rim twice.
+			#self.width = int(math.ceil((self.bounds[1]-self.bounds[0]) * self.programSettings['pxPerMm'].value) + self.rim*2)
+			#self.height = int(math.ceil((self.bounds[3]-self.bounds[2]) * self.programSettings['pxPerMm'].value) + self.rim*2)
+			# Get wall thickness for hollowing.
+			#self.wallThickness = self.settings['fillShellWallThickness'].value	# [mm]
+			print "Wall thickness: " + str(slicerInputInfo['wallThickness'])
+			self.wallThicknessLayers = slicerInputInfo['wallThickness'] / float(self.layerHeight)
+			print "Wall thickness layers: " + str(self.wallThicknessLayers)
+			self.wallThicknessPxX = slicerInputInfo['wallThickness'] * self.pxPerMmX
+			print "Wall thickness px X: " + str(self.wallThicknessPxX)
+			self.wallThicknessPxY = slicerInputInfo['wallThickness'] * self.pxPerMmY
+			print "Wall thickness px Y: " + str(self.wallThicknessPxY)
+			self.fillPatternSpacingPxX = slicerInputInfo['fillPatternSpacingPxX'] * self.pxPerMmX
+			self.fillPatternSpacingPxY = slicerInputInfo['fillPatternSpacingPxY'] * self.pxPerMmX
+			self.fillPatternWallThicknessPxX = slicerInputInfo['fillPatternWallThickness'] * self.pxPerMmX
+			self.fillPatternWallThicknessPxY = slicerInputInfo['fillPatternWallThickness'] * self.pxPerMmY
+			print "Fill pattern spacing px X: " + str(self.fillPatternSpacingPxX)
+			print "Fill pattern spacing px Y: " + str(self.fillPatternSpacingPxY)
+			self.printHollow = slicerInputInfo['printHollow']
+			self.fill = slicerInputInfo['fill']
+			self.showVtkErrors = slicerInputInfo['showVtkErrors']
+			self.polylineClosingThreshold = slicerInputInfo['polylineClosingThreshold']
+		#	self.sliceBorderWidth = slicerInputInfo['sliceBorderWidth']
+		#	self.sizeWithBorder = tuple([dim + self.sliceBorderWidth * 2 for dim in self.size])
+		#	print "Size with border: " + str(self.sizeWithBorder)
+		#	self.sizeWithBorder = tuple([dim + self.sliceBorderWidth * 2 for dim in self.size])
+		#	print "Size with border: " + str(self.sizeWithBorder)
+
+
+			# Get support height.
+			#bounds = [0 for i in range(6)]
+			#self.polyDataSupportsInternal.GetBounds(bounds)
+			self.supportHeight = slicerInputInfo['supportHeight']#bounds[5] + bounds[4]
+			print "Support height: " + str(self.supportHeight)
+			#self.calculateStackParameters()
 
 			# Prepare buffer stack for hollowing. **********
 			# Images will be fed into this buffer to generate
@@ -2879,12 +2985,16 @@ class backgroundSlicer(threading.Thread):
 			sliceStackBuffer = sliceBuffer(int(self.wallThicknessLayers*2)+1)
 
 			# Prepare images. ******************************
-			self.imageBlack = numpy.zeros((self.height, self.width), numpy.uint8)
+			self.imageBlack = numpy.zeros((self.size[1], self.size[0]), numpy.uint8)#numpy.zeros((self.height, self.width), numpy.uint8)
 			self.imageFill = self.createFillPattern()
 
 			# Check if supports and bottom plate shall be used.
-			useSupports = self.settings['createSupports'].value
-			useBottomPlate = self.settings['createBottomPlate'].value
+			useSupports = slicerInputInfo['createSupports']#self.settings['createSupports'].value
+			print "Use supports: " + str(useSupports)
+			useBottomPlate = slicerInputInfo['createBottomPlate']#self.settings['createBottomPlate'].value
+			print "Use bottom plate: " + str(useBottomPlate)
+			self.debug = slicerInputInfo['debug']
+			print "Debug: " + str(self.debug)
 
 			warningSlices = []
 
@@ -2913,10 +3023,11 @@ class backgroundSlicer(threading.Thread):
 					# If slice buffer is filled up to center, start to generate slices.
 					if sliceNumber >= self.wallThicknessLayers:
 						currentSlice = sliceStackBuffer.getCenter()
-						if self.programSettings['debug'].value:
+						if self.debug:
 							print "Generating slice " + str(sliceNumber-self.wallThicknessLayers) + "."
-						if sliceStackBuffer.getBelowCenter()[0] is not None and sliceStackBuffer.getAboveCenter()[-1] is not None:
-							currentSlice = self.hollowSliceImage(currentSlice, sliceStackBuffer.getBelowCenter(), sliceStackBuffer.getAboveCenter())
+						if self.printHollow:
+							if sliceStackBuffer.getBelowCenter()[0] is not None and sliceStackBuffer.getAboveCenter()[-1] is not None:
+								currentSlice = self.hollowSliceImage(currentSlice, sliceStackBuffer.getBelowCenter(), sliceStackBuffer.getAboveCenter())
 						# Add supports to the slice image.
 						if sliceNumber-self.wallThicknessLayers <= self.supportHeight / self.layerHeight:
 							if useSupports and useBottomPlate:
@@ -2927,7 +3038,7 @@ class backgroundSlicer(threading.Thread):
 						# Write slice image to disk.
 						self.writeSliceToDisk(currentSlice, sliceNumber-self.wallThicknessLayers)
 					else:
-						if self.programSettings['debug'].value:
+						if self.debug:
 							print "Filling slice buffer."
 				# Break if new input is in slice stack queue.
 				else:
@@ -2949,54 +3060,25 @@ class backgroundSlicer(threading.Thread):
 		image.save(fileString)
 
 
-	# Calculate slice stack parameters like image size etc.
-	def calculateStackParameters(self):
-
-		# Get size of the model in mm.
-		self.bounds = [0 for i in range(6)]
-		self.polyDataModelInternal.GetBounds(self.bounds)
-		self.center = [(self.bounds[0]+self.bounds[1])/2, (self.bounds[2]+self.bounds[3])/2]
-		# Get layerHeight in mm.
-		self.layerHeight = 	self.programSettings['layerHeight'].value
-		# Calc number of layers.
-		self.numberOfSlices = int(math.floor(self.bounds[5] / self.layerHeight))
-		# Get rim size in pixels.
-		self.rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
-		# Get position in pixels. Include rim.
-		self.position = (int(self.bounds[0]*self.programSettings['pxPerMm'].value-self.rim), int(self.bounds[2]*self.programSettings['pxPerMm'].value-self.rim), 0)
-		self.positionMm = (self.bounds[0]-self.rim/self.programSettings['pxPerMm'].value, self.bounds[2]-self.rim/self.programSettings['pxPerMm'].value, 0)
-		# Get size in pixels. Add rim twice.
-		self.width = int(math.ceil((self.bounds[1]-self.bounds[0]) * self.programSettings['pxPerMm'].value) + self.rim*2)
-		self.height = int(math.ceil((self.bounds[3]-self.bounds[2]) * self.programSettings['pxPerMm'].value) + self.rim*2)
-		# Get wall thickness for hollowing.
-		self.wallThickness = self.settings['fillShellWallThickness'].value	# [mm]
-		self.wallThicknessLayers = self.wallThickness / self.layerHeight
-		self.wallThicknessPx = self.wallThickness * self.programSettings['pxPerMm'].value
-		# Get support height.
-		bounds = [0 for i in range(6)]
-		self.polyDataSupportsInternal.GetBounds(bounds)
-		self.supportHeight = bounds[5] + bounds[4]
-
-
 	# Create an image that has a square pattern for filling a hollowed model.
 	def createFillPattern(self):
 
 		if not self.stopThread.isSet():
 			# Create an opencv image with rectangular pattern for filling large model areas.
 			# Get pattern parameters from settings.
-			spacing = self.settings['fillSpacing'].value * self.programSettings['pxPerMm'].value
-			wallThickness = self.settings['fillPatternWallThickness'].value * self.programSettings['pxPerMm'].value
+			#spacing = self.settings['fillSpacing'].value * self.programSettings['pxPerMm'].value
+			#wallThickness = self.settings['fillPatternWallThickness'].value * self.programSettings['pxPerMm'].value
 			# Height and width should be a multiple of the fill spacing.
-			height = int(math.ceil(self.height / spacing) * spacing)
-			width = int(math.ceil(self.width / spacing) * spacing)
+			height = int(math.ceil(self.size[1] / self.fillPatternSpacingPxY) * self.fillPatternSpacingPxY)#int(math.ceil(self.height / spacing) * spacing)
+			width = int(math.ceil(self.size[0] / self.fillPatternSpacingPxX) * self.fillPatternSpacingPxX)#int(math.ceil(self.width / spacing) * spacing)
 			imageFill = numpy.ones((height, width), numpy.uint8) * 255
 
 			# Set every Nth vertical line (and it's  neighbour or so) white.
 			for pixelX in range(width):
-				if (pixelX / spacing - math.floor(pixelX / spacing)) * spacing < wallThickness:
+				if (pixelX / self.fillPatternSpacingPxX - math.floor(pixelX / self.fillPatternSpacingPxX)) * self.fillPatternSpacingPxX < self.fillPatternWallThicknessPxX:
 					imageFill[:,pixelX-1] = 0
 			for pixelY in range(height):
-				if (pixelY / spacing - math.floor(pixelY / spacing)) * spacing < wallThickness:
+				if (pixelY / self.fillPatternSpacingPxY - math.floor(pixelY / self.fillPatternSpacingPxY)) * self.fillPatternSpacingPxY < self.fillPatternWallThicknessPxY:
 					imageFill[pixelY-1,:] = 0
 			return imageFill
 
@@ -3006,55 +3088,52 @@ class backgroundSlicer(threading.Thread):
 	# This also creates a fill pattern if needed.
 	def hollowSliceImage(self, imageSlice, imageStackBelow, imageStackAbove):
 
-		# Check if hollowing is asked for.
-		if self.settings['printHollow'].value == True:# and (self.programSettings['showFill'].value == True or self.printFlag == True):
+		# Enlarge image, otherwise erode will fail where white region goes
 
-			# Get wall thickness from settings.
-			wallThickness = self.settings['fillShellWallThickness'].value	# [mm]
-			wallThicknessPx = wallThickness * self.programSettings['pxPerMm'].value
 
-			# Get top and bottom masks for wall thickness.
-			# Masks are created from the images below and above the
-			# current slice which are within the wall thickness.
-			imageTopMask = numpy.ones((self.height, self.width), numpy.uint8) * 255
-			imageBottomMask = numpy.ones((self.height, self.width), numpy.uint8) * 255
-			# TODO: creates a numpy deprecation warning.
-			for imageAbove in imageStackAbove:
-				if imageAbove is None:
-					break
-				else:
-					imageAbove = cv2.erode(imageAbove, numpy.ones((wallThicknessPx,wallThicknessPx), numpy.uint8), iterations=1)
-					imageTopMask = cv2.multiply(imageTopMask, imageAbove)
-			for imageBelow in reversed(imageStackBelow):
-				if imageBelow is None:
-					break
-				else:
-					imageBelow = cv2.erode(imageBelow, numpy.ones((wallThicknessPx,wallThicknessPx), numpy.uint8), iterations=1)
-					imageBottomMask = cv2.multiply(imageBottomMask, imageBelow)
-			# Erode model image to create wall thickness.
-			imageEroded = cv2.erode(imageSlice, numpy.ones((wallThicknessPx,wallThicknessPx), numpy.uint8), iterations=1)
+		# Get top and bottom masks for wall thickness.
+		# Masks are created from the images below and above the
+		# current slice which are within the wall thickness.
+		imageTopMask = numpy.ones((self.size[1], self.size[0]), numpy.uint8) * 255#numpy.ones((self.height, self.width), numpy.uint8) * 255
+		imageBottomMask = numpy.ones((self.size[1], self.size[0]), numpy.uint8) * 255#numpy.ones((self.height, self.width), numpy.uint8) * 255
+		kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(int(self.wallThicknessPxX),int(self.wallThicknessPxY)))
+		# TODO: creates a numpy deprecation warning.
+		for imageAbove in imageStackAbove:
+			if imageAbove is None:
+				break
+			else:
+				imageAbove = cv2.erode(imageAbove, kernel, iterations=1)#numpy.ones((self.wallThicknessPxX,self.wallThicknessPxY), numpy.uint8), iterations=1)
+				imageTopMask = cv2.multiply(imageTopMask, imageAbove)
+		for imageBelow in reversed(imageStackBelow):
+			if imageBelow is None:
+				break
+			else:
+				imageBelow = cv2.erode(imageBelow, kernel, iterations=1)#numpy.ones((self.wallThicknessPxX,self.wallThicknessPxY), numpy.uint8), iterations=1)
+				imageBottomMask = cv2.multiply(imageBottomMask, imageBelow)
+		# Erode model image to create wall thickness.
+		imageEroded = cv2.erode(imageSlice, kernel, iterations=1)#numpy.ones((self.wallThicknessPxX,self.wallThicknessPxY), numpy.uint8), iterations=1)
 
-			# Multiply mask images with eroded image to prevent wall where mask images are black.
-			imageEroded = cv2.multiply(imageEroded, imageTopMask)
-			imageEroded = cv2.multiply(imageEroded, imageBottomMask)
+		# Multiply mask images with eroded image to prevent wall where mask images are black.
+		imageEroded = cv2.multiply(imageEroded, imageTopMask)
+		imageEroded = cv2.multiply(imageEroded, imageBottomMask)
 
-			# Add internal pattern to slice image if asked for.
-			if self.settings['fill'].value == True:
+		# Add internal pattern to slice image if asked for.
+		if self.fill:
 
-				# Shift internal pattern 1 pixel to prevent burning in the pdms coating.
-				patternShift = 1	# TODO: implement setting for pattern shift.
-				self.imageFill = numpy.roll(self.imageFill, patternShift, axis=0)
-				self.imageFill = numpy.roll(self.imageFill, patternShift, axis=1)
+			# Shift internal pattern 1 pixel to prevent burning in the pdms coating.
+			patternShift = 1	# TODO: implement setting for pattern shift.
+			self.imageFill = numpy.roll(self.imageFill, patternShift, axis=0)
+			self.imageFill = numpy.roll(self.imageFill, patternShift, axis=1)
 
-				# Mask internal pattern using the eroded image.
-				# The fill image is a little larger, so get a slice sized subimage.
-				imageEroded = cv2.multiply(imageEroded, self.imageFill[:self.height,:self.width])
+			# Mask internal pattern using the eroded image.
+			# The fill image is a little larger, so get a slice sized subimage.
+			imageEroded = cv2.multiply(imageEroded, self.imageFill[:self.size[1],:self.size[0]])#cv2.multiply(imageEroded, self.imageFill[:self.height,:self.width])
 
-			# Subtract cavity with or without fill pattern from model.
-			imageSlice = cv2.subtract(imageSlice, imageEroded)
+		# Subtract cavity with or without fill pattern from model.
+		imageSlice = cv2.subtract(imageSlice, imageEroded)
 
-			# Return the modified slice image.
-			return imageSlice
+		# Return the modified slice image.
+		return imageSlice
 
 
 	# Create a slice image that may include model, supports and/or bottom plate.
@@ -3064,10 +3143,11 @@ class backgroundSlicer(threading.Thread):
 		sliceNumber += 1
 
 		activationFlags = [model, supports, bottomPlate]
+		#print activationFlags
 
 		# Create a black slice image. **********************
-		imageSlice = numpy.zeros((self.height, self.width), numpy.uint8)
-		imageSliceCorrupted = numpy.zeros((self.height, self.width), numpy.uint8)
+		imageSlice = numpy.zeros((self.size[1], self.size[0]), numpy.uint8)#numpy.zeros((self.height, self.width), numpy.uint8)
+		imageSliceCorrupted = numpy.zeros((self.size[1], self.size[0]), numpy.uint8)#numpy.zeros((self.height, self.width), numpy.uint8)
 
 		# Create the slice image. **************************
 		# Set new height for the cutting plane.
@@ -3079,10 +3159,17 @@ class backgroundSlicer(threading.Thread):
 		# Get the slice contours.
 		sliceContours, sliceContoursCorrupted = self.createSliceContour(slicePosition, model, supports, bottomPlate)
 
-		# Add polygons to image.
+		# Draw polygons to image.
+		# To get antialiased drawing, the point coordinates are
+		# multiplied by 2^fractionalBits and converted to ints.
+		# The fractionalBits are given to the drawing function.
+		# Line type has to be set to cv2.CV_AA for antialiasing.
+		fractionalBits = 3
 		for i in range(len(sliceContours)):
 			if activationFlags[i]:
-				cv2.fillPoly(imageSlice, sliceContours[i], color=255)
+				sliceContours[i] = numpy.multiply(sliceContours[i], pow(2, fractionalBits))
+				sliceContours[i] = [numpy.array(array, dtype=numpy.int32) for array in sliceContours[i]]
+				cv2.fillPoly(imageSlice, sliceContours[i], color=255, shift=fractionalBits, lineType=cv2.CV_AA) # Shift is the number of digits behind the point coordinate comma --> subpixel accuracy.
 
 		# Add corrupted polygonds to extra image.
 		if len(sliceContoursCorrupted) > 0:
@@ -3105,34 +3192,34 @@ class backgroundSlicer(threading.Thread):
 		# Update cutting filters.
 		if model:
 			self.cuttingFilterModel.Update()
-			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
 		if supports:
 			self.cuttingFilterSupports.Update()
-			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
 		if bottomPlate:
 			self.cuttingFilterBottomPlate.Update()
-			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
 
 		# Update section strippers.
 		if model:
 			self.sectionStripperModel.Update()
-			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
 		if supports:
 			self.sectionStripperSupports.Update()
-			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
 		if bottomPlate:
 			self.sectionStripperBottomPlate.Update()
-			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
 
 		# Turn VTK polylines into numpy point arrays.
 		# Start timer.
-		if self.programSettings['debug'].value:
+		if self.debug:#self.programSettings['debug'].value:
 			interval = time.time()
 		polylinesClosedAll = []
 		polylinesCorruptedAll = []
@@ -3140,11 +3227,10 @@ class backgroundSlicer(threading.Thread):
 		sectionStrippers = [self.sectionStripperModel, self.sectionStripperSupports, self.sectionStripperBottomPlate]
 		activationFlags = [model, supports, bottomPlate]
 		for i in range(len(sectionStrippers)):#[self.sectionStripperModel, self.sectionStripperSupports, self.sectionStripperBottomPlate]:
-			# If model only flag is set, do this for model stripper only.
 			numberOfPolylines = 0
 			sectionStripper = sectionStrippers[i]
-			#if not modelOnly or sectionStripper == self.sectionStripperModel:
 			if activationFlags[i]:
+
 				#print "Sorting polyline pieces. ************************"
 				# Get the polyline points. These are not ordered.
 				points = sectionStripper.GetOutput().GetPoints().GetData()
@@ -3153,13 +3239,14 @@ class backgroundSlicer(threading.Thread):
 				# Remove Z dimension.
 				points = points[:,0:2]
 				# Scale to fit the image (convert from mm to px).
-				points *= self.programSettings['pxPerMm'].value
+				points[:,0] *= self.pxPerMmX#programSettings['pxPerMm'].value
+				points[:,1] *= self.pxPerMmX
 				# Move points to center of image.
 				points[:,0] -= self.position[0]
 				points[:,1] -= self.position[1]
 				# Flip points y-wise because image coordinates start at top.
-				points[:,1] = abs(points[:,1] - self.height)
-
+				points[:,1] = abs(points[:,1] - self.size[1])#height)
+#				if i == 1: print points
 				# Get the lines. These contain point indices in the right order for each polyline.
 				lines = sectionStripper.GetOutput().GetLines()#.GetData()
 				numberOfPolylines = lines.GetNumberOfCells()
@@ -3206,8 +3293,8 @@ class backgroundSlicer(threading.Thread):
 				polylinesClosed = []
 				for polyline in polylineIndicesClosed:
 					polylinePoints = points[polyline]
-					# Convert to numpy array.
-					polylinePoints = numpy.array(polylinePoints, dtype=numpy.int32)
+					# Convert to numpy array. dtype must be int32 for cv2.fillPoly
+				#	polylinePoints = numpy.array(polylinePoints, dtype=numpy.int32) # DO THIS LATER AFTER CONVERTING TO FP.
 					# Save as integers.
 					polylinesClosed.append(polylinePoints)
 
@@ -3216,8 +3303,8 @@ class backgroundSlicer(threading.Thread):
 				polylinesOpen = []
 				for polyline in polylineIndicesOpen:
 					polylinePoints = points[polyline]
-					# Convert to numpy array.
-					polylinePoints = numpy.array(polylinePoints, dtype=numpy.int32)
+					# Convert to numpy array. dtype must be int32 for cv2.fillPoly
+				#	polylinePoints = numpy.array(polylinePoints, dtype=numpy.int32)
 					# Save as integers.
 					polylinesOpen.append(polylinePoints)
 
@@ -3327,8 +3414,8 @@ class backgroundSlicer(threading.Thread):
 							# If no match was found and segmentA is still open,
 							# copy it to defective segments array.
 							if runAgain == False and isClosed == False:
-								endPointDistance = math.sqrt( pow((segmentA[0][0] -segmentA[-1][0]), 2) + pow((segmentA[0][1] -segmentA[-1][1]), 2) )
-								if endPointDistance < (self.programSettings['polylineClosingThreshold'].value * self.programSettings['pxPerMm'].value):
+								endPointDistance = math.sqrt( pow((segmentA[0][0] -segmentA[-1][0])/self.pxPerMmX, 2) + pow((segmentA[0][1] -segmentA[-1][1])/self.pxPerMmY, 2) )
+								if endPointDistance < (self.polylineClosingThreshold):
 									#print "      End point distance below threshold. Closing manually."
 									polylinesClosed.append(segmentA)
 								else:
@@ -3351,7 +3438,7 @@ class backgroundSlicer(threading.Thread):
 					polylinesCorruptedAll.append(polylinesCorrupted)
 
 		# End timer.
-		if self.programSettings['debug'].value:
+		if self.debug:
 			interval = time.time() - interval
 			print "Polyline point sort time: " + str(interval) + " s."
 

@@ -152,7 +152,9 @@ class programSettings(dict):
 #		self['projectorPositionXY'] = setting(value=[1280,0])
 #		self['buildSizeXYZ'] = setting(value=[102.4,76.8,150.0])
 
-		self['pxPerMm'] =  setting(value=self['projectorSizeX'].value / self['buildSizeX'].value)
+#		self['pxPerMm'] =  setting(value=self['projectorSizeX'].value / self['buildSizeX'].value)
+		self['pxPerMmX'] =  setting(value=self['projectorSizeX'].value / self['buildSizeX'].value)
+		self['pxPerMmY'] =  setting(value=self['projectorSizeY'].value / self['buildSizeY'].value)
 
 		self['port'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0',		name='Port')
 		self['baudrate'] = setting(value='57600', default=57600,		name='Baud rate')
@@ -239,6 +241,7 @@ class programSettings(dict):
 		self['sliceStackMemory'] = setting(value=50, default=500, lower=100, unit='MB', name='Slicer memory')
 		self['previewSlicesMax'] = setting(value=300, default=300, lower=100, upper=1000, name='Max. preview slices')
 		self['previewSliceWidth'] = setting(value=200, default=200)
+		self['sliceBorderWidth'] = setting(value=10)
 
 	# Load default settings.
 	def loadDefaults(self):
