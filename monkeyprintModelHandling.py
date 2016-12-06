@@ -56,7 +56,7 @@ import monkeyprintSettings
 
 
 class modelContainer:
-	def __init__(self, filenameOrSettings, modelId, programSettings, queueSlicerToCombiner, console=None):
+	def __init__(self, filenameOrSettings, modelId, programSettings, console=None):
 
 		# Check if a filename has been given or an existing model settings object.
 		# If filename was given...
@@ -75,7 +75,6 @@ class modelContainer:
 			filename = self.settings['filename'].value
 
 		# Internalise remaining data.
-		self.queueSlicerToCombiner = queueSlicerToCombiner
 		self.console=console
 
 		# Get the slice path where slice images are saved.
@@ -83,7 +82,7 @@ class modelContainer:
 		self.slicePath = self.slicePath.replace(' ', '') + '.d'
 
 		# Create model object.
-		self.model = modelData(filename, self.slicePath, self.settings, programSettings, queueSlicerToCombiner, self.console)
+		self.model = modelData(filename, self.slicePath, self.settings, programSettings, self.console)
 
 		# active flag. Only do updates if model is active.
 		self.flagactive = True
@@ -591,7 +590,7 @@ class modelCollection(dict):
 
 	# Add a model to the collection.
 	def add(self, modelId, filenameOrSettings):
-		self[modelId] = modelContainer(filenameOrSettings, modelId, self.programSettings, self.queueModelCollectionToCombiner, self.console)
+		self[modelId] = modelContainer(filenameOrSettings, modelId, self.programSettings, self.console)
 		# Set new model as current model.
 		self.currentModelId = modelId
 
@@ -870,9 +869,6 @@ class modelCollection(dict):
 		#print finished
 		return finished
 
-	#def sliceCombinerFinished(self):
-	#	return self.sliceCombinerFinished
-
 
 	# Get all model volumes.
 	def getTotalVolume(self):
@@ -882,6 +878,7 @@ class modelCollection(dict):
 				volume += self[model].model.getVolume()
 		return volume
 
+
 	def getAllActors(self):
 		allActors = []
 		for model in self:
@@ -889,6 +886,7 @@ class modelCollection(dict):
 			for actor in modelActors:
 				allActors.append(actor)
 		return allActors
+
 
 	def modelsLoaded(self):
 		if len(self) > 1:
@@ -1011,11 +1009,8 @@ class modelData:
 	includes actors for rendering and the preview slice stack.
 	"""
 
-	def __init__(self, filename, slicePath, settings, programSettings, queueSlicerToCombiner, console=None):
+	def __init__(self, filename, slicePath, settings, programSettings, console=None):
 
-
-		# Create VTK error observer to catch errors.
-		self.errorObserver = ErrorObserver()
 
 		# Set up variables.
 		# Internalise settings.
@@ -1025,7 +1020,6 @@ class modelData:
 		self.slicePath = slicePath
 		self.settings = settings
 		self.programSettings = programSettings
-		self.queueSlicerToCombiner = queueSlicerToCombiner
 		self.console = console
 
 		# Set up values for model positioning.
@@ -1312,7 +1306,7 @@ class modelData:
 			# Initialise the thread.
 			if self.console!=None:
 				self.console.addLine("Starting slicer thread")
-			self.slicerThread = backgroundSlicer(self.settings, self.programSettings, self.slicePath, self.stlPositionFilter.GetOutput(), self.supports.GetOutput(), self.bottomPlate.GetOutput(), self.queueSlicerIn, self.queueSlicerOut, self.queueSlicerToCombiner, self.console)
+			self.slicerThread = backgroundSlicer(self.slicePath, self.stlPositionFilter.GetOutput(), self.supports.GetOutput(), self.bottomPlate.GetOutput(), self.queueSlicerIn, self.queueSlicerOut, self.console)
 			self.slicerThread.start()
 
 		######################################################################
@@ -1422,20 +1416,32 @@ class modelData:
 			self.volumeModel.AddObserver('WarningEvent', self.errorObserver)
 			if vtk.VTK_MAJOR_VERSION <= 5:
 				self.volumeModel.SetInput(self.stlPositionFilter.GetOutput())
+				if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+					print "VTK Warning: " + self.errorObserver.ErrorMessage()
 			else:
 				self.volumeModel.SetInputConnection(self.stlPositionFilter.GetOutputPort())
+				if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+					print "VTK Warning: " + self.errorObserver.ErrorMessage()
 			self.volumeSupports = vtk.vtkMassProperties()
 			self.volumeSupports.AddObserver('WarningEvent', self.errorObserver)
 			if vtk.VTK_MAJOR_VERSION <= 5:
 				self.volumeSupports.SetInput(self.supports.GetOutput())
+				if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+					print "VTK Warning: " + self.errorObserver.ErrorMessage()
 			else:
 				self.volumeSupports.SetInputConnection(self.supports.GetOutputPort())
+				if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+					print "VTK Warning: " + self.errorObserver.ErrorMessage()
 			self.volumeBottomPlate = vtk.vtkMassProperties()
 			self.volumeBottomPlate.AddObserver('WarningEvent', self.errorObserver)
 			if vtk.VTK_MAJOR_VERSION <= 5:
 				self.volumeBottomPlate.SetInput(self.bottomPlate.GetOutput())
+				if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+					print "VTK Warning: " + self.errorObserver.ErrorMessage()
 			else:
 				self.volumeBottomPlate.SetInputConnection(self.bottomPlate.GetOutputPort())
+				if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+					print "VTK Warning: " + self.errorObserver.ErrorMessage()
 
 
 		# Finally, update the pipeline.
@@ -1486,25 +1492,34 @@ class modelData:
 
 	def getVolume(self):
 		if self.filename != "":
+
 			self.volumeModel.Update()
 			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 				print "VTK Warning: " + self.errorObserver.ErrorMessage()
+			# TODO: mass properties throws some errors here, possibly because the support polydata contains non-triangles.
+			# THis can only be the cylinders.
+			# Maybe triangulate them first somehow...
 			# Only update supports volume if there are supports in the appendPolyData.
 			if self.supports.GetNumberOfInputConnections(0) > 0:
 				self.volumeSupports.Update()
 				if self.programSettings['showVtkErrors'].value and self.errorObserver.WarningOccurred():
 					print "VTK Warning: " + self.errorObserver.WarningMessage()
-				elif self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
-					print "VTK Error: " + self.errorObserver.ErrorMessage()
+#				elif self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+#					print "VTK Error: " + self.errorObserver.ErrorMessage()
 			self.volumeBottomPlate.Update()
 			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
 
 			# Get volume in mm³.
 			if self.supports.GetNumberOfInputConnections(0) > 0:
+
 				volume = self.volumeModel.GetVolume() + self.volumeSupports.GetVolume() + self.volumeBottomPlate.GetVolume()
+				if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+					print "VTK Error: " + self.errorObserver.ErrorMessage()
 			else:
 				volume = self.volumeModel.GetVolume() + self.volumeBottomPlate.GetVolume()
+				if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+					print "VTK Error: " + self.errorObserver.ErrorMessage()
 			# Convert to cm³ and round to 2 decimals.
 			volume = math.trunc(volume / 10.) /100.
 			return volume
@@ -1561,7 +1576,7 @@ class modelData:
 	def updateModel(self):
 		if self.filename != "":
 			if self.isactive() and self.settingsChangedModel():
-				print "   UPDATING MODEL"
+				#print "   UPDATING MODEL"
 				self.flagSlicerFinished = False
 
 				# Move model to origin. ****
@@ -1676,7 +1691,7 @@ class modelData:
 		# - Model has been updated or support settings have been changed.
 		if self.filename != "":
 			if self.isactive() and (self.flagUpdateSupports or self.settingsChangedSupports()):
-				print "   UPDATING SUPPORTS"
+				#print "   UPDATING SUPPORTS"
 				self.flagSlicerFinished = False
 
 				self.updateBottomPlate()
@@ -1704,12 +1719,12 @@ class modelData:
 				else:
 					self.supports.SetInputConnectionByNumber(0, cone.GetOutputPort())
 
-		#TODO: Add support regions using	overhangRegionFilter.Update();
+		#TODO: Add support regions using overhangRegionFilter.Update();
 
 				# Update the cell locator.
 				self.locator.BuildLocator()
 				self.locator.Update()
-				if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+				if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 					print "VTK Error: " + self.errorObserver.ErrorMessage()
 
 				# Get overhang bounds to set up support pattern.
@@ -1760,7 +1775,7 @@ class modelData:
 
 						# Intersect.
 						self.locator.IntersectWithLine(pointBottom, pointTop, tolerance, t, pos, pcoords, subId)
-						if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+						if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 							print "VTK Error: " + self.errorObserver.ErrorMessage()
 
 						# Create cone if intersection point found.
@@ -1834,24 +1849,24 @@ class modelData:
 							# Append the cone to the cones polydata.
 							if vtk.VTK_MAJOR_VERSION <= 5:
 								self.supports.AddInput(coneGeomFilter.GetOutput())
-								if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+								if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 									print "VTK Error: " + self.errorObserver.ErrorMessage()
 							else:
 								support_inputs += 2
 								self.supports.SetNumberOfInputs(support_inputs)
 								self.supports.SetInputConnectionByNumber(support_inputs - 2, coneGeomFilter.GetOutputPort())
-								if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+								if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 									print "VTK Error: " + self.errorObserver.ErrorMessage()
 							# Delete the cone. Vtk delete() method does not work in python because of garbage collection.
 							del cone
 							# Append the cylinder to the cones polydata.
 							if vtk.VTK_MAJOR_VERSION <= 5:
 								self.supports.AddInput(cylinderGeomFilter.GetOutput())
-								if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+								if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 									print "VTK Error: " + self.errorObserver.ErrorMessage()
 							else:
 								self.supports.SetInputConnectionByNumber(support_inputs - 1, cylinderGeomFilter.GetOutputPort())
-								if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+								if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 									print "VTK Error: " + self.errorObserver.ErrorMessage()
 							del cylinder
 			#				i += 1
@@ -1883,11 +1898,10 @@ class modelData:
 			# model or supports have been changed before.
 			# Also update in preview mode if forced.
 			if self.isactive() and (self.flagUpdateSlices or self.settingsChangedSlicer()):
-				print "UPDATING SLICES"
+				#print "UPDATING SLICES"
 				if self.console != None:
 					self.console.addLine('Slicer started.')
 
-				print "Bounds: " + str(self.getBounds())
 				# Assemble the slicer info.
 				slicerInputInfo = {}
 				slicerInputInfo['pxPerMmX'] = self.programSettings['pxPerMmX'].value
@@ -1900,8 +1914,6 @@ class modelData:
 				slicerInputInfo['fillPatternSpacingPxX'] = self.settings['fillSpacing'].value
 				slicerInputInfo['fillPatternSpacingPxY'] = self.settings['fillSpacing'].value
 				slicerInputInfo['fillPatternWallThickness'] = self.settings['fillPatternWallThickness'].value
-				#slicerInputInfo['wallThicknessPxX'] * self.programSettings['wallThickness'].value * self.programSettings['pxPerMmX'].value
-				#slicerInputInfo['wallThicknessPxY'] * self.programSettings['wallThickness'].value * self.programSettings['pxPerMmY'].value
 				slicerInputInfo['supportHeight'] = self.getHeightSupports()
 				slicerInputInfo['createSupports'] = self.settings['createSupports'].value
 				slicerInputInfo['createBottomPlate'] = self.settings['createBottomPlate'].value
@@ -1910,8 +1922,7 @@ class modelData:
 				slicerInputInfo['fill'] = self.settings['fill'].value
 				slicerInputInfo['showVtkErrors'] = self.programSettings['showVtkErrors'].value
 				slicerInputInfo['polylineClosingThreshold'] = self.programSettings['polylineClosingThreshold'].value
-			#	slicerInputInfo['sliceBorderWidth'] = self.programSettings['sliceBorderWidth'].value
-
+			#
 				# If there's nothing in the queue...
 				if self.queueSlicerIn.empty():
 					# ... write the slicer info to the queue.
@@ -2045,42 +2056,17 @@ class modelData:
 			self.combinedCutlines.Update()
 			self.combinedClipModels.Update()
 
-	'''
-	def getSizePxXY(self):
-		# Get bounds.
-		bounds = self.getBounds()
-		# Get layerHeight in mm.
-		layerHeight = 	self.programSettings['layerHeight'].value
-		# Calc number of layers.
-		numberOfSlices = int(math.ceil(bounds[5] / layerHeight))
-		# Get rim size in pixels.
-		rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
-		# Get position in pixels. Include rim.
-		position = [bounds[0]/self.programSettings['pxPerMm'].value-rim, bounds[2]/self.programSettings['pxPerMm'].value-rim, 0]
-		# Get size in pixels. Add rim twice.
-		width = int(math.ceil((bounds[1]-bounds[0]) * self.programSettings['pxPerMm'].value) + rim*2)
-		height = int(math.ceil((bounds[3]-bounds[2]) * self.programSettings['pxPerMm'].value) + rim*2)
-
-		return (width, height, numberOfSlices, position)
-	'''
-
 
 	# Return slice size (width, height).
 	def getSliceSizePx(self, border=False):
 		# Get bounds.
 		bounds = self.getBounds()
-		# Get rim size in pixels.
-		#rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
-		# Get size in pixels. Add rim twice.
-		#width = int(math.ceil((bounds[1]-bounds[0]) * self.programSettings['pxPerMm'].value) + rim*2)
-		#height = int(math.ceil((bounds[3]-bounds[2]) * self.programSettings['pxPerMm'].value) + rim*2)
-		#size = (width, height)
 		# Limit size so that slice cannot protrude over projector limits.
 		size = (   int(min([math.ceil(bounds[1] * self.programSettings['pxPerMmX'].value), self.programSettings['projectorSizeX'].value]) - self.getSlicePositionPx()[0]),   int(min([math.ceil(bounds[3] * self.programSettings['pxPerMmY'].value), self.programSettings['projectorSizeY'].value]) - self.getSlicePositionPx()[1])   )
+		# Add a safety boarder that is needed for erosion (hollowing).
 		if border:
 			size = tuple([int(dim + self.programSettings['sliceBorderWidth'].value * 2) for dim in size])
 		return size
-
 
 
 	def getNumberOfSlices(self):
@@ -2093,25 +2079,12 @@ class modelData:
 		return numberOfSlices
 
 
-
-	def getSlicePosition(self):
-		# Get bounds.
-		bounds = self.getBounds()
-		# Get rim size in pixels.
-	#	rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
-		# Get position in pixels. Include rim.
-		position = (bounds[0]*self.programSettings['pxPerMm'].value-rim, bounds[2]*self.programSettings['pxPerMm'].value-rim)
-		return position
-
 	def getSlicePositionPx(self, border=False):
 		# Get bounds.
 		bounds = self.getBounds()
-		# Get rim size in pixels.
-	#	rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
-		# Get position in pixels. Include rim.
-	#	position = (bounds[0]*self.programSettings['pxPerMm'].value-rim, bounds[2]*self.programSettings['pxPerMm'].value-rim)
 		# Limit position to (0,0), just in case the model slightly protrudes out of the build volume.
 		positionPx = (   int(max([0, math.floor(bounds[0] * self.programSettings['pxPerMmX'].value)])),   int(max([0, math.floor(bounds[2] * self.programSettings['pxPerMmY'].value)]))   )
+		# Add a safety boarder that is needed for erosion (hollowing).
 		if border:
 			positionPx = tuple([int(dim - self.programSettings['sliceBorderWidth'].value) for dim in positionPx])
 		return positionPx
@@ -2120,10 +2093,6 @@ class modelData:
 	###########################################################################
 	# Public methods to retrieve actors and other data. #######################
 	###########################################################################
-
-	# Get number if slices for the layer slider in the gui.
-#	def getNumberOfSlices(self):
-#		return int(math.floor(self.inputModelPolydata.GetBounds()[5] / self.settings.getLayerHeight()))
 
 	# Get slice image for gui and print.
 	def getCvImage(self):
@@ -2411,40 +2380,18 @@ class sliceStack(list):
 			else:
 				noisyImageIndex = 0
 
-	'''
-	# Add new image stack at given position.
-	def newModelStack(self, bounds, start=0):
-		# Get layerHeight from settings.
-		stackHeight = int(bounds[5] / self.programSettings['layerHeight'].value)
-		# Convert position and size to pixels, height to number of slices.
-		# Define rim size in pixel.
-		rim = 0
-		# Get position. Add rim.
-		position = [int(bounds[0] * self.programSettings['pxPerMm'].value - rim), int(bounds[2] * self.programSettings['pxPerMm'].value - rim)]
-	#	print position
-		# Get size in pixels. Add rim twice.
-		width = math.ceil((bounds[1]-bounds[0]) * self.programSettings['pxPerMm'].value) + rim*2
-	#	print width
-		height = math.ceil((bounds[3]-bounds[2]) * self.programSettings['pxPerMm'].value) + rim*2
-	#	print height
-
-		for i in range(start, stackHeight):
-			img = imageHandling.createImageGray(width, height, 0)	# 0=black, 255=white
-			img = img + i # Just for testing...
-			self[i] = imageHandling.insert(self[i], img, position)#self.sliceArray[i][bounds[0]:bounds[1],bounds[2]:bounds[3]] = img
-	'''
 
 	def updateHeight(self, height):
 		while(self.getStackHeight() < height):
 			self.append(numpy.copy(self.imageBlack))
 		if self.getStackHeight() > height:
 			del self[height:]
-		#print "New stack height: " + str(self.getStackHeight()) + "."
 
 
 	def deleteRegion(self, position, size):
 		for imageSlice in self:
 			pass#imageSlice[]
+
 
 	# Return stack height.
 	def getStackHeight(self):
@@ -2460,16 +2407,6 @@ class sliceStack(list):
 		else:
 			return self.imageError
 
-	'''
-	# Function to add an image to a specific slice and at a specific position.
-	def addSliceRegion(self, index, image, position):
-	#	position = [	position[0] * self.programSettings['pxPerMm'].value,
-	#				position[1] * self.programSettings['pxPerMm'].value	]
-		# If index in bounds...
-		if index < len(self):
-			# Get the image.
-			self[int(index)] =  imageHandling.imgAdd(self[int(index)], image, position)
-	'''
 
 
 
@@ -2497,10 +2434,9 @@ class sliceCombiner(threading.Thread):
 		self.queueOutSingle = queueOutSingle
 		self.console = console
 
-		#self.numberOfPreviewSlices = 1
-
 		# Thread stop event.
 		self.stopThread = threading.Event()
+
 		# Call super class init function.
 		super(sliceCombiner, self).__init__()
 
@@ -2536,6 +2472,7 @@ class sliceCombiner(threading.Thread):
 					self.queueOut.put(sliceStackPreviewAndNumbers)
 
 
+	# Process the slicer info that came in through the queue.
 	def processInput(self, modelNamesAndHeights):
 
 		interval = time.time()
@@ -2608,7 +2545,6 @@ class sliceCombiner(threading.Thread):
 			# Darkest pixel should be black now.
 			self.calibrationImage -= minVal
 
-
 		# Create slice number list that reduces number of slices so the max
 		# number is not surpassed.
 		if mode == "preview":
@@ -2624,13 +2560,15 @@ class sliceCombiner(threading.Thread):
 		# Create slice stack.
 		sliceStackPreview = sliceStack(self.programSettings, empty=True)
 
+		# Set progress percentage.
 		readyPercentage = 0
 
+		# Create base image.
 		imageBlack = imageHandling.createImageGray(sliceWidth, sliceHeight,0)
 
 		# Then, walk through slices and check if they are complete.
 		for i in sliceNumbers:
-			#	print "***************************"
+
 			if not self.stopThread.isSet() and not self.newInputInQueue():
 				# Prepare image.
 				imageSlice = imageBlack
@@ -2754,6 +2692,8 @@ class sliceCombiner(threading.Thread):
 
 
 
+
+
   ##### ##     ###### ####   ##### #####    ###### ##  ## #####   #####  ####  #####
  ##     ##       ##  ##  ## ##     ##  ##     ##   ##  ## ##  ## ##     ##  ## ##  ##
   ####  ##       ##  ##     ####   ##  ##     ##   ###### ##  ## ####   ##  ## ##  ##
@@ -2769,14 +2709,11 @@ class sliceCombiner(threading.Thread):
 class backgroundSlicer(threading.Thread):
 
 	# Overload init function.
-	def __init__(self, settings, programSettings, slicePath, polyDataModel, polyDataSupports, polyDataBottomPlate, queueSlicerIn, queueSlicerOut, queueSlicerToCombiner, console=None):
+	def __init__(self, slicePath, polyDataModel, polyDataSupports, polyDataBottomPlate, queueSlicerIn, queueSlicerOut, console=None):
 
 		# Internalise inputs. ******************************
-		self.settings = settings
-		self.programSettings = programSettings
 		self.queueSlicerIn = queueSlicerIn
 		self.queueSlicerOut = queueSlicerOut
-		self.queueSlicerToCombiner = queueSlicerToCombiner
 		self.console = console
 		self.slicePath = slicePath
 		self.polyDataModel = polyDataModel
@@ -2845,7 +2782,7 @@ class backgroundSlicer(threading.Thread):
 		# Call super class init function.
 		super(backgroundSlicer, self).__init__()
 
-		print "Slicer thread running at " + self.slicePath + "."
+		#print "Slicer thread running at " + self.slicePath + "."
 
 
 	# Overload the run method.
@@ -2935,81 +2872,45 @@ class backgroundSlicer(threading.Thread):
 			# Update slice image width, position, number of slices etc.
 			self.pxPerMmX = slicerInputInfo['pxPerMmX']
 			self.pxPerMmY = slicerInputInfo['pxPerMmY']
-			print "Pixels per mm X:"  + str(self.pxPerMmX)
-			print "Pixels per mm Y:"  + str(self.pxPerMmY)
-			#self.bounds = slicerInputInfo['bounds']
-			#print "Bounds: " + self.bounds
-			#self.polyDataModelInternal.GetBounds(self.bounds)
-			#self.center = [(self.bounds[0]+self.bounds[1])/2, (self.bounds[2]+self.bounds[3])/2]
 			# Get layerHeight in mm.
 			self.layerHeight = 	slicerInputInfo['layerHeight']
-			print "Layer height:"  + str(self.layerHeight)
 			# Calc number of layers.
-			self.numberOfSlices = slicerInputInfo['numberOfSlices']#int(math.floor(self.bounds[5] / self.layerHeight))
-			print "Number of slices:"  + str(self.numberOfSlices)
-			# Get rim size in pixels.
-			#self.rim = int(self.programSettings['modelSafetyDistance'].value * self.programSettings['pxPerMm'].value)
+			self.numberOfSlices = slicerInputInfo['numberOfSlices']
 			# Get position in pixels.
-			self.position = slicerInputInfo['position']#tuple([dim - slicerInputInfo['sliceBorderWidth'] for dim in slicerInputInfo['position']])
-			#self.position = (   int(max([0, math.floor(self.bounds[0] * self.pxPerMmX)])),   int(max([0, math.floor(self.bounds[2] * self.pxPerMmY)]))   )
-			print "Position: " + str(self.position)
-			#self.position = (int(self.bounds[0]*self.programSettings['pxPerMm'].value-self.rim), int(self.bounds[2]*self.programSettings['pxPerMm'].value-self.rim), 0)
-			#self.positionMm = (self.bounds[0]-self.rim/self.programSettings['pxPerMm'].value, self.bounds[2]-self.rim/self.programSettings['pxPerMm'].value, 0)
-			self.size = slicerInputInfo['size']#tuple([dim + slicerInputInfo['sliceBorderWidth'] * 2 for dim in slicerInputInfo['size']])
-			#self.size = (   int(min([math.ceil(self.bounds[1] * self.pxPerMmX, self.programSettings['projectorSizeX'].value]) - self.position[0]),   int(min([math.ceil(self.bounds[3] * self.pxPerMmY, self.programSettings['projectorSizeY'].value]) - self.position[1])   )
-			print "Size: " + str(self.size)
-			# Get size in pixels. Add rim twice.
-			#self.width = int(math.ceil((self.bounds[1]-self.bounds[0]) * self.programSettings['pxPerMm'].value) + self.rim*2)
-			#self.height = int(math.ceil((self.bounds[3]-self.bounds[2]) * self.programSettings['pxPerMm'].value) + self.rim*2)
+			self.position = slicerInputInfo['position']
+			self.size = slicerInputInfo['size']
+			# Get support height.
+			self.supportHeight = slicerInputInfo['supportHeight']
 			# Get wall thickness for hollowing.
-			#self.wallThickness = self.settings['fillShellWallThickness'].value	# [mm]
-			print "Wall thickness: " + str(slicerInputInfo['wallThickness'])
 			self.wallThicknessLayers = slicerInputInfo['wallThickness'] / float(self.layerHeight)
-			print "Wall thickness layers: " + str(self.wallThicknessLayers)
 			self.wallThicknessPxX = slicerInputInfo['wallThickness'] * self.pxPerMmX
-			print "Wall thickness px X: " + str(self.wallThicknessPxX)
 			self.wallThicknessPxY = slicerInputInfo['wallThickness'] * self.pxPerMmY
-			print "Wall thickness px Y: " + str(self.wallThicknessPxY)
 			self.fillPatternSpacingPxX = slicerInputInfo['fillPatternSpacingPxX'] * self.pxPerMmX
 			self.fillPatternSpacingPxY = slicerInputInfo['fillPatternSpacingPxY'] * self.pxPerMmX
 			self.fillPatternWallThicknessPxX = slicerInputInfo['fillPatternWallThickness'] * self.pxPerMmX
 			self.fillPatternWallThicknessPxY = slicerInputInfo['fillPatternWallThickness'] * self.pxPerMmY
-			print "Fill pattern spacing px X: " + str(self.fillPatternSpacingPxX)
-			print "Fill pattern spacing px Y: " + str(self.fillPatternSpacingPxY)
 			self.printHollow = slicerInputInfo['printHollow']
 			self.fill = slicerInputInfo['fill']
 			self.showVtkErrors = slicerInputInfo['showVtkErrors']
 			self.polylineClosingThreshold = slicerInputInfo['polylineClosingThreshold']
-		#	self.sliceBorderWidth = slicerInputInfo['sliceBorderWidth']
-		#	self.sizeWithBorder = tuple([dim + self.sliceBorderWidth * 2 for dim in self.size])
-		#	print "Size with border: " + str(self.sizeWithBorder)
-		#	self.sizeWithBorder = tuple([dim + self.sliceBorderWidth * 2 for dim in self.size])
-		#	print "Size with border: " + str(self.sizeWithBorder)
 
-
-			# Get support height.
-			#bounds = [0 for i in range(6)]
-			#self.polyDataSupportsInternal.GetBounds(bounds)
-			self.supportHeight = slicerInputInfo['supportHeight']#bounds[5] + bounds[4]
-			print "Support height: " + str(self.supportHeight)
-			#self.calculateStackParameters()
 
 			# Prepare buffer stack for hollowing. **********
 			# Images will be fed into this buffer to generate
 			# the fill structures for the center image.
 			sliceStackBuffer = sliceBuffer(int(self.wallThicknessLayers*2)+1)
+			# Prepare a buffer with eroded images.
+			sliceStackBufferEroded = sliceBuffer(int(self.wallThicknessLayers*2)+1)
+			self.erodeKernel = cv2.getStructuringElement(cv2.MORPH_RECT,(int(self.wallThicknessPxX),int(self.wallThicknessPxY)))
 
 			# Prepare images. ******************************
-			self.imageBlack = numpy.zeros((self.size[1], self.size[0]), numpy.uint8)#numpy.zeros((self.height, self.width), numpy.uint8)
+			self.imageBlack = numpy.zeros((self.size[1], self.size[0]), numpy.uint8)
 			self.imageFill = self.createFillPattern()
 
 			# Check if supports and bottom plate shall be used.
-			useSupports = slicerInputInfo['createSupports']#self.settings['createSupports'].value
-			print "Use supports: " + str(useSupports)
-			useBottomPlate = slicerInputInfo['createBottomPlate']#self.settings['createBottomPlate'].value
-			print "Use bottom plate: " + str(useBottomPlate)
+			useSupports = slicerInputInfo['createSupports']
+			useBottomPlate = slicerInputInfo['createBottomPlate']
 			self.debug = slicerInputInfo['debug']
-			print "Debug: " + str(self.debug)
 
 			warningSlices = []
 
@@ -3031,9 +2932,15 @@ class backgroundSlicer(threading.Thread):
 							# TODO: display this in GUI.
 						# Append image to slice stack buffer.
 						sliceStackBuffer.addSlice(imageSlice)
+						# Append eroded image to buffer.
+						if self.printHollow:
+							imageSliceEroded = cv2.erode(imageSlice, self.erodeKernel, iterations=1)
+							sliceStackBufferEroded.addSlice(imageSliceEroded)
 					else:
 						# Keep shifting the buffer, even if no slice images are left.
 						sliceStackBuffer.addSlice(None)
+						if self.printHollow:
+							sliceStackBufferEroded.addSlice(None)
 
 					# If slice buffer is filled up to center, start to generate slices.
 					if sliceNumber >= self.wallThicknessLayers:
@@ -3042,7 +2949,7 @@ class backgroundSlicer(threading.Thread):
 							print "Generating slice " + str(sliceNumber-self.wallThicknessLayers) + "."
 						if self.printHollow:
 							if sliceStackBuffer.getBelowCenter()[0] is not None and sliceStackBuffer.getAboveCenter()[-1] is not None:
-								currentSlice = self.hollowSliceImage(currentSlice, sliceStackBuffer.getBelowCenter(), sliceStackBuffer.getAboveCenter())
+								currentSlice = self.hollowSliceImage(currentSlice, imageSliceEroded, sliceStackBuffer.getBelowCenter(), sliceStackBuffer.getAboveCenter(), sliceStackBufferEroded.getBelowCenter(), sliceStackBufferEroded.getAboveCenter())
 						# Add supports to the slice image.
 						if sliceNumber-self.wallThicknessLayers <= self.supportHeight / self.layerHeight:
 							if useSupports and useBottomPlate:
@@ -3080,9 +2987,6 @@ class backgroundSlicer(threading.Thread):
 
 		if not self.stopThread.isSet():
 			# Create an opencv image with rectangular pattern for filling large model areas.
-			# Get pattern parameters from settings.
-			#spacing = self.settings['fillSpacing'].value * self.programSettings['pxPerMm'].value
-			#wallThickness = self.settings['fillPatternWallThickness'].value * self.programSettings['pxPerMm'].value
 			# Height and width should be a multiple of the fill spacing.
 			height = int(math.ceil(self.size[1] / self.fillPatternSpacingPxY) * self.fillPatternSpacingPxY)#int(math.ceil(self.height / spacing) * spacing)
 			width = int(math.ceil(self.size[0] / self.fillPatternSpacingPxX) * self.fillPatternSpacingPxX)#int(math.ceil(self.width / spacing) * spacing)
@@ -3101,40 +3005,52 @@ class backgroundSlicer(threading.Thread):
 	# Hollow a slice image using the slice images above and
 	# below that are within the wall thickness.
 	# This also creates a fill pattern if needed.
-	def hollowSliceImage(self, imageSlice, imageStackBelow, imageStackAbove):
-
-		# Enlarge image, otherwise erode will fail where white region goes
-
+	def hollowSliceImage(self, imageSlice, imageSliceEroded, imageStackBelow, imageStackAbove, imageStackBelowEroded, imageStackAboveEroded):
 
 		# Get top and bottom masks for wall thickness.
 		# Masks are created from the images below and above the
 		# current slice which are within the wall thickness.
-		imageTopMask = numpy.ones((self.size[1], self.size[0]), numpy.uint8) * 255#numpy.ones((self.height, self.width), numpy.uint8) * 255
-		imageBottomMask = numpy.ones((self.size[1], self.size[0]), numpy.uint8) * 255#numpy.ones((self.height, self.width), numpy.uint8) * 255
-		kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(int(self.wallThicknessPxX),int(self.wallThicknessPxY)))
+		imageTopMask = numpy.ones((self.size[1], self.size[0]), numpy.uint8) * 255
+		imageBottomMask = numpy.ones((self.size[1], self.size[0]), numpy.uint8) * 255
+		# TODO: creates a numpy deprecation warning.
+		for imageAboveEroded in imageStackAboveEroded:
+			if imageAboveEroded is None:
+				break
+			else:
+				imageTopMask = cv2.multiply(imageTopMask, imageAboveEroded)
+		for imageBelowEroded in reversed(imageStackBelowEroded):
+			if imageBelowEroded is None:
+				break
+			else:
+				imageBottomMask = cv2.multiply(imageBottomMask, imageBelowEroded)
+
+		# Multiply mask images with eroded image to prevent wall where mask images are black.
+		imageSliceEroded = cv2.multiply(imageSliceEroded, imageTopMask)
+		imageSliceEroded = cv2.multiply(imageSliceEroded, imageBottomMask)
+		#END NEW
+		'''
 		# TODO: creates a numpy deprecation warning.
 		for imageAbove in imageStackAbove:
 			if imageAbove is None:
 				break
 			else:
-				imageAbove = cv2.erode(imageAbove, kernel, iterations=1)#numpy.ones((self.wallThicknessPxX,self.wallThicknessPxY), numpy.uint8), iterations=1)
+				imageAbove = cv2.erode(imageAbove, self.erodeKernel, iterations=1)
 				imageTopMask = cv2.multiply(imageTopMask, imageAbove)
 		for imageBelow in reversed(imageStackBelow):
 			if imageBelow is None:
 				break
 			else:
-				imageBelow = cv2.erode(imageBelow, kernel, iterations=1)#numpy.ones((self.wallThicknessPxX,self.wallThicknessPxY), numpy.uint8), iterations=1)
+				imageBelow = cv2.erode(imageBelow, self.erodeKernel, iterations=1)
 				imageBottomMask = cv2.multiply(imageBottomMask, imageBelow)
 		# Erode model image to create wall thickness.
-		imageEroded = cv2.erode(imageSlice, kernel, iterations=1)#numpy.ones((self.wallThicknessPxX,self.wallThicknessPxY), numpy.uint8), iterations=1)
+		imageEroded = cv2.erode(imageSlice, self.erodeKernel, iterations=1)
 
 		# Multiply mask images with eroded image to prevent wall where mask images are black.
 		imageEroded = cv2.multiply(imageEroded, imageTopMask)
 		imageEroded = cv2.multiply(imageEroded, imageBottomMask)
-
+		'''
 		# Add internal pattern to slice image if asked for.
 		if self.fill:
-
 			# Shift internal pattern 1 pixel to prevent burning in the pdms coating.
 			patternShift = 1	# TODO: implement setting for pattern shift.
 			self.imageFill = numpy.roll(self.imageFill, patternShift, axis=0)
@@ -3142,10 +3058,10 @@ class backgroundSlicer(threading.Thread):
 
 			# Mask internal pattern using the eroded image.
 			# The fill image is a little larger, so get a slice sized subimage.
-			imageEroded = cv2.multiply(imageEroded, self.imageFill[:self.size[1],:self.size[0]])#cv2.multiply(imageEroded, self.imageFill[:self.height,:self.width])
+			imageSliceEroded = cv2.multiply(imageSliceEroded, self.imageFill[:self.size[1],:self.size[0]])
 
 		# Subtract cavity with or without fill pattern from model.
-		imageSlice = cv2.subtract(imageSlice, imageEroded)
+		imageSlice = cv2.subtract(imageSlice, imageSliceEroded)
 
 		# Return the modified slice image.
 		return imageSlice
@@ -3261,7 +3177,7 @@ class backgroundSlicer(threading.Thread):
 				points[:,1] -= self.position[1]
 				# Flip points y-wise because image coordinates start at top.
 				points[:,1] = abs(points[:,1] - self.size[1])#height)
-#				if i == 1: print points
+
 				# Get the lines. These contain point indices in the right order for each polyline.
 				lines = sectionStripper.GetOutput().GetLines()#.GetData()
 				numberOfPolylines = lines.GetNumberOfCells()
@@ -3442,10 +3358,6 @@ class backgroundSlicer(threading.Thread):
 							else:
 								pass
 								#print "   Matches were found. Restarting loop to find more..."
-
-				#if sectionStripper == self.sectionStripperModel:
-				#	print "Closed polylines: " + str(len(polylinesClosed)) + "."
-				#	print "Open polylines: " + str(len(polylinesCorrupted)) + "."
 
 				polylinesClosedAll.append(polylinesClosed)
 
