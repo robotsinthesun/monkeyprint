@@ -1089,6 +1089,7 @@ class modelData:
 
 
 
+
 		# Set up pipeline. ###################################################
 		# Stl
 		# --> Polydata
@@ -1101,6 +1102,8 @@ class modelData:
 		# --> Intersect support pattern with overhang model.
 		# --> Create supports on intersection points.
 		if self.filename != "":
+			# Create VTK error observer to catch errors.
+			self.errorObserver = ErrorObserver()
 			# Create stl source.
 			self.stlReader = vtk.vtkSTLReader() # File name will be set later on when model is actually loaded.
 			self.stlReader.SetFileName(self.filename)
@@ -1706,6 +1709,8 @@ class modelData:
 				# Update the cell locator.
 				self.locator.BuildLocator()
 				self.locator.Update()
+				if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+					print "VTK Error: " + self.errorObserver.ErrorMessage()
 
 				# Get overhang bounds to set up support pattern.
 				# Bounds are absolute coordinates.
@@ -1755,6 +1760,8 @@ class modelData:
 
 						# Intersect.
 						self.locator.IntersectWithLine(pointBottom, pointTop, tolerance, t, pos, pcoords, subId)
+						if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+							print "VTK Error: " + self.errorObserver.ErrorMessage()
 
 						# Create cone if intersection point found.
 						if pos != [0,0,0]:
@@ -1827,17 +1834,25 @@ class modelData:
 							# Append the cone to the cones polydata.
 							if vtk.VTK_MAJOR_VERSION <= 5:
 								self.supports.AddInput(coneGeomFilter.GetOutput())
+								if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+									print "VTK Error: " + self.errorObserver.ErrorMessage()
 							else:
 								support_inputs += 2
 								self.supports.SetNumberOfInputs(support_inputs)
 								self.supports.SetInputConnectionByNumber(support_inputs - 2, coneGeomFilter.GetOutputPort())
+								if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+									print "VTK Error: " + self.errorObserver.ErrorMessage()
 							# Delete the cone. Vtk delete() method does not work in python because of garbage collection.
 							del cone
 							# Append the cylinder to the cones polydata.
 							if vtk.VTK_MAJOR_VERSION <= 5:
 								self.supports.AddInput(cylinderGeomFilter.GetOutput())
+								if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+									print "VTK Error: " + self.errorObserver.ErrorMessage()
 							else:
 								self.supports.SetInputConnectionByNumber(support_inputs - 1, cylinderGeomFilter.GetOutputPort())
+								if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+									print "VTK Error: " + self.errorObserver.ErrorMessage()
 							del cylinder
 			#				i += 1
 			#	print "Created " + str(i) + " supports."
