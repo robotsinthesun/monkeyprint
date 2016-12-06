@@ -586,7 +586,8 @@ class gui(gtk.Window):
 				self.progressBar.updateValue(int(value))
 			printFlag = False
 			self.progressBar.setText("Idle.")
-
+			# Reset gui sensitivities.
+			self.setGuiState(3)
 		self.printFlag = printFlag
 
 
@@ -1393,6 +1394,8 @@ class gui(gtk.Window):
 			self.console.addLine("Starting print")
 			# Disable window close event.
 			self.printFlag = True
+			# Set gui sensitivity.
+			self.setGuiState(4)
 			# Set progressbar limit according to number of slices.
 			self.progressBar.setLimit(self.modelCollection.getNumberOfSlices())
 			# Create the projector window.2
@@ -1462,11 +1465,19 @@ class gui(gtk.Window):
 
 
 	def setGuiState(self, state):
-		for i in range(self.notebook.get_n_pages()):
-			if i<=state:
-				self.notebook.set_tab_sensitive(i, True)
-			else:
-				self.notebook.set_tab_sensitive(i, False)
+		# State for is for printing.
+		if state == 4:
+			for i in range(self.notebook.get_n_pages()):
+				if i < 3:
+					self.notebook.set_tab_sensitive(i, False)
+				else:
+					self.notebook.set_tab_sensitive(i, True)
+		else:
+			for i in range(self.notebook.get_n_pages()):
+				if i<=state:
+					self.notebook.set_tab_sensitive(i, True)
+				else:
+					self.notebook.set_tab_sensitive(i, False)
 
 
 
