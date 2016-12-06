@@ -18,6 +18,7 @@
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 
 class setting:
 	def __init__(self, value, lower=None, upper=None, unit='', default=None, valType=None, name=None, isConstant=False):
@@ -78,6 +79,7 @@ class modelSettings(dict):
 		dict.__init__(self)
 		# Create objects for all the settings and put them into dictionary.
 		self['filename'] = setting(value="")
+	#	self['id'] = setting(value="")
 		self['active'] = setting(value=True)
 		self['scaling'] = setting(value=1, name='Scaling', lower=0.0000000000001)
 		self['rotationX'] = setting(value=0,	lower=0,	upper=359,	unit='°',		name='Rotation X')
@@ -85,6 +87,8 @@ class modelSettings(dict):
 		self['rotationZ'] = setting(value=0,	lower=0,	upper=359,	unit='°',		name='Rotation Z')
 		self['positionX'] = setting(value=50,	lower=0,	upper=100,	unit='%',		name='Position X')
 		self['positionY'] = setting(value=50,	lower=0,	upper=100,	unit='%',		name='Position Y')
+		self['createBottomPlate'] = setting(value=True, default=True, name='Create bottom plate')
+		self['createSupports'] = setting(value=True, default=True, name='Create supports')
 		self['bottomPlateThickness'] = setting(value=0.5,	lower=0.1,	upper=1.0,	unit='mm',		name='Bottom plate thickness')
 		self['bottomClearance'] = setting(value=5,	lower=self['bottomPlateThickness'].lower, unit='mm',		name='Bottom clearance')
 		# bottomClearanceMax must be set by model position, rotation and size
@@ -111,12 +115,18 @@ class jobSettings(dict):
 		self.console = console
 		# Create objects for all the settings and put them into dictionary.
 		# Load defaults from program settings to get settings saved from last session.
-		self['layerHeight'] = setting(value=0.1, lower=.01, upper=0.3, unit='mm')
-		self['projectPath'] = programSettings['currentFolder']#setting(value="")
+		self['layerHeight'] = programSettings['layerHeight']#setting(value=0.1, lower=.01, upper=0.3, unit='mm', name='Layer height')
+		self['currentFolder'] = programSettings['currentFolder']#setting(value="")
 		self['exposureTimeBase'] = programSettings['exposureTimeBase']#setting(value=14.0, lower=1.0, upper=15.0)
 		self['exposureTime'] = programSettings['exposureTime']#setting(value=9.0, lower=1.0, upper=15.0)
-	#	self['Resin settle time'] = programSettings['Resin settle time']#setting(value=1.0, lower=0.1, upper=3.0)
 
+	def setProgramSettings(self, programSettings):
+		for setting in self:
+			programSettings[setting] = self[setting]
+
+	def getProgramSettings(self, programSettings):
+		for setting in self:
+			self[setting] = programSettings[setting]
 
 class programSettings(dict):
 	# Override init function.
@@ -127,6 +137,7 @@ class programSettings(dict):
 		self.console = console
 		# Create objects for all the settings and put them into dictionary.
 		self['currentFolder'] = setting(value='./models')
+		self['tmpDir'] = setting(value=os.getcwd()+'/tmp', isConstant=True)
 		self['versionMajor'] = setting(value=0, isConstant=True)
 		self['versionMinor'] = setting(value=11, isConstant=True)
 		self['revision'] = setting(value=3, isConstant=True)
@@ -141,7 +152,9 @@ class programSettings(dict):
 #		self['projectorPositionXY'] = setting(value=[1280,0])
 #		self['buildSizeXYZ'] = setting(value=[102.4,76.8,150.0])
 
-		self['pxPerMm'] =  setting(value=self['projectorSizeX'].value / self['buildSizeX'].value)
+#		self['pxPerMm'] =  setting(value=self['projectorSizeX'].value / self['buildSizeX'].value)
+		self['pxPerMmX'] =  setting(value=self['projectorSizeX'].value / self['buildSizeX'].value)
+		self['pxPerMmY'] =  setting(value=self['projectorSizeY'].value / self['buildSizeY'].value)
 
 		self['port'] = setting(value='/dev/ttyACM0', default='/dev/ttyACM0',		name='Port')
 		self['baudrate'] = setting(value='57600', default=57600,		name='Baud rate')
@@ -209,7 +222,7 @@ class programSettings(dict):
 #		self['Shutter position closed GCode'] = setting(value=2450, default=2450, lower=500, upper=2500)
 		self['enableShutterServo'] = setting(value=False, default=False, 	name='Enable shutter servo')
 		self['localMkpPath'] = setting(value='./currentPrint.mkp', default='./currentPrint.mkp')
-		self['monkeyprintBoard'] = setting(value=True, default=True)
+		self['monkeyprintBoard'] = setting(value=False, default=False)
 #		self['Tilt GCode']	 = setting(value='G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10', default = 'G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10')
 #		self['Build platform GCode'] = setting(value='G1 Z{$layerHeight*$buildDir} F10', default='G1 Z{$layerHeight*$buildDir} F10')
 #		self['Shutter open GCode'] = setting(value='M280 P0 S{$shutterPosOpen}', default='M280 P0 S{$shutterPosOpen}')
@@ -224,6 +237,11 @@ class programSettings(dict):
 		self['printProcessMonkeyprint'] = setting(value='Initialise printer,,,internal,False;Projector on,,projectorOn,serialMonkeyprint,False;Build platform to home,,buildHome,serialMonkeyprint,False;Start loop,,,internal,False;Shutter open,,shutterOpen,serialMonkeyprint,False;Expose,,,internal,False;Shutter close,,shutterClose,serialMonkeyprint,False;Tilt,,tilt,serialMonkeyprint,False;Wait,1.0,,internal,True;End loop,,,internal,False;Build platform to top,,buildTop,serialMonkeyprint,False')
 		self['printProcessGCode'] = setting(value='Initialise printer,G21 G91 M17,,serialGCode,True;Projector on,---,,internal,False;Build platform to home,G28 X Z,,serialGCode,True;Start loop,---,,internal,False;Shutter open,M280 P0 S500,,serialGCode,True;Expose,---,,internal,False;Shutter close,M280 P0 S2500,,serialGCode,True;Tilt down,G1 X20 F1000,,serialGCode,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True;Tilt up,G1 X-20 F1000,,serialGCode,True;Wait,1.0,,internal,True;End loop,---,,internal,False;Build platform to top,G162 F100,,serialGCode,True;Shut down printer,M18,,serialGCode,True')
 		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
+		self['polylineClosingThreshold'] = setting(value=0.1, default=0.1, lower=0.0, upper=1.0)
+		self['sliceStackMemory'] = setting(value=50, default=500, lower=100, unit='MB', name='Slicer memory')
+		self['previewSlicesMax'] = setting(value=300, default=300, lower=100, upper=1000, name='Max. preview slices')
+		self['previewSliceWidth'] = setting(value=200, default=200)
+		self['sliceBorderWidth'] = setting(value=10)
 
 	# Load default settings.
 	def loadDefaults(self):
