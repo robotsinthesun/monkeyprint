@@ -2438,7 +2438,7 @@ class dialogSettings(gtk.Window):
 		self.frameSlicerMemory = gtk.Frame('Slicer settings')
 		boxMainSettings.pack_start(self.frameSlicerMemory, expand=False, fill=False, padding=5)
 		self.frameSlicerMemory.show()
-		self.boxSlicerMemory = gtk.HBox()
+		self.boxSlicerMemory = gtk.VBox()
 		self.frameSlicerMemory.add(self.boxSlicerMemory)
 		self.boxSlicerMemory.show()
 		self.entryNumberOfPreviewSlices = monkeyprintGuiHelper.entry('previewSlicesMax', settings=self.settings, width=5, customFunctions=[self.updateSlicerMemoryUsage, self.setResliceFlag])
@@ -2446,6 +2446,9 @@ class dialogSettings(gtk.Window):
 		self.entryNumberOfPreviewSlices.show()
 		self.labelSlicerMemory = gtk.Label()
 		self.boxSlicerMemory.pack_start(self.labelSlicerMemory, expand=False, fill=False)
+		self.checkbuttonMultiBodySlicing = monkeyprintGuiHelper.toggleButton('multiBodySlicing', settings=self.settings, customFunctions=[self.setResliceFlag])
+		self.boxSlicerMemory.pack_start(self.checkbuttonMultiBodySlicing, expand=False, fill=False)
+		self.checkbuttonMultiBodySlicing.show()
 	#	self.labelSlicerMemory.show()
 
 		# Frame for build volume settings.
@@ -3071,8 +3074,8 @@ class dialogSettings(gtk.Window):
 
 		# Set print resolution.
 #		self.settings['pxPerMm'].value = self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value
-		self.settings['pxPerMmX'] =  self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value
-		self.settings['pxPerMmY'] =  self.settings['projectorSizeY'].value / self.settings['buildSizeZ'].value
+		self.settings['pxPerMmX'].value =  self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value
+		self.settings['pxPerMmY'].value =  self.settings['projectorSizeY'].value / self.settings['buildSizeY'].value
 
 		# Update parent window in response to changing boards.
 		self.parentWindow.updateAllEntries(render=True)

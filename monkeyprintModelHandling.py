@@ -1072,6 +1072,7 @@ class modelData:
 		self.fillShellWallThickness = self.settings['fillShellWallThickness'].value
 		self.fillSpacing = self.settings['fillSpacing'].value
 		self.fillPatternWallThickness = self.settings['fillPatternWallThickness'].value
+		self.multiBodySlicing = self.programSettings['multiBodySlicing'].value
 
 
 
@@ -2070,6 +2071,7 @@ class modelData:
 		settingsChanged.append(self.fillShellWallThickness != self.settings['fillShellWallThickness'].value)
 		settingsChanged.append(self.fillSpacing != self.settings['fillSpacing'].value)
 		settingsChanged.append(self.fillPatternWallThickness != self.settings['fillPatternWallThickness'].value)
+		settingsChanged.append(self.multiBodySlicing != self.programSettings['multiBodySlicing'].value)
 		# Update.
 		self.projectorSizeX = self.programSettings['projectorSizeX'].value
 		self.projectorSizeY = self.programSettings['projectorSizeY'].value
@@ -2081,6 +2083,7 @@ class modelData:
 		self.fillShellWallThickness = self.settings['fillShellWallThickness'].value
 		self.fillSpacing = self.settings['fillSpacing'].value
 		self.fillPatternWallThickness = self.settings['fillPatternWallThickness'].value
+		self.multiBodySlicing = self.programSettings['multiBodySlicing'].value
 		# Return change status.
 		return any(settingsChanged)
 
@@ -2774,7 +2777,7 @@ class backgroundSlicer(threading.Thread):
 
 		# Extract polydata regions.
 		# First, assign a region id to each cell.
-		self.polyDataModelConnectivity = vtk.vtkConnectivityFilter()
+		self.polyDataModelConnectivity = vtk.vtkPolyDataConnectivityFilter()
 		if vtk.VTK_MAJOR_VERSION <= 5:
 			self.polyDataModelConnectivity.SetInput(self.polyDataModelInternal)
 		else:
@@ -2957,6 +2960,7 @@ class backgroundSlicer(threading.Thread):
 			self.showVtkErrors = slicerInputInfo['showVtkErrors']
 			self.polylineClosingThreshold = slicerInputInfo['polylineClosingThreshold']
 			self.multiBodySlicing = slicerInputInfo['multiBodySlicing']
+			print self.multiBodySlicing
 
 
 			# Prepare buffer stack for hollowing. **********
@@ -3194,9 +3198,37 @@ class backgroundSlicer(threading.Thread):
 		# Update cutting filters.
 		if model:
 			# Update for each region.
-			for region in range(self.polyDataModelConnectivity.GetNumberOfExtractedRegions()):
-				# Get current region.
-				self.polyDataModelRegions.ThresholdBetween(region, region)
+			if self.multiBodySlicing:
+				# Switch to region filter as cutter input.
+				if vtk.VTK_MAJOR_VERSION <= 5:
+					self.cuttingFilterModel.SetInput(self.polyDataModelRegions.GetOutput())
+					#self.cuttingFilterModel.SetInput(self.polyDataModelInternal)
+				else:
+					self.cuttingFilterModel.SetInputData(self.polyDataModelConnectivity.GetOutput())
+					#self.cuttingFilterModel.SetInputData(self.polyDataModelInternal)
+				for region in range(self.polyDataModelConnectivity.GetNumberOfExtractedRegions()):
+					# Get current region.
+					self.polyDataModelRegions.ThresholdBetween(region, region)
+					# Get section polylines from cutter.
+					self.sectionStripperModel.Update()
+					if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+						print "VTK Error: " + self.errorObserver.ErrorMessage()
+					# Extract points and lines.
+					points = self.sectionStripperModel.GetOutput().GetPoints()
+					lines = self.sectionStripperModel.GetOutput().GetLines()
+					# If intersections were found:
+					if lines.GetNumberOfCells() > 0:
+						# Convert to  numpy array.
+						pointsInputAll.append(numpy_support.vtk_to_numpy(points.GetData()))
+						linesInputAll.append(numpy_support.vtk_to_numpy(lines.GetData()))
+						numberOfPolylinesInputAll.append(lines.GetNumberOfCells())
+			# Update for single region.
+			else:
+				# Switch to original polydata as cutter input.
+				if vtk.VTK_MAJOR_VERSION <= 5:
+					self.cuttingFilterModel.SetInput(self.polyDataModelInternal)
+				else:
+					self.cuttingFilterModel.SetInputData(self.polyDataModelInternal)
 				# Get section polylines from cutter.
 				self.sectionStripperModel.Update()
 				if self.showVtkErrors and self.errorObserver.ErrorOccurred():
