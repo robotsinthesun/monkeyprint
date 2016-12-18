@@ -242,6 +242,7 @@ class programSettings(dict):
 		self['previewSlicesMax'] = setting(value=300, default=300, lower=100, upper=1000, name='Max. preview slices')
 		self['previewSliceWidth'] = setting(value=200, default=200)
 		self['sliceBorderWidth'] = setting(value=10)
+		self['multiBodySlicing'] = setting(value=False, default=False)
 
 	# Load default settings.
 	def loadDefaults(self):

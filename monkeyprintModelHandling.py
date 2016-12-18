@@ -948,7 +948,9 @@ class ErrorObserver:
 
 
 
-
+################################################################################
+# Build volume. ################################################################
+################################################################################
 class buildVolume:
 	def __init__(self, buildVolumeSize):
 		# Create build volume.
@@ -1100,8 +1102,37 @@ class modelData:
 			self.errorObserver = ErrorObserver()
 			# Create stl source.
 			self.stlReader = vtk.vtkSTLReader() # File name will be set later on when model is actually loaded.
+			self.stlReader.ScalarTagsOn() # Assign a scalar value to polydata to identify individual solids.
 			self.stlReader.SetFileName(self.filename)
 			self.stlReader.Update() # Required with VTK6, otherwise the file isn't loaded
+
+			'''
+			# TEST CONNECTIVITY.
+			stlRegionFilter = vtk.vtkConnectivityFilter()
+			stlRegionFilter.SetInput(self.stlReader.GetOutput())
+			stlRegionFilter.SetExtractionModeToAllRegions()
+			stlRegionFilter.ScalarConnectivityOff()
+			stlRegionFilter.ColorRegionsOn()
+			stlRegionFilter.Update()
+			# Check if multi body checking is enabled.
+					#	stlRegionFilter.Update()
+			print stlRegionFilter.GetOutput()
+			print stlRegionFilter.GetOutput().GetCellData().GetScalars().GetSize()
+
+			for i in range(stlRegionFilter.GetOutput().GetCellData().GetScalars().GetSize()):
+				print "i: " + str(i)
+				print stlRegionFilter.GetOutput().GetCellData().GetScalars().GetValue(i)
+
+		  	# Loop through regions and get cells.
+			# 			for region in range(stlRegionFilter.GetNumberOfExtractedRegions()):
+			#				print "Extracting cells from region " + str(region)
+				#			stlThreshold.ThresholdBetween(region, region)
+			  	#			stlThreshold.Update()
+			  	#			print stlThreshold.GetOutput()
+		  			#print stlThreshold.GetOutput()
+		  	# END TEST CONNECTIVITY.
+			'''
+
 			# Get polydata from stl file.
 			self.stlPolyData = self.stlReader.GetOutput()
 			# Calculate normals.
@@ -1297,18 +1328,6 @@ class modelData:
 
 			self.updateSlice3d(0)
 
-		########################################################################
-		# Background thread for updating the slices on demand. #################
-		########################################################################
-		self.queueSlicerIn = Queue.Queue()
-		self.queueSlicerOut = Queue.Queue()
-		if self.filename != "":
-			# Initialise the thread.
-			if self.console!=None:
-				self.console.addLine("Starting slicer thread")
-			self.slicerThread = backgroundSlicer(self.slicePath, self.stlPositionFilter.GetOutput(), self.supports.GetOutput(), self.bottomPlate.GetOutput(), self.queueSlicerIn, self.queueSlicerOut, self.console)
-			self.slicerThread.start()
-
 		######################################################################
 		# Create mappers and actors. #########################################
 		######################################################################
@@ -1458,6 +1477,17 @@ class modelData:
 					self.console.addLine('   ' + str(self.stlPolyData.GetNumberOfPolys()) + " polygons loaded.")
 
 
+		########################################################################
+		# Create background thread for updating the slices on demand. ##########
+		########################################################################
+		self.queueSlicerIn = Queue.Queue()
+		self.queueSlicerOut = Queue.Queue()
+		if self.filename != "":
+			# Initialise the thread.
+			if self.console!=None:
+				self.console.addLine("Starting slicer thread")
+			self.slicerThread = backgroundSlicer(self.slicePath, self.stlPositionFilter.GetOutput(), self.supports.GetOutput(), self.bottomPlate.GetOutput(), self.queueSlicerIn, self.queueSlicerOut, self.console)
+			self.slicerThread.start()
 
 
 	# #########################################################################
@@ -1578,6 +1608,16 @@ class modelData:
 			if self.isactive() and self.settingsChangedModel():
 				#print "   UPDATING MODEL"
 				self.flagSlicerFinished = False
+
+				# TEST: print multi body scalars.
+	#			print self.stlReader.GetScalarTags()
+	#			print self.stlReader.GetOutput()#.GetCellData().GetScalars()
+	#			print self.stlReader.GetScalarTags()
+
+
+
+
+
 
 				# Move model to origin. ****
 				self.stlCenterTransform.Translate(-self.__getCenter(self.stlScaleFilter)[0], -self.__getCenter(self.stlScaleFilter)[1], -self.__getCenter(self.stlScaleFilter)[2])
@@ -1922,6 +1962,7 @@ class modelData:
 				slicerInputInfo['fill'] = self.settings['fill'].value
 				slicerInputInfo['showVtkErrors'] = self.programSettings['showVtkErrors'].value
 				slicerInputInfo['polylineClosingThreshold'] = self.programSettings['polylineClosingThreshold'].value
+				slicerInputInfo['multiBodySlicing'] = self.programSettings['multiBodySlicing'].value
 			#
 				# If there's nothing in the queue...
 				if self.queueSlicerIn.empty():
@@ -2725,11 +2766,32 @@ class backgroundSlicer(threading.Thread):
 		# this separate thread, so we need to deep copy the polydata
 		# into these interal objects on start of the slicer.
 		self.polyDataModelInternal = vtk.vtkPolyData()
-		self.polyDataModel.DeepCopy(self.polyDataModelInternal)
+		self.polyDataModelInternal.DeepCopy(self.polyDataModel)
 		self.polyDataSupportsInternal = vtk.vtkPolyData()
-		self.polyDataSupports.DeepCopy(self.polyDataSupportsInternal)
+		self.polyDataSupportsInternal.DeepCopy(self.polyDataSupports)
 		self.polyDataBottomPlateInternal = vtk.vtkPolyData()
-		self.polyDataBottomPlate.DeepCopy(self.polyDataBottomPlateInternal)
+		self.polyDataBottomPlateInternal.DeepCopy(self.polyDataBottomPlate)
+
+		# Extract polydata regions.
+		# First, assign a region id to each cell.
+		self.polyDataModelConnectivity = vtk.vtkConnectivityFilter()
+		if vtk.VTK_MAJOR_VERSION <= 5:
+			self.polyDataModelConnectivity.SetInput(self.polyDataModelInternal)
+		else:
+			self.polyDataModelConnectivity.SetInputData(self.polyDataModelInternal)
+		self.polyDataModelConnectivity.SetExtractionModeToAllRegions()
+		self.polyDataModelConnectivity.ScalarConnectivityOff()
+		self.polyDataModelConnectivity.ColorRegionsOn()
+		self.polyDataModelConnectivity.Update()
+		#for i in range(self.polyDataModelConnectivity.GetOutput().GetCellData().GetScalars().GetSize()):
+		#	print self.polyDataModelConnectivity.GetOutput().GetCellData().GetScalars().GetValue(i)
+
+		# Use threshold filter to extract cells of each region.
+		self.polyDataModelRegions = vtk.vtkThreshold()
+		if vtk.VTK_MAJOR_VERSION <= 5:
+  			self.polyDataModelRegions.SetInput(self.polyDataModelConnectivity.GetOutput())
+  		else:
+  			self.polyDataModelRegions.SetInputConnection(self.polyDataModelConnectivity.GetOutputPort())
 
 		# Create VTK error observer to catch errors.
 		self.errorObserver = ErrorObserver()
@@ -2751,31 +2813,29 @@ class backgroundSlicer(threading.Thread):
 		self.cuttingFilterBottomPlate.SetCutFunction(self.cuttingPlane)
 		# Set inputs for cutting filters.
 		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.cuttingFilterModel.SetInput(self.polyDataModelInternal)
+			self.cuttingFilterModel.SetInput(self.polyDataModelRegions.GetOutput())
+			#self.cuttingFilterModel.SetInput(self.polyDataModelConnectivity.GetOutput())#self.polyDataModelInternal)
 			self.cuttingFilterSupports.SetInput(self.polyDataSupportsInternal)
 			self.cuttingFilterBottomPlate.SetInput(self.polyDataBottomPlateInternal)
 		else:
-			self.cuttingFilterModel.SetInputData(self.polyDataModelInternal)
+			self.cuttingFilterModel.SetInputData(self.polyDataModelConnectivity.GetOutput())#self.polyDataModelInternal)
 			self.cuttingFilterSupports.SetInputData(self.polyDataSupportsInternal)
 			self.cuttingFilterBottomPlate.SetInputData(self.polyDataBottomPlateInternal)
-		# Create polylines from cutter output for model.
+		# Create polylines from cutter outputs.
 		self.sectionStripperModel = vtk.vtkStripper()
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.sectionStripperModel.SetInput(self.cuttingFilterModel.GetOutput())
-		else:
-			self.sectionStripperModel.SetInputConnection(self.cuttingFilterModel.GetOutputPort())
-		# Create polylines from cutter output for supports.
 		self.sectionStripperSupports = vtk.vtkStripper()
-		if vtk.VTK_MAJOR_VERSION <= 5:
-			self.sectionStripperSupports.SetInput(self.cuttingFilterSupports.GetOutput())
-		else:
-			self.sectionStripperSupports.SetInputConnection(self.cuttingFilterSupports.GetOutputPort())
-		# Create polylines from cutter output for bottom plate.
 		self.sectionStripperBottomPlate = vtk.vtkStripper()
 		if vtk.VTK_MAJOR_VERSION <= 5:
+			self.sectionStripperModel.SetInput(self.cuttingFilterModel.GetOutput())
+			self.sectionStripperSupports.SetInput(self.cuttingFilterSupports.GetOutput())
 			self.sectionStripperBottomPlate.SetInput(self.cuttingFilterBottomPlate.GetOutput())
 		else:
+			self.sectionStripperModel.SetInputConnection(self.cuttingFilterModel.GetOutputPort())
+			self.sectionStripperSupports.SetInputConnection(self.cuttingFilterSupports.GetOutputPort())
 			self.sectionStripperBottomPlate.SetInputConnection(self.cuttingFilterBottomPlate.GetOutputPort())
+
+
+
 
 		# Thread stop event.
 		self.stopThread = threading.Event()
@@ -2869,6 +2929,9 @@ class backgroundSlicer(threading.Thread):
 			self.polyDataSupportsInternal.DeepCopy(self.polyDataSupports)
 			self.polyDataBottomPlateInternal.DeepCopy(self.polyDataBottomPlate)
 
+			# Update the connectivity.
+			self.polyDataModelConnectivity.Update()
+
 			# Update slice image width, position, number of slices etc.
 			self.pxPerMmX = slicerInputInfo['pxPerMmX']
 			self.pxPerMmY = slicerInputInfo['pxPerMmY']
@@ -2893,6 +2956,7 @@ class backgroundSlicer(threading.Thread):
 			self.fill = slicerInputInfo['fill']
 			self.showVtkErrors = slicerInputInfo['showVtkErrors']
 			self.polylineClosingThreshold = slicerInputInfo['polylineClosingThreshold']
+			self.multiBodySlicing = slicerInputInfo['multiBodySlicing']
 
 
 			# Prepare buffer stack for hollowing. **********
@@ -3088,6 +3152,9 @@ class backgroundSlicer(threading.Thread):
 			slicePosition = self.layerHeight*sliceNumber
 
 		# Get the slice contours.
+		# Slice contours contains two levels:
+		# 1: multiple parts of a model
+		# 2: multiple polylines of the same part
 		sliceContours, sliceContoursCorrupted = self.createSliceContour(slicePosition, model, supports, bottomPlate)
 
 		# Draw polygons to image.
@@ -3095,12 +3162,12 @@ class backgroundSlicer(threading.Thread):
 		# multiplied by 2^fractionalBits and converted to ints.
 		# The fractionalBits are given to the drawing function.
 		# Line type has to be set to cv2.CV_AA for antialiasing.
+
 		fractionalBits = 3
 		for i in range(len(sliceContours)):
-			if activationFlags[i]:
-				sliceContours[i] = numpy.multiply(sliceContours[i], pow(2, fractionalBits))
-				sliceContours[i] = [numpy.array(array, dtype=numpy.int32) for array in sliceContours[i]]
-				cv2.fillPoly(imageSlice, sliceContours[i], color=255, shift=fractionalBits, lineType=cv2.CV_AA) # Shift is the number of digits behind the point coordinate comma --> subpixel accuracy.
+			sliceContours[i] = [ numpy.array(numpy.multiply(polyline, pow(2, fractionalBits)), dtype=numpy.int32) for polyline in sliceContours[i]]
+
+			cv2.fillPoly(imageSlice, sliceContours[i], color=255, shift=fractionalBits, lineType=cv2.CV_AA) # Shift is the number of digits behind the point coordinate comma --> subpixel accuracy.
 
 		# Add corrupted polygonds to extra image.
 		if len(sliceContoursCorrupted) > 0:
@@ -3120,38 +3187,271 @@ class backgroundSlicer(threading.Thread):
 		# Set the cutting plane position.
 		self.cuttingPlane.SetOrigin(0,0,slicePosition)
 
+  		pointsInputAll = []
+  		linesInputAll = []
+  		numberOfPolylinesInputAll = []
+
 		# Update cutting filters.
 		if model:
-			self.cuttingFilterModel.Update()
-			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
-				print "VTK Error: " + self.errorObserver.ErrorMessage()
+			# Update for each region.
+			for region in range(self.polyDataModelConnectivity.GetNumberOfExtractedRegions()):
+				# Get current region.
+				self.polyDataModelRegions.ThresholdBetween(region, region)
+				# Get section polylines from cutter.
+				self.sectionStripperModel.Update()
+				if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+					print "VTK Error: " + self.errorObserver.ErrorMessage()
+				# Extract points and lines.
+				points = self.sectionStripperModel.GetOutput().GetPoints()
+				lines = self.sectionStripperModel.GetOutput().GetLines()
+				# If intersections were found:
+				if lines.GetNumberOfCells() > 0:
+					# Convert to  numpy array.
+					pointsInputAll.append(numpy_support.vtk_to_numpy(points.GetData()))
+					linesInputAll.append(numpy_support.vtk_to_numpy(lines.GetData()))
+					numberOfPolylinesInputAll.append(lines.GetNumberOfCells())
+
 		if supports:
 			self.cuttingFilterSupports.Update()
 			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
+			self.sectionStripperSupports.Update()
+			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
+				print "VTK Error: " + self.errorObserver.ErrorMessage()
+			# Extract points and lines.
+			points = self.sectionStripperSupports.GetOutput().GetPoints()
+			lines = self.sectionStripperSupports.GetOutput().GetLines()
+			# If intersections were found:
+			if lines.GetNumberOfCells() > 0:
+				# Convert to  numpy array.
+				pointsInputAll.append(numpy_support.vtk_to_numpy(points.GetData()))
+				linesInputAll.append(numpy_support.vtk_to_numpy(lines.GetData()))
+				numberOfPolylinesInputAll.append(lines.GetNumberOfCells())
+
 		if bottomPlate:
 			self.cuttingFilterBottomPlate.Update()
 			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
-
-		# Update section strippers.
-		if model:
-			self.sectionStripperModel.Update()
-			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
-				print "VTK Error: " + self.errorObserver.ErrorMessage()
-		if supports:
-			self.sectionStripperSupports.Update()
-			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
-				print "VTK Error: " + self.errorObserver.ErrorMessage()
-		if bottomPlate:
 			self.sectionStripperBottomPlate.Update()
 			if self.showVtkErrors and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
+			# Extract points and lines.
+			points = self.sectionStripperBottomPlate.GetOutput().GetPoints()
+			lines = self.sectionStripperBottomPlate.GetOutput().GetLines()
+			# If intersections were found:
+			if lines.GetNumberOfCells() > 0:
+				# Convert to  numpy array.
+				pointsInputAll.append(numpy_support.vtk_to_numpy(points.GetData()))
+				linesInputAll.append(numpy_support.vtk_to_numpy(lines.GetData()))
+				numberOfPolylinesInputAll.append(lines.GetNumberOfCells())
 
-		# Turn VTK polylines into numpy point arrays.
+		# Now we have an array that contains slice contour point and line
+		# arrays for each indiviual model region and for supports and bottom plate.
+		# We'll loop over these arrays and try to combine stray lines into closed polylines.
 		# Start timer.
-		if self.debug:#self.programSettings['debug'].value:
+		if self.debug:
 			interval = time.time()
+		polylinesClosedAll = []
+		polylinesCorruptedAll = []
+
+		for i in range(len(pointsInputAll)):
+			# Get current points.
+			points = pointsInputAll[i]
+			# Remove Z dimension.
+			points = points[:,0:2]
+			# Scale to fit the image (convert from mm to px).
+			points[:,0] *= self.pxPerMmX
+			points[:,1] *= self.pxPerMmX
+			# Move points to center of image.
+			points[:,0] -= self.position[0]
+			points[:,1] -= self.position[1]
+			# Flip points y-wise because image coordinates start at top.
+			points[:,1] = abs(points[:,1] - self.size[1])
+
+			# Get current lines.
+			# Lines contain point indices in the right order for each polyline.
+			# However, there might be polyline segments that are not connected.
+			# We need to connect all polyline segments.
+			lines = linesInputAll[i]
+			numberOfPolylines = numberOfPolylinesInputAll[i]
+
+			polylineIndicesClosed = []
+			polylineIndicesOpen = []
+			startIndex = 0
+
+			# Check if there are connecting polylines.
+			# This is necessary because some polylines from the stripper output may still be segmented.
+			# Two polylines are connected if the start or end point indices are equal.
+			# Test for start/start, end/end, start/end, end/start.
+			# NOTE: The lines array contains point indices for all polylines.
+			# It consists of multiple blocks, each block starting with the
+			# number of points, followed by the point indices. Then, the next block starts with the
+			# next number of points, followed by the point indices and so on...
+			for polyline in range(numberOfPolylines):
+				#print "Polyline " + str(polyline) + ". ****************"
+				numberOfPoints = lines[startIndex]
+				#print "   Start point: " + str(points[lines[startIndex+1]]) + "."
+				#print "   End point: " + str(points[lines[startIndex+numberOfPoints]]) + "." # -1
+				# Get the indices starting just behind the start index.
+				polylineInd = lines[startIndex+1:startIndex+1+numberOfPoints]
+
+				# Check if polyline is closed. If yes, append to closed list.
+				if polylineInd[0] == polylineInd[-1]:
+					#print "   Found closed polyline."
+					polylineIndicesClosed.append(polylineInd)
+				# If not, check if this is the first open one. If yes, append.
+				else:# len(polylineIndicesOpen) == 0:
+					#print "   Found open polyline."
+					polylineIndicesOpen.append(polylineInd)
+
+				# Set start index to next polyline.
+				startIndex += numberOfPoints+1
+
+
+			# Get closed polyline points according to indices.
+			polylinesClosed = []
+			for polyline in polylineIndicesClosed:
+				polylinePoints = points[polyline]
+				polylinesClosed.append(polylinePoints)
+
+
+			# Get open polyline points according to indices.
+			polylinesOpen = []
+			for polyline in polylineIndicesOpen:
+				polylinePoints = points[polyline]
+				polylinesOpen.append(polylinePoints)
+
+			#print "   Found " + str(len(polylinesClosed)) + " closed segments."
+			#print "   Found " + str(len(polylinesOpen)) + " open segments."
+
+			# Loop over open polyline parts and pick the ones that connect.
+			# Do this until everything is connected.
+			#print "Trying to connect open segments."
+			polylinesCorrupted = []
+			# Create list of flags for matched segments.
+			matched = [False for i in range(len(polylinesOpen))]
+			# Loop through open segments.
+			for i in range(len(polylinesOpen)):
+				#print "Testing open segment " + str(i) + ". ********************************"
+
+				# Get a segment and try to match it to any other segment.
+				# Only do this if the segment has not been matched before.
+				if matched[i] == True:
+					pass
+					#print "   Segment was matched before. Skipping."
+				else:
+					segmentA = polylinesOpen[i]
+
+					#print (segmentA[0] == segmentA[0]).all()
+
+					# Flag that signals if any of the other segments was a match.
+					runAgain = True # Set true to start first loop.
+					while runAgain == True:
+						# Set false to stop loop if no match is found.
+						runAgain = False
+						isClosed = False
+						# Loop through all other segments check for matches.
+						for j in range(len(polylinesOpen)):
+							# Only if this is not segmentA and if it still unmatched.
+							if j != i and matched[j] == False:
+
+								# Get next piece to match to current piece.
+								segmentB = polylinesOpen[j]
+
+								# Compare current piece and next piece start and end points.
+								# If a match is found, add next piece to current piece.
+								# Loop over next pieces until no match is found or the piece is closed.
+								# Start points equal: flip new array and prepend.
+								if (segmentB[0] == segmentA[0]).all():
+									#print "   Start-start match with segment " + str(j) + "."
+									segmentA = numpy.insert(segmentA, 0, numpy.flipud(segmentB[1:]), axis=0)
+									matched[j] = True
+									# Check if this closes the line.
+									if (segmentA[0] == segmentA[-1]).all():
+										#print "      Polyline now is closed."
+										polylinesClosed.append(segmentA)
+										isClosed = True
+										runAgain = False
+										break
+									else:
+										runAgain = True
+
+
+								elif (segmentB[0] == segmentA[-1]).all():
+									#print "   Start-end match with segment " + str(j) + "."
+									segmentA = numpy.append(segmentA, segmentB[1:])
+									segmentA = segmentA.reshape(-1,2)
+									matched[j] = True
+									# Check if this closes the line.
+									if (segmentA[0] == segmentA[-1]).all():
+										#print "      Polyline now closed."
+										polylinesClosed.append(segmentA)
+										isClosed = True
+										runAgain = False
+										break
+									else:
+										runAgain = True
+
+								elif (segmentB[-1] == segmentA[0]).all():
+									#print "   End-start match with segment " + str(j) + "."
+									segmentA = numpy.insert(segmentA, 0, segmentB[:-1], axis=0)
+									matched[j] = True
+									# Check if this closes the line.
+									if (segmentA[0] == segmentA[-1]).all():
+										#print "      Polyline now closed."
+										polylinesClosed.append(segmentA)
+										isClosed = True
+										runAgain = False
+										break
+									else:
+										runAgain = True
+
+								elif (segmentB[-1] == segmentA[-1]).all():
+									#print "   End-end match with segment " + str(j) + "."
+									segmentA = numpy.append(segmentA, numpy.flipud(segmentB[:-1]), axis=0)
+									segmentA = segmentA.reshape(-1,2)
+									matched[j] = True
+									# Check if this closes the line.
+									if (segmentA[0] == segmentA[-1]).all():
+										#print "      Polyline now closed."
+										polylinesClosed.append(segmentA)
+										isClosed = True
+										runAgain = False
+										break
+									else:
+										runAgain = True
+
+						# If no match was found and segmentA is still open,
+						# copy it to defective segments array.
+						if runAgain == False and isClosed == False:
+							endPointDistance = math.sqrt( pow((segmentA[0][0] -segmentA[-1][0])/self.pxPerMmX, 2) + pow((segmentA[0][1] -segmentA[-1][1])/self.pxPerMmY, 2) )
+							if endPointDistance < (self.polylineClosingThreshold):
+								#print "      End point distance below threshold. Closing manually."
+								polylinesClosed.append(segmentA)
+							else:
+								#print "      Giving up on this one..."
+								polylinesCorrupted.append(segmentA)
+						elif runAgain == False and isClosed == True:
+							pass
+							#print "   Segment is closed. Advancing to next open segment."
+						else:
+							pass
+							#print "   Matches were found. Restarting loop to find more..."
+
+			polylinesClosedAll.append(polylinesClosed)
+
+			if len(polylinesCorrupted) != 0:
+				polylinesCorruptedAll.append(polylinesCorrupted)
+
+		# End timer.
+		if self.debug:
+			interval = time.time() - interval
+			print "Polyline point sort time: " + str(interval) + " s."
+
+		# Return polylines.
+		return (polylinesClosedAll, polylinesCorruptedAll)
+
+		'''
 		polylinesClosedAll = []
 		polylinesCorruptedAll = []
 		# Do this for model, supports and bottom plate.
@@ -3170,13 +3470,13 @@ class backgroundSlicer(threading.Thread):
 				# Remove Z dimension.
 				points = points[:,0:2]
 				# Scale to fit the image (convert from mm to px).
-				points[:,0] *= self.pxPerMmX#programSettings['pxPerMm'].value
+				points[:,0] *= self.pxPerMmX
 				points[:,1] *= self.pxPerMmX
 				# Move points to center of image.
 				points[:,0] -= self.position[0]
 				points[:,1] -= self.position[1]
 				# Flip points y-wise because image coordinates start at top.
-				points[:,1] = abs(points[:,1] - self.size[1])#height)
+				points[:,1] = abs(points[:,1] - self.size[1])
 
 				# Get the lines. These contain point indices in the right order for each polyline.
 				lines = sectionStripper.GetOutput().GetLines()#.GetData()
@@ -3364,6 +3664,11 @@ class backgroundSlicer(threading.Thread):
 				if len(polylinesCorrupted) != 0:
 					polylinesCorruptedAll.append(polylinesCorrupted)
 
+
+
+
+
+
 		# End timer.
 		if self.debug:
 			interval = time.time() - interval
@@ -3371,7 +3676,7 @@ class backgroundSlicer(threading.Thread):
 
 		# Return polylines.
 		return (polylinesClosedAll, polylinesCorruptedAll)
-
+		'''
 
 
 
