@@ -1144,6 +1144,8 @@ class gui(gtk.Window):
 		# Create entries.
 		self.entryExposureBase = monkeyprintGuiHelper.entry('exposureTimeBase', settings=self.programSettings)
 		self.boxPrintParameters.pack_start(self.entryExposureBase, expand=True, fill=True)
+		self.entryNumberOfBaseLayers = monkeyprintGuiHelper.entry('numberOfBaseLayers', settings=self.programSettings)
+		self.boxPrintParameters.pack_start(self.entryNumberOfBaseLayers, expand=True, fill=True)
 		self.entryExposure = monkeyprintGuiHelper.entry('exposureTime', settings=self.programSettings)
 		self.boxPrintParameters.pack_start(self.entryExposure, expand=True, fill=True)
 	#	self.entrySettleTime = monkeyprintGuiHelper.entry('Resin settle time', settings=self.programSettings)
