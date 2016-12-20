@@ -194,9 +194,9 @@ class printProcess(threading.Thread):
 	# Start exposure by writing slice number to queue.
 	def expose(self):
 		# Get exposure time.
-		if self.slice == 0:
+		if self.slice < self.settings['numberOfBaseLayers'].value:
 			self.exposureTime = self.settings['exposureTimeBase'].value
-		elif self.slice > 0:
+		else:#elif self.slice > 0:
 			self.exposureTime = self.settings['exposureTime'].value
 		self.queueConsole.put("   Exposing with " + str(self.exposureTime) + " s.")
 		self.setGuiSlice(self.slice)

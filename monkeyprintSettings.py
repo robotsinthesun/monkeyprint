@@ -118,6 +118,7 @@ class jobSettings(dict):
 		self['layerHeight'] = programSettings['layerHeight']#setting(value=0.1, lower=.01, upper=0.3, unit='mm', name='Layer height')
 		self['currentFolder'] = programSettings['currentFolder']#setting(value="")
 		self['exposureTimeBase'] = programSettings['exposureTimeBase']#setting(value=14.0, lower=1.0, upper=15.0)
+		self['numberOfBaseLayers'] = programSettings['numberOfBaseLayers']
 		self['exposureTime'] = programSettings['exposureTime']#setting(value=9.0, lower=1.0, upper=15.0)
 
 	def setProgramSettings(self, programSettings):
@@ -204,11 +205,11 @@ class programSettings(dict):
 		self['reverseBuild'] = setting(value=False, default=False,		name='Reverse build direction')
 		self['showFill'] = setting(value=True,		name='Show fill')
 		self['layerHeight'] = setting(value=0.1, lower=.05, upper=0.3, unit='mm',		name='Layer height')
-		self['modelSafetyDistance'] = setting(value=1.0, unit='mm')
+		self['modelSafetyDistance'] = setting(value=1.0, unit='mm', name='Build volume safety border')
 		self['debug'] = setting(value=False,		name='Debug')
-		self['exposureTimeBase'] = setting(value=14.0, lower=0.1, upper=15.0)
-		self['exposureTime'] = setting(value=9.0, lower=0.1, upper=15.0)
-#		self['Resin settle time'] = setting(value=1.0, lower=0.0, upper=5.0)
+		self['exposureTimeBase'] = setting(value=9.0, lower=0.1, upper=20.0, name='Exposure time base')
+		self['numberOfBaseLayers'] = setting(value=1, lower=0, upper=20, name='Number of base layers')
+		self['exposureTime'] = setting(value=5.0, lower=0.1, upper=15.0, name='Exposure time')
 		self['camTriggerWithExposure'] = setting(value=False, default=False)
 		self['camTriggerAfterExposure'] = setting(value=False, default=False)
 		self['calibrationImagePath'] = setting(value="./calibrationImage", default="./calibrationImage")
@@ -242,6 +243,7 @@ class programSettings(dict):
 		self['previewSlicesMax'] = setting(value=300, default=300, lower=100, upper=1000, name='Max. preview slices')
 		self['previewSliceWidth'] = setting(value=200, default=200)
 		self['sliceBorderWidth'] = setting(value=10)
+		self['multiBodySlicing'] = setting(value=False, default=False, name='Multi body slicing')
 
 	# Load default settings.
 	def loadDefaults(self):

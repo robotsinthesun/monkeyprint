@@ -504,7 +504,8 @@ class toggleButton(gtk.CheckButton):
 			# ... set the new value in the current model's settings.
 			self.modelCollection.getCurrentModel().settings[self.string].setValue(self.get_active())
 			# Set model changed flag in model collection. Needed to decide if slicer should be started again.
-			self.modelCollection.getCurrentModel().setChanged()
+			# NOT NEEDED ANYMORE, MODEL NOW DIRECTLY CHECKS IF SETTINGS HAVE CHANGED.
+			#self.modelCollection.getCurrentModel().setChanged()
 		# If this is not a model setting but a printer setting...
 		elif self.settings != None:
 			# ... write the value to the settings.
@@ -622,7 +623,8 @@ class entry(gtk.HBox):
 				# Set the entrys text field as it might have changed during the previous function call.
 				self.entry.set_text(str(self.modelCollection.getCurrentModel().settings[self.string].value))
 				# Set model changed flag in model collection. Needed to decide if slicer should be started again.
-				self.modelCollection.getCurrentModel().setChanged()
+				# NOT NEEDED ANYMORE, MODEL NOW DIRECTLY CHECKS IF SETTINGS HAVE CHANGED.
+				#self.modelCollection.getCurrentModel().setChanged()
 			# If this is not a model setting but a printer setting...
 			elif self.settings != None:
 				# ... write the value to the settings.
