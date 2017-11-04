@@ -969,7 +969,7 @@ class imageSlider(QtGui.QVBoxLayout):
 
 		# Get parent width and set height according to projector aspect ratio.
 		aspect = float(programSettings['projectorSizeY'].getValue()) / float(programSettings['projectorSizeX'].getValue())
-		self.width = width#250
+		self.width = width
 		self.height = int(self.width * aspect)
 
 
@@ -979,38 +979,46 @@ class imageSlider(QtGui.QVBoxLayout):
 		self.imageBlack = numpy.zeros((self.height, self.width, 3), numpy.uint8)
 		# Create pixmap from numpy.
 		self.pixmap = QtGui.QPixmap()
-		self.pixmap.loadFromData(self.imageBlack)
+		#self.pixmap.fromImage(self.imageBlack)
+		print dir(self.pixmap)
 		# Set image to viewer.
 		self.imageView.setPixmap(self.pixmap)
 		self.addWidget(self.imageView)
 		self.imageView.show()
-		'''
+
 		# Create slider.
-		self.slider = gtk.HScrollbar()
-		self.pack_start(self.slider, expand=True, fill=True)
-		self.slider.set_range(1,100)
-		self.slider.set_value(1)
-		self.slider.set_round_digits(0)
-		self.slider.show()
+		self.slider = QtGui.QScrollBar()
+		# Make horizontal.
+		self.slider.setOrientation(1)
+		# Add to box.
+		self.addWidget(self.slider)
+		for s in dir(self.slider):
+			if 'set' in s:
+				print s
+		self.slider.setRange(1,100)
+		self.slider.setValue(1)
+		#self.slider.set_round_digits(0)
+		#self.slider.show()
 		# Connect event handler. We only want to update if the button was released.
-		self.slider.connect("value-changed", self.callbackScroll)
+		#self.slider.connect("value-changed", self.callbackScroll)
 #		self.slider.connect("button-release-event", self.callbackScroll)
 
+
 		# Create current slice label.
-		self.labelBox = gtk.HBox()
-		self.pack_start(self.labelBox, expand=True, fill=True)
-		self.labelBox.show()
+		self.labelBox = QtGui.QHBoxLayout()
+		self.addLayout(self.labelBox)
+		#self.labelBox.show()
 		# Create labels.
-		self.minLabel = gtk.Label('1')
-		self.labelBox.pack_start(self.minLabel, expand=False)
-		self.minLabel.show()
-		self.currentLabel = gtk.Label('1')
-		self.labelBox.pack_start(self.currentLabel, expand=True, fill=True)
-		self.currentLabel.show()
-		self.maxLabel = gtk.Label('1')
-		self.labelBox.pack_start(self.maxLabel, expand=False)
-		self.maxLabel.show()
-		'''
+		self.minLabel = QtGui.QLabel('1')
+		self.labelBox.addWidget(self.minLabel)
+		#self.minLabel.show()
+		self.currentLabel = QtGui.QLabel('1')
+		self.labelBox.addWidget(self.currentLabel)
+		#self.currentLabel.show()
+		self.maxLabel = QtGui.QLabel('1')
+		self.labelBox.addWidget(self.maxLabel)
+		#self.maxLabel.show()
+
 
 	# Update image if the slider is at the given position in the stack.
 	def updateImage(self):

@@ -600,9 +600,9 @@ class gui(QtGui.QApplication):
 	# Slicing page.
 	def tabSwitchSlicesUpdate(self):
 		# Update slider.
-		self.sliceSlider.updateSlider()
+	#	self.sliceSlider.updateSlider()
 		# Update slice stack height.
-		self.modelCollection.updateSliceStack()
+	#	self.modelCollection.updateSliceStack()
 		# Set render actor visibilites.
 		self.modelCollection.viewState(2)
 		self.renderView.render()
