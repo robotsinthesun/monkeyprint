@@ -92,11 +92,11 @@ def runGui(filename=None, debug=False):
 	programSettings = monkeyprintSettings.programSettings(console)
 
 	# Create version message.
-	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value))
+	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue()))
 
 	# Get current working directory and set paths.
 	cwd = os.getcwd()
-	programSettings['localMkpPath'].value = cwd + "/currentPrint.mkp"
+	programSettings['localMkpPath'].setValue(cwd + "/currentPrint.mkp")
 
 	# Update settings from file.
 	programSettings.readFile(cwd)
@@ -104,9 +104,9 @@ def runGui(filename=None, debug=False):
 	# Set debug mode if specified.
 	if debug:
 		print "Debug mode active."
-		programSettings['debug'].value = True
+		programSettings['debug'].setValue(True)
 	else:
-		programSettings['debug'].value = False
+		programSettings['debug'].setValue(False)
 
 	# Create model collection object.
 	# This object contains model data and settings data for each model.
@@ -115,7 +115,7 @@ def runGui(filename=None, debug=False):
 
 	# Create splash screen for given interval.
 	# Get version string first.
-	versionString = "Monkeyprint version " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value)
+	versionString = "Monkeyprint version " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue())
 #	splash = monkeyprintGuiHelper.splashWindow(imageFile='./logo.png', duration=1, infoString = versionString)
 
 	# Create gui.

@@ -36,6 +36,7 @@ import time
 import signal
 import zmq
 import os
+import shutil
 
 # New imports for QT.
 import signal
@@ -46,8 +47,120 @@ from PyQt4 import QtGui, QtCore
 from vtk.qt4.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 
+################################################################################
+# Define a class for standalone without main GUI. ##############################
+################################################################################
+# Inherit from projector display window.
+'''
+class noGui(monkeyprintGuiHelper.projectorDisplay):
+
+	# Override init function. #################################################
+	def __init__(self, programSettings, modelCollection):
+
+		# Initialise base class gtk window.********************
+		monkeyprintGuiHelper.projectorDisplay.__init__(self, programSettings, modelCollection)
+		# Set function for window close event.
+		self.connect("delete-event", self.on_closing, None)
+		# Show the window.
+		self.show()
+
+		# Internalise parameters.******************************
+		self.modelCollection = modelCollection
+		self.programSettings = programSettings
 
 
+		# Create queues for inter-thread communication.********
+		# Queue for setting print progess bar.
+		self.queueSliceOut  = Queue.Queue(maxsize=1)
+		self.queueSliceIn = Queue.Queue(maxsize=1)
+		# Queue for status infos displayed above the status bar.
+		self.queueStatus = Queue.Queue()
+		# Queue for console messages.
+		self.queueConsole = Queue.Queue()
+		# Queue list.
+		self.queues = [	self.queueSliceOut,
+						self.queueStatus		]
+
+		# Allow background threads.****************************
+		# Very important, otherwise threads will be
+		# blocked by gui main thread.
+		gtk.gdk.threads_init()
+
+		# Add thread listener functions to run every n ms.****
+		# Check if the slicer threads have finished.
+#		slicerListenerId = gobject.timeout_add(100, self.modelCollection.checkSlicerThreads)
+		# Update the progress bar, projector image and 3d view. during prints.
+		pollPrintQueuesId = gobject.timeout_add(50, self.pollPrintQueues)
+
+
+		# Create additional variables.*************************
+		# Flag to set during print process.
+		self.printFlag = True
+		self.programSettings['printOnRaspberry'].value = True
+
+		# Create the print window.
+#		self.projectorDisplay = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
+
+		# Create the print process thread.
+		self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSliceOut, self.queueSliceIn, self.queueStatus, self.queueConsole)
+
+		# Start the print process.
+		self.printProcess.start()
+
+		# Start main loop.
+		self.main()
+
+	def pollPrintQueues(self):
+		# If slice number queue has slice number...
+		if self.queueSliceOut.qsize():
+			sliceNumber = self.queueSliceOut.get()
+			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
+			#if self.projectorDisplay != None:
+			#	self.projectorDisplay.updateImage(sliceNumber)
+			self.updateImage(sliceNumber)
+			# Set slice in queue to true as a signal to print process thread that it can start waiting.
+			self.queueSliceIn.put(True)
+		# If print info queue has info...
+		if self.queueStatus.qsize():
+			#self.progressBar.setText(self.queueStatus.get())
+			message = self.queueStatus.get()
+			if message == "destroy":
+				self.printFlag = False
+				del self.printProcess
+				gtk.main_quit()
+				self.destroy()
+				del self
+				return False
+			else:
+				return True
+		# Return true, otherwise function won't run again.
+		return True
+
+
+	def on_closing(self, widget, event, data):
+		# Get all threads.
+		runningThreads = threading.enumerate()
+		# End kill threads. Main gui thread is the first...
+		for i in range(len(runningThreads)):
+			if i != 0:
+				runningThreads[-1].join(timeout=10000)	# Timeout in ms.
+				print "Slicer thread " + str(i) + " finished."
+				del runningThreads[-1]
+		# Save settings to file.
+		self.programSettings.saveFile()
+		# Remove temp directory.on_closing(
+		shutil.rmtree(self.programSettings['tmpDir'].value, ignore_errors=True)
+		# Terminate the gui.
+		gtk.main_quit()
+		return False # returning False makes "destroy-event" be signalled to the window
+
+	# Gui main function. ######################################################
+	def main(self):
+		# All PyGTK applications must have a gtk.main(). Control ends here
+		# and waits for an event to occur (like a key press or mouse event).
+		gtk.main()
+
+'''
 
 
 ################################################################################
@@ -106,6 +219,7 @@ class gui(QtGui.QApplication):
 		# TODO: combine this with slicerListener.
 
 
+
 		# ********************************************************************
 		# Create the main GUI. ***********************************************
 		# ********************************************************************
@@ -143,6 +257,7 @@ class gui(QtGui.QApplication):
 	#	self.createButtons()
 		self.mainWindow.show()
 		self.mainWindow.raise_()
+
 
 
 	# **************************************************************************
@@ -200,6 +315,7 @@ class gui(QtGui.QApplication):
 
 		# Create model list view.
 		self.modelTableView = monkeyprintGuiHelper.modelTableView(self.programSettings, self.modelCollection, self.console, self)
+
 		boxSettings.addWidget(self.modelTableView)
 
 		# Create settings notebook.
@@ -319,6 +435,7 @@ class gui(QtGui.QApplication):
 		boxSupportGeo.addLayout(self.entrySupportTipDiameter)
 		# Bottom clearance.
 		self.entrySupportTipHeight = monkeyprintGuiHelper.entry('coneHeight', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
+
 		boxSupportGeo.addLayout(self.entrySupportTipHeight)
 
 		return tabSettingsSupports
@@ -374,6 +491,7 @@ class gui(QtGui.QApplication):
 		# Register slice image update function to GUI main loop.
 	#	listenerSliceSlider = gobject.timeout_add(100, self.sliceSlider.updateImage)
 		'''
+
 		# Create save image stack frame.
 		self.frameSaveSlices = gtk.Frame("Save slice images")
 		self.slicingTab.pack_start(self.frameSaveSlices, expand=True, fill=True, padding=5)
@@ -391,10 +509,11 @@ class gui(QtGui.QApplication):
 
 
 
+
+
 	# **************************************************************************
 	# Gui update function. *****************************************************
 	# **************************************************************************
-
 
 	def updateVolume(self):
 		self.resinVolumeLabel.set_text("Volume: " + str(self.modelCollection.getTotalVolume()) + " ml.")
@@ -418,6 +537,7 @@ class gui(QtGui.QApplication):
 
 
 
+
 	def getGuiState(self):
 		tab = 0
 		for i in range(self.notebookSettings.count()):
@@ -432,6 +552,7 @@ class gui(QtGui.QApplication):
 	# the current page of the settings notebook.
 	def updateCurrentModel(self):
 		# Update model.
+
 		if self.notebookSettings.getCurrentPage() == 0:
 			changed = self.modelCollection.getCurrentModel().updateModel()
 			# If model has changed, set gui state to supports.
@@ -560,6 +681,7 @@ class gui(QtGui.QApplication):
 
 
 
+
 	def updateMenu(self):
 		pass
 		'''
@@ -600,9 +722,9 @@ class gui(QtGui.QApplication):
 	# Slicing page.
 	def tabSwitchSlicesUpdate(self):
 		# Update slider.
-	#	self.sliceSlider.updateSlider()
+		self.sliceSlider.updateSlider()
 		# Update slice stack height.
-	#	self.modelCollection.updateSliceStack()
+		self.modelCollection.updateSliceStack()
 		# Set render actor visibilites.
 		self.modelCollection.viewState(2)
 		self.renderView.render()
@@ -624,9 +746,3 @@ class gui(QtGui.QApplication):
 		self.updateVolume()
 		# Disable model management load and remove buttons.
 		self.modelTableView.setButtonsSensitive(False, False)
-
-
-
-
-
-

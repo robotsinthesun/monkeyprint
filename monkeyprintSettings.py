@@ -18,6 +18,7 @@
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 
 import threading
 
@@ -79,6 +80,7 @@ class setting:
 		# No mutex needed as valType will never change.
 		return [self.lower, self.upper]
 
+
 	# Check if string represents a number. *****************
 	def isnumber(self,s):
 		try:
@@ -91,28 +93,32 @@ class setting:
 	'''
 	# Set value and control bounds.
 	def setValue(self, inVal):
-		self.value = inVal
-		# Type cast to float or int if number.
-		if type(inVal) == str and self.isnumber(inVal):
-#			print inVal.isdigit()
-			if inVal.isdigit():
-				self.value = int(inVal)
-#				print "Int: " + inVal
-			else:
-				self.value = float(inVal)
-#				print "Float: " + inVal
-		# Cast to bool if "True" or "False"
-		elif inVal == "True" or inVal == "False":
-			self.value = eval(inVal)
-#			print "String: " + inVal
-		# Correct for upper bound.
-		if self.upper != None:
-			if self.value > self.upper:
-				self.value = self.upper
-		# Correct for lower bound.
-		if self.lower != None:
-			if self.value < self.lower:
-				self.value = self.lower
+		if not self.isConstant:
+			self.value = inVal
+			# Type cast to float or int if number.
+			if type(inVal) == str and self.isnumber(inVal):
+	#			print inVal.isdigit()
+				if inVal.isdigit():
+					self.value = int(inVal)
+	#				print "Int: " + inVal
+				else:
+					self.value = float(inVal)
+	#				print "Float: " + inVal
+			# Cast to bool if "True" or "False"
+			elif inVal == "True" or inVal == "False":
+				self.value = eval(inVal)
+	#			print "String: " + inVal
+			# Correct for upper bound.
+			if self.upper != None:
+				if self.value > self.upper:
+					self.value = self.upper
+			# Correct for lower bound.
+			if self.lower != None:
+				if self.value < self.lower:
+					self.value = self.lower
+
+
+
 
 	def isnumber(self,s):
 		try:
@@ -140,6 +146,8 @@ class modelSettings(dict):
 		self['rotationZ'] = 				setting(value=0,	valType=float,	lower=0,	upper=359,	unit='°',		name='Rotation Z')
 		self['positionX'] = 				setting(value=50,	valType=float,	lower=0,	upper=100,	unit='%',		name='Position X')
 		self['positionY'] = 				setting(value=50,	valType=float,	lower=0,	upper=100,	unit='%',		name='Position Y')
+		self['createBottomPlate'] = 		setting(value=True, valType=str,	default=True, name='Create bottom plate')
+		self['createSupports'] = 			setting(value=True, valType=str,	default=True, name='Create supports')
 		self['bottomPlateThickness'] =	 	setting(value=0.5,	valType=float,	lower=0.1,	upper=1.0,	unit='mm',		name='Bottom plate thickness')
 		self['bottomClearance'] = 			setting(value=5,	valType=float,	lower=self['bottomPlateThickness'].lower, unit='mm',		name='Bottom clearance')
 		# bottomClearanceMax must be set by model position, rotation and size
@@ -171,9 +179,18 @@ class jobSettings(dict):
 		self['layerHeight'] = setting(value=0.1, valType=float,	lower=.01, upper=0.3, unit='mm')
 		self['projectPath'] = programSettings['currentFolder']#setting(value="")
 		self['exposureTimeBase'] = programSettings['exposureTimeBase']#setting(value=14.0, lower=1.0, upper=15.0)
+		self['numberOfBaseLayers'] = programSettings['numberOfBaseLayers']
 		self['exposureTime'] = programSettings['exposureTime']#setting(value=9.0, lower=1.0, upper=15.0)
-	#	self['Resin settle time'] = programSettings['Resin settle time']#setting(value=1.0, lower=0.1, upper=3.0)
 
+	'''
+	def setProgramSettings(self, programSettings):
+		for setting in self:
+			programSettings[setting] = self[setting]
+
+	def getProgramSettings(self, programSettings):
+		for setting in self:
+			self[setting] = programSettings[setting]
+	'''
 
 class programSettings(dict):
 	# Override init function.
@@ -186,6 +203,7 @@ class programSettings(dict):
 		self.console = console
 		# Create objects for all the settings and put them into dictionary.
 		self['currentFolder'] =				setting(value='./models',			valType=str)
+		self['tmpDir'] = 					setting(value=os.getcwd()+'/tmp', 	valType=str,	isConstant=True)
 		self['versionMajor'] =				setting(value=0, 					valType=int)
 		self['versionMinor'] =				setting(value=11, 					valType=int)
 		self['revision'] =					setting(value=0, 					valType=int)
@@ -196,12 +214,14 @@ class programSettings(dict):
 		self['buildSizeX'] =				setting(value=102.4, 				valType=float,	default=102.4,	unit='mm',		name='Build size X')
 		self['buildSizeY'] =				setting(value=76.8, 				valType=float,	default=76.8,	unit='mm',		name='Build size Y')
 		self['buildSizeZ'] =				setting(value=150.0, 				valType=float,	default=150.0,	unit='mm',		name='Build size Z')
+
 #		self['projectorSizeXY'] = setting(value=[1024,768])
 #		self['projectorPositionXY'] = setting(value=[1280,0])
 #		self['buildSizeXYZ'] = setting(value=[102.4,76.8,150.0])
 
-		self['pxPerMm'] =  					setting(value=self['projectorSizeX'].value / self['buildSizeX'].value, 		valType=float)
-
+		#self['pxPerMm'] =  					setting(value=self['projectorSizeX'].value / self['buildSizeX'].value, 		valType=float)
+		self['pxPerMmX'] =  				setting(value=self['projectorSizeX'].value / self['buildSizeX'].value,		valType=float)
+		self['pxPerMmY'] =  				setting(value=self['projectorSizeY'].value / self['buildSizeY'].value,		valType=float)
 		self['port'] = 						setting(value='/dev/ttyACM0',		valType=str, default='/dev/ttyACM0',		name='Port')
 		self['baudrate'] = 					setting(value=57600, 				valType=int, default=57600,		name='Baud rate')
 		self['baudrateGCode'] = 			setting(value=115200, 				valType=int, default=115200,		name='Baud rate')
@@ -218,6 +238,7 @@ class programSettings(dict):
 		self['avrdudeOptionsGCode'] =		setting(value='-D -V', 				valType=str, default='-D -V',		name='Options')
 		self['avrdudeFirmwarePath'] =		setting(value='./firmware/main.hex', 		valType=str, default='./firmware/main.hex',		name='Firmware path')
 		self['avrdudeFirmwarePathGCode'] =	setting(value='./firmware/marlin/marlinForMonkeyprint.hex', 		valType=str, default='./firmware/marlin/marlinForMonkeyprint.hex',		name='Firmware path')
+
 	#	self['avrdudeSettings'] = setting(value=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'], default=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'])
 	#	self['avrdudeSettingsGCode'] = setting(value=['atmega2560', 'stk500v2', '/dev/ttyACM0', '115200', '-D -V -U', './firmware/marlin/marlinForMonkeyprint.hex'])
 	#	self['avrdudeSettingsDefault'] = setting(value=['atmega32u4', 'avr109', '/dev/ttyACM0', '57600', '-D -V', './firmware/main.hex'])
@@ -269,6 +290,7 @@ class programSettings(dict):
 		self['enableShutterServo'] =		setting(value=False, 			valType=str, default=False, 	name='Enable shutter servo')
 		self['localMkpPath'] =				setting(value='./currentPrint.mkp', valType=str, default='./currentPrint.mkp')
 		self['monkeyprintBoard'] =			setting(value=True, 			valType=str, default=True)
+
 #		self['Tilt GCode']	 = setting(value='G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10', default = 'G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10')
 #		self['Build platform GCode'] = setting(value='G1 Z{$layerHeight*$buildDir} F10', default='G1 Z{$layerHeight*$buildDir} F10')
 #		self['Shutter open GCode'] = setting(value='M280 P0 S{$shutterPosOpen}', default='M280 P0 S{$shutterPosOpen}')
@@ -283,6 +305,12 @@ class programSettings(dict):
 		self['printProcessMonkeyprint'] =	setting(value='Initialise printer,,,internal,False;Projector on,,projectorOn,serialMonkeyprint,False;Build platform to home,,buildHome,serialMonkeyprint,False;Start loop,,,internal,False;Shutter open,,shutterOpen,serialMonkeyprint,False;Expose,,,internal,False;Shutter close,,shutterClose,serialMonkeyprint,False;Tilt,,tilt,serialMonkeyprint,False;Wait,1.0,,internal,True;End loop,,,internal,False;Build platform to top,,buildTop,serialMonkeyprint,False', 		valType=str)
 		self['printProcessGCode'] =			setting(value='Initialise printer,G21 G91 M17,,serialGCode,True;Projector on,---,,internal,False;Build platform to home,G28 X Z,,serialGCode,True;Start loop,---,,internal,False;Shutter open,M280 P0 S500,,serialGCode,True;Expose,---,,internal,False;Shutter close,M280 P0 S2500,,serialGCode,True;Tilt down,G1 X20 F1000,,serialGCode,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True;Tilt up,G1 X-20 F1000,,serialGCode,True;Wait,1.0,,internal,True;End loop,---,,internal,False;Build platform to top,G162 F100,,serialGCode,True;Shut down printer,M18,,serialGCode,True', 		valType=str)
 		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
+		self['polylineClosingThreshold'] = 	setting(value=0.1, 		valType=str,	default=0.1, lower=0.0, upper=1.0)
+		self['sliceStackMemory'] = 			setting(value=50, 		valType=str,	default=500, lower=100, unit='MB', name='Slicer memory')
+		self['previewSlicesMax'] = 			setting(value=300, 		valType=str,	default=300, lower=100, upper=1000, name='Max. preview slices')
+		self['previewSliceWidth'] = 		setting(value=200, 		valType=str,	default=200)
+		self['sliceBorderWidth'] = 			setting(value=10, 		valType=str)
+		self['multiBodySlicing'] = 			setting(value=False, 	valType=str,	default=False, name='Multi body slicing')
 
 	# Load default settings.
 	def loadDefaults(self):
@@ -325,7 +353,7 @@ class programSettings(dict):
 			for setting in self:
 				# Convert to string and write to file.
 				f.write(self.setting2String(setting))
-#			print "   Done."
+
 
 	# Read program settings from file. *********************
 	def readFile(self, path, filename=None):
@@ -348,6 +376,7 @@ class programSettings(dict):
 		except IOError:
 			if self.output != None:
 				self.output.addLine("No settings file found. Using defaults.")
+
 
 
 	def getModuleList(self):

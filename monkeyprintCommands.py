@@ -26,13 +26,13 @@ class command:
 		self.commandType = commandType
 		self.displayName = displayName
 		self.string = string
-		
-		if self.commandType == 'monkeyprintSerial':	
+
+		if self.commandType == 'monkeyprintSerial':
 			pass
-		
+
 		elif self.commandType == 'gCodeSerial':
 			pass
-		
+
 		elif self.commandType == 'internal':
 			self.fcn = fcn
 			self.paramName = paramName
@@ -64,24 +64,24 @@ class commandListAll(dict):
 		self['monkeyprintTop'] = command(commandType=monkeyprint)
 		self['monkeyprintProjectorOn'] = command(commandType=monkeyprint)
 		self['monkeyprintProjectorOff'] = command(commandType=monkeyprint)
-		
+
 
 class commandListPrintProcess(list):
 	# Override init function.
 	def __init__(self):
 		# Call super class init function.
 		list.__init__(self)
-		
+
 		# Create default print process.
 	#	if settings
-		
-		
+
+
 		# If file found, load the file.
 		self.loadFile
-	
+
 	def loadFile(self):
 		pass
-	
+
 	def writeFile(self):
 		pass
 
@@ -94,7 +94,7 @@ class commandExecutor:
 		#if command.commandType == internal
 
 class stringEvaluator:
-	
+
 	def __init__(self, settings, modelCollection):
 		self.settings = settings
 		self.modelCollection = modelCollection
@@ -120,7 +120,7 @@ class stringEvaluator:
 			if len(prohibitedChars) == 0:
 #				print "   Expression valid. Processing..."
 				# ... do the processing.
-				
+
 				# Replace all $-variables with the corresponding values.
 				#values = []
 				# First, find all $-variables.
@@ -137,28 +137,28 @@ class stringEvaluator:
 				result = "0"
 				try:
 					result = str(eval(expressionContent))
-#					print "Result: " + result 
+#					print "Result: " + result
 				except SyntaxError:
 					print "   Something went wrong while parsing G-Code variables. Replacing by \"0\""
 				#curlyBraceContentsEvaluated.append(result)
-			
+
 				# Replace curly brace expression by result.
 				command = command.replace(expression, result)
-			
+
 			# If we found prohibited chars...
 			else:
 #				print "Prohibited characters " + str(prohibitedChars) + " found. Check your G-Code string."
 				command = command.replace(expression, "0")
 #		print "Finished G-Code command: " + command
-		
+
 		return command
-			
-	
+
+
 	def replaceWithValue(self, variable):
 #		print "      Processing variable: " + variable
 		variableValid = True
 		if variable == "layerHeight":
-			value = str(self.modelCollection.jobSettings['layerHeight'].value)
+			value = str(self.settings['layerHeight'].value)
 		elif variable == "buildDir":
 			if self.settings['Reverse build'].value:
 				value = "-1"
@@ -178,12 +178,12 @@ class stringEvaluator:
 		else:
 			value = "0"
 			variableValid = False
-		
+
 		if variableValid:
 			pass
 #			print "      Replacing by " + value + "."
 		else:
 			print "      Unknown G-Code variable found: \"" + variable + "\". Replacing by \"0\"."
-		
+
 		return value
-	
+

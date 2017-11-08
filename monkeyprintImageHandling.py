@@ -77,7 +77,7 @@ def insert(img, imgIns, pos):
 def imgMultiply(img1, img2, pos):
 	bounds = [	int(pos[1]),
 				int(pos[1]+img2.shape[0]),
-				int(pos[0]), 
+				int(pos[0]),
 				int(pos[0]+img2.shape[1])	]
 	# Convert to uint32, otherwise multiply will wrap inside 255.
 	img1 = numpy.uint32(img1)
@@ -90,7 +90,7 @@ def imgMultiply(img1, img2, pos):
 def imgAdd(img1, img2, pos):
 	bounds = [	int(pos[1]),
 				int(pos[1]+img2.shape[0]),
-				int(pos[0]), 
+				int(pos[0]),
 				int(pos[0]+img2.shape[1])	]
 	# Convert to uint32, otherwise multiply will wrap inside 255.
 	img1 = numpy.uint32(img1)
@@ -103,7 +103,7 @@ def imgAdd(img1, img2, pos):
 def imgSubtract(img1, img2, pos):
 	bounds = [	pos[1],
 				pos[1]+img2.shape[0],
-				pos[0], 
+				pos[0],
 				pos[0]+img2.shape[1]	]
 	# Convert to uint32, otherwise multiply will wrap inside 255.
 	img1 = numpy.uint32(img1)
@@ -158,7 +158,7 @@ def imgManhattanDistance(img):
 			# ... or one more than the pixel to the east.
 			if j+1 < img.shape[1]:		#if (j+1<image[i].length) image[i][j] = Math.min(image[i][j], image[i][j+1]+1);
 				img[i,j] = min(img[i,j], img[i,j+1]+1)
-	
+
 	print "manhattan 2"
 	# Distances are set, return the distance map.
 	return img;
