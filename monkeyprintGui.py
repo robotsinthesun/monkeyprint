@@ -188,17 +188,20 @@ class gui(QtGui.QApplication):
 		# ********************************************************************
 		# Add thread listener functions to run every n ms.********************
 		# ********************************************************************
-		# Check if the slicer threads have finished.
+		# Check if the slicer threads have finished. Needed in model collection.
 		self.timerSlicerListener = QtCore.QTimer()
 		self.timerSlicerListener.timeout.connect(self.modelCollection.checkSlicerThreads)#self.updateSlicerStatus)
 		self.timerSlicerListener.start(100)
-		#slicerListenerId = gobject.timeout_add(100, self.modelCollection.checkSlicerThreads)
-		# Check if slice combiner has finished.
-		'''
+		# Check if slice combiner has finished. Needed in model collection.
 		self.timerSliceCombinerListener = QtCore.QTimer()
 		self.timerSliceCombinerListener.timeout.connect(self.modelCollection.checkSliceCombinerThread)#self.updateSlicerStatus)
 		self.timerSliceCombinerListener.start(100)
-		'''
+		# Check if slicer has finished. Needed to update slice preview.
+		self.slicerRunning = False
+		self.timerSlicePreviewUpdater = QtCore.QTimer()
+		self.timerSlicePreviewUpdater.timeout.connect(self.checkSlicer)#self.updateSlicerStatus)
+		self.timerSlicePreviewUpdater.start(100)
+
 		#sliceCombinerListenerId = gobject.timeout_add(100, self.modelCollection.checkSliceCombinerThread)
 		# Update the progress bar, projector image and 3d view. during prints.
 		'''
@@ -515,6 +518,14 @@ class gui(QtGui.QApplication):
 	# Gui update function. *****************************************************
 	# **************************************************************************
 
+	def checkSlicer(self):
+		if self.slicerRunning == True and self.modelCollection.sliceCombinerFinished == True:
+			self.updateSlider()
+			self.slicerRunning = False
+		self.slicerRunning = not self.modelCollection.sliceCombinerFinished
+
+
+
 	def updateVolume(self):
 		self.resinVolumeLabel.set_text("Volume: " + str(self.modelCollection.getTotalVolume()) + " ml.")
 
@@ -584,7 +595,7 @@ class gui(QtGui.QApplication):
 	# Update all the settings if the current model has changed.
 	def updateAllEntries(self, state=None, render=None):
 		#print self.modelCollection.getCurrentModel()
-		if not self.modelCollection.getCurrentModel().isactive() or self.modelCollection.getCurrentModelId() == 'default':
+		if not self.modelCollection.getCurrentModel().isActive() or self.modelCollection.getCurrentModelId() == 'default':
 			self.entryScaling.setEnabled(False)
 			self.entryRotationX.setEnabled(False)
 			self.entryRotationY.setEnabled(False)
@@ -673,13 +684,8 @@ class gui(QtGui.QApplication):
 
 
 	def updateSlider(self):
-		pass
-		'''
 		self.sliceSlider.updateSlider()
 		self.sliceSlider.updateImage()
-		'''
-
-
 
 
 	def updateMenu(self):
@@ -721,8 +727,6 @@ class gui(QtGui.QApplication):
 
 	# Slicing page.
 	def tabSwitchSlicesUpdate(self):
-		# Update slider.
-		self.sliceSlider.updateSlider()
 		# Update slice stack height.
 		self.modelCollection.updateSliceStack()
 		# Set render actor visibilites.
@@ -734,6 +738,8 @@ class gui(QtGui.QApplication):
 			#self.setGuiState(3)	# Is activated or deactivated in slicer status poll method.
 		# Disable model management load and remove buttons.
 		self.modelTableView.setButtonsSensitive(False,False)
+		# Update slider.
+		self.updateSlider()
 
 	# Print page.
 	def tabSwitchPrintUpdate(self):

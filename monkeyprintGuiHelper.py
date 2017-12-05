@@ -18,11 +18,11 @@
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
-import pygtk
-pygtk.require('2.0')
-import gtk, gobject
-import cairo
-from math import pi
+#import pygtk
+#pygtk.require('2.0')
+#import gtk, gobject
+#import cairo
+#from math import pi
 
 import PyQt4
 from PyQt4 import QtGui, QtCore
@@ -41,6 +41,8 @@ import monkeyprintPrintProcess
 import Queue, threading, subprocess
 
 import re
+
+import cv2
 
 
 
@@ -516,6 +518,7 @@ class modelTableView(QtGui.QWidget):
 			# Reset the checkbox change flag.
 			self.modelList.checkBoxChanged = False
 			# Set model status accordingly.
+			# If table data shows False in activation column...
 			if self.modelList.tableData[index.row()][-1]:
 				print "Activating model " + self.modelList.tableData[index.row()][2]
 				self.modelCollection[self.modelList.tableData[index.row()][2]].setActive(True)
@@ -524,12 +527,17 @@ class modelTableView(QtGui.QWidget):
 				# Update model.
 				self.modelCollection.getCurrentModel().updateModel()
 				self.modelCollection.getCurrentModel().updateSupports()
+				self.modelCollection.updateSliceStack()
 				#self.renderView.render()
+			# If table data shows True in activation column...
 			else:
+				# TODO: CHECK IF THERE'S NO ACTIVE MODEL ANY MORE!
 				print "Deactivating model " + self.modelList.tableData[index.row()][2]
 				self.modelCollection[self.modelList.tableData[index.row()][2]].setActive(False)
+				self.modelCollection.updateSliceStack()
 			# Call gui update function to change actor visibilities.
 			self.guiParent.updateAllEntries(render=True)
+			self.guiParent.updateSlider()
 
 
 
@@ -964,23 +972,19 @@ class imageSlider(QtGui.QVBoxLayout):
 		self.console = console
 		self.customFunctions = customFunctions
 
-		# Reference to image.
-#		self.image = self.modelCollection.sliceImage
-
-		# Get parent width and set height according to projector aspect ratio.
+		# Get width and set height according to projector aspect ratio.
 		aspect = float(programSettings['projectorSizeY'].getValue()) / float(programSettings['projectorSizeX'].getValue())
-		self.width = width
+		self.width = programSettings['previewSliceWidth'].getValue()
 		self.height = int(self.width * aspect)
-
 
 		# Create image view.
 		self.imageView = QtGui.QLabel()
-		# Create black dummy image.
-		self.imageBlack = numpy.zeros((self.height, self.width, 3), numpy.uint8)
+		# Set image.
+		img = numpy.copy(self.modelCollection.updateSliceImage(0))
+		img = imageHandling.convertSingle2RGB(img)
+		imgQt = QtGui.QImage(img, img.shape[1], img.shape[0], QtGui.QImage.Format_RGB888)
 		# Create pixmap from numpy.
-		self.pixmap = QtGui.QPixmap()
-		#self.pixmap.fromImage(self.imageBlack)
-		print dir(self.pixmap)
+		self.pixmap = QtGui.QPixmap.fromImage(imgQt)
 		# Set image to viewer.
 		self.imageView.setPixmap(self.pixmap)
 		self.addWidget(self.imageView)
@@ -997,64 +1001,55 @@ class imageSlider(QtGui.QVBoxLayout):
 				print s
 		self.slider.setRange(1,100)
 		self.slider.setValue(1)
-		#self.slider.set_round_digits(0)
-		#self.slider.show()
 		# Connect event handler. We only want to update if the button was released.
-		#self.slider.connect("value-changed", self.callbackScroll)
-#		self.slider.connect("button-release-event", self.callbackScroll)
+		self.slider.valueChanged.connect(self.callbackScroll)
+		self.slider.sliderReleased.connect(self.callbackScroll)
 
 
-		# Create current slice label.
+		# Create min, current and max slice label.
 		self.labelBox = QtGui.QHBoxLayout()
 		self.addLayout(self.labelBox)
-		#self.labelBox.show()
 		# Create labels.
 		self.minLabel = QtGui.QLabel('1')
 		self.labelBox.addWidget(self.minLabel)
-		#self.minLabel.show()
 		self.currentLabel = QtGui.QLabel('1')
 		self.labelBox.addWidget(self.currentLabel)
-		#self.currentLabel.show()
 		self.maxLabel = QtGui.QLabel('1')
 		self.labelBox.addWidget(self.maxLabel)
-		#self.maxLabel.show()
 
 
-	# Update image if the slider is at the given position in the stack.
+	# Update image.
 	def updateImage(self):
-		pass
-		'''
 		# Call function to update the image.
-		img = self.modelCollection.updateSliceImage(self.slider.get_value()-1)
+		sliderValue = self.slider.value()
+		img = numpy.copy(self.modelCollection.updateSliceImage(sliderValue-1))
 		# Get the image from the slice buffer and convert it to 3 channels.
+		# Important: make sure the image is of type uint8, otherwise pixmap will be black.
 		img = imageHandling.convertSingle2RGB(img)
 		# Write image to pixmap.
-		self.pixmap = gtk.gdk.pixmap_new_from_array(img, gtk.gdk.COLORSPACE_RGB, 8)
-		# Resize the image.
-		self.pixmap = self.pixmap.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
+		imgQt = QtGui.QImage(img, img.shape[1], img.shape[0], QtGui.QImage.Format_RGB888)
+		self.pixmap = QtGui.QPixmap.fromImage(imgQt)
 		# Set image to viewer.
-		self.imageView.set_from_pixmap(self.pixmap)
-		'''
+		self.imageView.setPixmap(self.pixmap)
 
 
 
 	# Handle the scroll event by displaying the respective imageArray
 	# from the image stack.
 	def callbackScroll(self, widget=None, event=None):
-		pass
-		'''
+		sliderValue = self.slider.value()
 		# Call function to update the image.
-		img = self.modelCollection.updateSliceImage(self.slider.get_value()-1)
+		img = numpy.copy(self.modelCollection.updateSliceImage(sliderValue-1))
 		# Get the image from the slice buffer and convert it to 3 channels.
+		# Important: make sure the image is of type uint8, otherwise pixmap will be black.
 		img = imageHandling.convertSingle2RGB(img)
 		# Write image to pixmap.
-		self.pixmap = gtk.gdk.pixmap_new_from_array(img, gtk.gdk.COLORSPACE_RGB, 8)
-		# Resize the pixmap.
-		self.pixmap = self.pixmap.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)#INTERP_NEAREST)
+		imgQt = QtGui.QImage(img, img.shape[1], img.shape[0], QtGui.QImage.Format_RGB888)
+		self.pixmap = QtGui.QPixmap.fromImage(imgQt)
 		# Set image to viewer.
-		self.imageView.set_from_pixmap(self.pixmap)
+		self.imageView.setPixmap(self.pixmap)
 		# Set current page label.
-		self.currentLabel.set_text(str(int(self.slider.get_value())))
+		self.currentLabel.setText(str(int(sliderValue)))
 		# Call custom functions if specified.
 		if self.customFunctions != None:
 			for function in self.customFunctions:
@@ -1062,28 +1057,24 @@ class imageSlider(QtGui.QVBoxLayout):
 				val = None
 				for arg in inspect.getargspec(function)[0]:
 					if arg == 'sliceNumber':
-						val = self.slider.get_value()
+						val = sliderValue
 				# Run function.
 				if val != None: function(val)
 				else: function()
-		'''
+
 
 	# Change the slider range according to input.
 	def updateSlider(self):
-		pass
-		'''
-		height = self.modelCollection.getNumberOfSlices()
-		if self.console != None:
-			self.console.addLine('Resizing layer slider to ' + str(height) + ' slices.')
+		height = self.modelCollection.getPreviewStackHeight()
 		# Change slider value to fit inside new range.
-		if self.slider.get_value() > height:
-			self.slider.set_value(height)
+		if self.slider.value() > height:
+			self.slider.setValue(height)
 		# Resize slider.
 		if height > 0:
-			self.slider.set_range(1,height)
-		self.maxLabel.set_text(str(height))
-		'''
-
+			self.slider.setMinimum(1)
+			self.slider.setMaximum(height)
+		self.maxLabel.setText(str(height))
+		self.currentLabel.setText(str(height))
 
 
 '''
@@ -1711,7 +1702,7 @@ class entry(gtk.HBox):
 		else:
 			self.entry.set_text(str(self.settings[self.string].getValue()))
 
-
+'''
 '''
 # Slider that takes image stack.
 class imageSlider2(gtk.VBox):
@@ -1823,7 +1814,7 @@ class imageSlider2(gtk.VBox):
 '''
 
 
-
+'''
 >>>>>>> release
 
 
@@ -2089,3 +2080,4 @@ class projectorDisplay(gtk.Window):
 		self.imageView.set_from_pixmap(self.pixmap)
 #		print "4: Finished image update at " + str(time.time()) + "."
 '''
+

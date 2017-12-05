@@ -204,6 +204,7 @@ class programSettings(dict):
 		# Create objects for all the settings and put them into dictionary.
 		self['currentFolder'] =				setting(value='./models',			valType=str)
 		self['tmpDir'] = 					setting(value=os.getcwd()+'/tmp', 	valType=str,	isConstant=True)
+		self['installDir'] = 				setting(value=os.getcwd(),			valType=str,	isConstant=True)
 		self['versionMajor'] =				setting(value=0, 					valType=int)
 		self['versionMinor'] =				setting(value=11, 					valType=int)
 		self['revision'] =					setting(value=0, 					valType=int)

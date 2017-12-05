@@ -205,7 +205,10 @@ def convertSingle2RGB(img):
 	# Expand in 3d dimension.
 	img = numpy.expand_dims(img, axis=2)
 	img = numpy.repeat(img, 3, axis=2)
-	return img
+	return numpy.uint8(img)
+
+def convertRGB2Single(img):
+	return numpy.uint8(numpy.squeeze(numpy.average(img, axis=2)))
 
 '''
 imageInsert = createImageGray(4,2,50)
