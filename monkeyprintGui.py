@@ -248,7 +248,7 @@ class gui(QtGui.QApplication):
 		# Create the main GUI. ***********************************************
 		# ********************************************************************
 		#The Main window
-		self.mainWindow = monkeyprintGuiHelper.mainWindow(self.checkPrinterRunning)
+		self.mainWindow = monkeyprintGuiHelper.mainWindow(self)
 		self.mainWindow.showMaximized()
 		self.centralWidget = QtGui.QWidget()
 		self.mainWindow.setCentralWidget(self.centralWidget)
@@ -270,6 +270,7 @@ class gui(QtGui.QApplication):
 		self.renderView.renderWindowInteractor.Initialize()
 
 		# Create settings box.
+		# Make widget first to be able to control the width.
 		widgetSettings = QtGui.QWidget()
 		widgetSettings.setFixedWidth(250)
 		self.boxMain.addWidget(widgetSettings)
@@ -284,6 +285,25 @@ class gui(QtGui.QApplication):
 	#	self.createButtons()
 		self.mainWindow.show()
 		self.mainWindow.raise_()
+
+
+	def closeNicely(self):
+		# Get all threads.
+		runningThreads = threading.enumerate()
+		# End kill threads. Main gui thread is the first...
+		for i in range(len(runningThreads)):
+			if i != 0:
+				runningThreads[-1].join(timeout=1000)	# Timeout in ms.
+				print "Background thread " + str(i) + " finished."
+				del runningThreads[-1]
+		# Clean up files.
+		if os.path.isfile(self.programSettings['localMkpPath'].value):
+			os.remove(self.programSettings['localMkpPath'].value)
+		# Remove temp directory.
+		shutil.rmtree(self.programSettings['tmpDir'].value, ignore_errors=True)
+		# Save settings to file.
+		self.programSettings.saveFile('./')
+		# Terminate the gui.
 
 
 	def checkPrinterRunning(self):
@@ -498,20 +518,27 @@ class gui(QtGui.QApplication):
 		# Item quit.
 		menuItemQuit = QtGui.QAction("Quit",self)
 		menuFile.addAction(menuItemQuit)
+		menuItemQuit.triggered.connect(self.callbackMenuQuit)
 		# Create options menu.
 		menuOptions = bar.addMenu("Options")
 		# Item settings.
 		menuItemSettings = QtGui.QAction("Settings",self)
 		menuOptions.addAction(menuItemSettings)
+		menuItemSettings.triggered.connect(self.callbackMenuSettings)
 		# Item firmware.
 		menuItemFirmware = QtGui.QAction("Flash firmware",self)
 		menuOptions.addAction(menuItemFirmware)
 		# Item manual control.
 		menuItemManualControl = QtGui.QAction("Manual control",self)
 		menuOptions.addAction(menuItemManualControl)
-		menuOptions.triggered[QtGui.QAction].connect(self.callbackMenuClicked)
 		return bar
 
+
+	def callbackMenuQuit(self):
+		self.mainWindow.close()
+
+	def callbackMenuSettings(self):
+		dialogSettings(self.programSettings, parent=self)
 
 
 	# Create the main settings box next to the render view. ********************
@@ -1060,11 +1087,6 @@ class gui(QtGui.QApplication):
 		'''
 
 
-	def callbackMenuClicked(self,menu):
-		pass
-		'''
-		print menu.text()+" is triggered"
-		'''
 
 	def callbackSaveSlices(self, widget, data=None):
 		# Open a file chooser dialog.
@@ -1092,65 +1114,7 @@ class gui(QtGui.QApplication):
 			#
 			self.console.addLine("Slice stack saved.")
 			infoWindow.destroy()
-		'''
-		# File open dialog to retrive file name and file path.
-		dialog = gtk.FileChooserDialog("Save slices", None, gtk.FILE_CHOOSER_ACTION_SAVE, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_SAVE, gtk.RESPONSE_OK))
-		dialog.set_modal(True)
-		dialog.set_default_response(gtk.RESPONSE_OK)
-		dialog.set_current_folder(self.programSettings['currentFolder'].value)
-		# File filter for the dialog.
-		fileFilter = gtk.FileFilter()
-		fileFilter.set_name("Image files")
-		fileFilter.add_pattern("*.png")
-		dialog.add_filter(fileFilter)
-		# Run the dialog and return the file path.
-		response = dialog.run()
-		# Process response. If OK...
-		if response == gtk.RESPONSE_OK:
-			# ... get file name.
-			path = dialog.get_filename()
-			dialog.destroy()
-			#... add *.png file extension if necessary.
-			if len(path) < 4 or path[-4:] != ".png":
-				path += ".png"
-			# Console message.
-			self.console.addLine("Saving slice images to \"" + path.split('/')[-1] + "\".")
-			# Save path without project name for next use.
-			self.programSettings['currentFolder'].value = path[:-len(path.split('/')[-1])]
-			# Create info window with progress bar.
-			infoWindow = gtk.Window()
-			infoWindow.set_title("Saving slice images")
-			infoWindow.set_modal(True)
-			infoWindow.set_transient_for(self)
-			infoWindow.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
-			infoWindow.show()
-			infoBox = gtk.VBox()
-			infoWindow.add(infoBox)
-			infoBox.show()
-			infoLabel = gtk.Label("Saving slice images.")
-			infoBox.pack_start(infoLabel, expand=True, fill=True, padding=5)
-			infoLabel.show()
-			progressBar = monkeyprintGuiHelper.printProgressBar()
-			infoBox.pack_start(progressBar, padding=5)
-			# We work in percent here...
-			progressBar.setLimit(100)#self.modelCollection.getNumberOfSlices())
-			progressBar.show()
-			# Update the gui.
-			while gtk.events_pending():
-				gtk.main_iteration(False)
-			# Save the model collection to the given location.
-			self.modelCollection.saveSliceStack(path=path, updateFunction=progressBar.updateValue)
-			#TODO: self.progressBar.setText(message)
-			# Close info window.
-			infoWindow.destroy()
-			self.console.addLine("Slice stack saved.")
 
-
-		# If cancel was pressed...
-		elif response == gtk.RESPONSE_CANCEL:
-			#... do nothing.
-			dialog.destroy()
-		'''
 
 
 	def callbackStartPrintProcess(self, data=None):
@@ -1260,3 +1224,393 @@ class gui(QtGui.QApplication):
 		self.updateVolume()
 		# Disable model management load and remove buttons.
 		self.modelTableView.setButtonsSensitive(False, False)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  #####  ##### ###### ###### ###### ##  ##  ##### #####   ##### ######  ####  ##     ####   #####
+ ##     ##       ##     ##     ##   ### ## ##    ##       ##  ##  ##   ##  ## ##    ##  ## ##
+  ####  ####     ##     ##     ##   ###### ##     ####    ##  ##  ##   ##  ## ##    ##  ## ##
+     ## ##       ##     ##     ##   ## ### ## ###    ##   ##  ##  ##   ###### ##    ##  ## ## ###
+     ## ##       ##     ##     ##   ##  ## ##  ##    ##   ##  ##  ##   ##  ## ##    ##  ## ##  ##
+ #####   #####   ##     ##   ###### ##  ##  #### #####    ##### ###### ##  ## ###### ####   ####
+
+
+
+
+
+
+# Settings window. #############################################################
+# Define a window for all the settings that are related to the printer.
+
+class dialogSettings(QtGui.QDialog):
+	# Override init function.
+	def __init__(self, settings, parent):
+
+		# Call super class init function.
+		QtGui.QDialog.__init__(self, parent.mainWindow)
+		# Set title.
+		self.setWindowTitle("Monkeyprint settings")
+		# Set modal.
+		self.setModal(True)
+		self.show()
+
+
+		# Internalise settings.
+		self.settings = settings
+
+		self.parent = parent
+
+		# Save settings in case of cancelling.
+		#self.settingsBackup = settings
+
+		self.reslice = False
+		self.restartMonkeyprint = False
+		self.resetGui = False
+
+		# Tooltips object.
+		#self.tooltips = gtk.Tooltips()
+
+		# Vertical box for settings and bottom buttons.
+		self.boxMain = QtGui.QVBoxLayout()
+		self.setLayout(self.boxMain)
+
+
+		# Create notebook.
+		self.notebookSettings = monkeyprintGuiHelper.notebook()
+		self.boxMain.addWidget(self.notebookSettings)
+
+		# Create notebook pages.
+
+		# Main settings.
+		self.tabMainSettings = self.createMainSettingsTab()
+		self.notebookSettings.addTab(self.tabMainSettings, 'Main settings')
+		# Set slicer memory label.
+		self.updateSlicerMemoryUsage()
+
+		# Communication settings.
+		self.tabCommunicationSettings = self.createCommunicationTab()
+		self.notebookSettings.addTab(self.tabCommunicationSettings, 'Communication')
+
+		# Print process settings.
+		self.tabPrintProcessSettings = self.createPrintProcessTab()
+		self.notebookSettings.addTab(self.tabPrintProcessSettings, 'Print process')
+
+		'''
+		# Set sensitivities according to toggle buttons in main settings tab.
+		self.callbackRaspiToggle(None, None)
+		'''
+
+		# Create bottom buttons.
+		# Horizontal box for buttons.
+		boxButtons = QtGui.QHBoxLayout()
+		self.boxMain.addLayout(boxButtons)
+
+
+		# Close button.
+		self.buttonClose = QtGui.QPushButton("Close")
+		boxButtons.addWidget(self.buttonClose)
+		self.buttonClose.clicked.connect(self.callbackClose)
+
+
+		# Restore defaults button.
+		self.buttonDefaults = QtGui.QPushButton("Load defaults")
+		boxButtons.addWidget(self.buttonDefaults)
+		self.buttonDefaults.clicked.connect(self.callbackDefaults)
+
+
+	# Main settings tab.
+	def createMainSettingsTab(self):
+
+		# Create widget.
+		tabSettingsMain = QtGui.QWidget()
+		# Create main tab box.
+		boxSettingsMain = QtGui.QVBoxLayout()
+		tabSettingsMain.setLayout(boxSettingsMain)
+
+
+		# Frame for build space.
+		frameBuildVolume = QtGui.QGroupBox("Build space")
+		frameBuildVolume.setFlat(False)
+		boxSettingsMain.addWidget(frameBuildVolume)
+		boxBuildVolume= QtGui.QVBoxLayout()
+		frameBuildVolume.setLayout(boxBuildVolume)
+		# Add entries.
+		self.entryBuildSizeX= monkeyprintGuiHelper.entry('buildSizeX', self.settings, customFunctions=[self.setResetGuiFlag])
+		boxBuildVolume.addWidget(self.entryBuildSizeX)
+		self.entryBuildSizeY= monkeyprintGuiHelper.entry('buildSizeY', self.settings, customFunctions=[self.setResetGuiFlag])
+		boxBuildVolume.addWidget(self.entryBuildSizeY)
+		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('buildSizeZ', self.settings, customFunctions=[self.setResetGuiFlag])
+		boxBuildVolume.addWidget(self.entryBuildSizeZ)
+
+		# Frame for projector resolution.
+		frameProjector = QtGui.QGroupBox("Projector")
+		boxSettingsMain.addWidget(frameProjector)
+		boxProjector = QtGui.QVBoxLayout()
+		frameProjector.setLayout(boxProjector)
+
+		self.entryProjectorSizeX = monkeyprintGuiHelper.entry('projectorSizeX', self.settings, customFunctions=[self.setResliceFlag])#, displayString="Projector size X")
+		boxProjector.addWidget(self.entryProjectorSizeX)
+		self.entryProjectorSizeY = monkeyprintGuiHelper.entry('projectorSizeY', self.settings, customFunctions=[self.setResliceFlag])#, displayString="Projector size Y")
+		boxProjector.addWidget(self.entryProjectorSizeY)
+		self.entryProjectorPositionX = monkeyprintGuiHelper.entry('projectorPositionX', self.settings)
+		boxProjector.addWidget(self.entryProjectorPositionX)
+		self.entryProjectorPositionY = monkeyprintGuiHelper.entry('projectorPositionY', self.settings)
+		boxProjector.addWidget(self.entryProjectorPositionY)
+
+		# Frame for slicer settings.
+		frameSlicer = QtGui.QGroupBox("Slicer")
+		frameSlicer.setFlat(False)
+		boxSettingsMain.addWidget(frameSlicer)
+		boxSlicer= QtGui.QVBoxLayout()
+		frameSlicer.setLayout(boxSlicer)
+		# Add entries.
+		self.entryNumberOfPreviewSlices = monkeyprintGuiHelper.entry('previewSlicesMax', settings=self.settings, customFunctions=[self.updateSlicerMemoryUsage, self.setResliceFlag])
+		boxSlicer.addWidget(self.entryNumberOfPreviewSlices)
+		self.labelSlicerMemory = QtGui.QLabel()
+		boxSlicer.addWidget(self.labelSlicerMemory)
+		self.checkbuttonMultiBodySlicing = monkeyprintGuiHelper.toggleButton('multiBodySlicing', settings=self.settings, customFunctions=[self.setResliceFlag])
+		boxSlicer.addWidget(self.checkbuttonMultiBodySlicing)
+
+		# Frame for debug settings.
+		frameDebug = QtGui.QGroupBox("Debug")
+		frameDebug.setFlat(False)
+		boxSettingsMain.addWidget(frameDebug)
+		boxDebug= QtGui.QVBoxLayout()
+		frameDebug.setLayout(boxDebug)
+
+		# Add entry.
+		self.checkbuttonDebug = monkeyprintGuiHelper.toggleButton('debug', settings=self.settings)
+		boxDebug.addWidget(self.checkbuttonDebug)
+
+		return tabSettingsMain
+
+
+	# Communication tab.
+	def createCommunicationTab(self):
+
+		# Create widget.
+		tabSettingsCommunication = QtGui.QWidget()
+		# Create main tab box.
+		boxSettingsCommunication = QtGui.QVBoxLayout()
+		tabSettingsCommunication.setLayout(boxSettingsCommunication)
+
+
+		# Frame for build space.
+		frameSerial = QtGui.QGroupBox("Printer serial connection")
+		frameSerial.setFlat(False)
+		boxSettingsCommunication.addWidget(frameSerial)
+		boxSerial= QtGui.QVBoxLayout()
+		frameSerial.setLayout(boxSerial)
+		# Add entries.
+		self.entryPort = monkeyprintGuiHelper.entry('port', self.settings)
+		boxSerial.addWidget(self.entryPort)
+		self.entryBaud = monkeyprintGuiHelper.entry('baudrateGCode', self.settings)
+		boxSerial.addWidget(self.entryBaud)
+
+		# Frame for build space.
+		frameProjectorControl = QtGui.QGroupBox("Projector control")
+		frameProjectorControl.setFlat(False)
+		boxSettingsCommunication.addWidget(frameProjectorControl)
+		boxProjectorControl= QtGui.QVBoxLayout()
+		frameProjectorControl.setLayout(boxProjectorControl)
+		# Add entries.
+		self.entryProjectorOnCommand= monkeyprintGuiHelper.entry('projectorOnCommand', self.settings)
+		boxProjectorControl.addWidget(self.entryProjectorOnCommand)
+		self.entryProjectorOffCommand= monkeyprintGuiHelper.entry('projectorOffCommand', self.settings)
+		boxProjectorControl.addWidget(self.entryProjectorOffCommand)
+		self.entryProjectorPort= monkeyprintGuiHelper.entry('projectorPort', self.settings)
+		boxProjectorControl.addWidget(self.entryProjectorPort)
+		self.entryProjectorBaud= monkeyprintGuiHelper.entry('projectorBaudrate', self.settings)
+		boxProjectorControl.addWidget(self.entryProjectorBaud)
+
+		# Frame for calibration image.
+		frameCalibrationImage = QtGui.QGroupBox("Calibration image")
+		frameCalibrationImage.setFlat(False)
+		boxSettingsCommunication.addWidget(frameCalibrationImage)
+		boxCalibrationImage= QtGui.QVBoxLayout()
+		frameCalibrationImage.setLayout(boxCalibrationImage)
+
+		# Image container to load from file.
+		self.imageContainer = monkeyprintGuiHelper.imageFromFile(self.settings, 200, customFunctions=[self.setResliceFlag])
+		boxCalibrationImage.addWidget(self.imageContainer)
+
+		return tabSettingsCommunication
+
+
+	# Print process tab.
+	def createPrintProcessTab(self):
+
+		# Create widget.
+		tabSettingsPrintProcess = QtGui.QWidget()
+		# Create main tab box.
+		boxSettingsPrintProcess = QtGui.QVBoxLayout()
+		tabSettingsPrintProcess.setLayout(boxSettingsPrintProcess)
+
+		#self.listViewModules = modulesListView(self.settings, parentWindow=self)
+		#boxSettingsPrintProcess.pack_start(self.listViewModules, expand=True, fill=True, padding=5)
+		#self.listViewModules.show()
+
+		return tabSettingsPrintProcess
+
+
+	# Recalculate the approximate memory useage due to preview slice stack.
+	def updateSlicerMemoryUsage(self):
+		aspect = float(self.settings['projectorSizeY'].value) / float(self.settings['projectorSizeX'].value)
+		height = self.settings['previewSliceWidth'].value * aspect
+		# Calc memory for one slice in MB. Plus 112 byte for numpy array overhead.
+		sliceMemory = (self.settings['previewSliceWidth'].value * height + 112) / 1000000.
+		stackMemory = self.settings['previewSlicesMax'].value * sliceMemory
+		# Display in label.
+		self.labelSlicerMemory.setText('Memory usage: ~' + str(int(stackMemory)) + " MB.")
+		return stackMemory
+
+
+	def setRestartFlag(self):
+		self.restartMonkeyprint = True
+
+
+	def setResetGuiFlag(self):
+		self.resetGui = True
+
+
+	def setResliceFlag(self):
+		self.reslice = True
+
+
+	# Serial connect function.
+	def callbackSerialTest(self, widget, data=None):
+		# Create communication queues.
+		self.queueSerial = Queue.Queue()
+		queueSerialCommands = Queue.Queue()
+		self.command = ["ping", None, True, None]	# No value, retry, don't wait.
+		# Make button insensitive.
+		self.buttonSerialTest.set_sensitive(False)
+		self.buttonSerialTest.set_label("    Wait...    ")
+		self.consoleSerial.addLine("Connecting...")
+		# Start queue listener.
+		listenerIdSerial = gobject.timeout_add(500, self.listenerSerialThread)
+		self.serial = monkeyprintSerial.printer(self.settings, self.queueSerial, queueSerialCommands)
+		# Send ping.
+		if self.serial.serial != None:
+			self.serial.send(self.command)
+
+
+	def listenerSerialThread(self):
+		# If a message is in the queue...
+		if self.queueSerial.qsize():
+			# Get the message and display it.
+			message = self.queueSerial.get()
+			self.consoleSerial.addLine(message)
+			self.consoleSerial.addLine("")
+			# Check if the message was the end message.
+			if message == "Command \"" + self.command[0] + "\" sent successfully." or message == "Printer not responding. Giving up...":
+				# Restore send button.
+				self.buttonSerialTest.set_sensitive(True)
+				self.buttonSerialTest.set_label("Test serial")
+				# Close and delete serial.
+				self.serial.stop()
+				self.serial.close()
+				del self.serial
+				# Return False to remove listener from timeout.
+				return False
+			else:
+				return True
+		else:
+			# Add a dot to the console to let people know the program is not blocked...
+			self.consoleSerial.addString(".")
+			# Return True to keep listener in timeout.
+			return True
+
+
+
+	# Defaults function.
+	def callbackDefaults(self, widget, data=None):
+		# Load default settings.
+		self.settings.loadDefaults()
+		self.imageContainer.updateImage()
+
+	# Cancel function.
+#	def callbackCancel(self, widget, data=None):
+#		# Restore values.
+#		print ("Before: " + str(self.settingsBackup['calibrationImage'].value))
+#		self.settings = self.settingsBackup
+#		print ("After: " + str(self.settings['calibrationImage'].value))
+#		# Delete the calibration image in case it was just added.
+#		if (self.settings['calibrationImage'].value == False): self.imageContainer.deleteImageFile()
+#		# Close with old values restored.
+#		self.destroy()
+
+	# Destroy function.
+	def callbackClose(self, widget, data=None):
+		pass
+
+		# Delete the calibration image in case it was just added.
+		if (self.settings['calibrationImage'].value == False):
+			self.imageContainer.deleteImageFile()
+
+		'''
+		# Restart the file transmission thread.
+		if self.settings['printOnRaspberry'].value:
+			ipFileClient = self.settings['ipAddressRaspi'].value
+			portFileClient = self.settings['fileTransmissionPortRaspi'].value
+			if self.parentWindow.threadFileTransmission != None:
+				self.parentWindow.threadFileTransmission.join(100)
+				self.parentWindow.threadFileTransmission.reset(ipFileClient, portFileClient)
+				self.parentWindow.threadFileTransmission.run()
+
+		# Restart the communication socket.
+		if self.settings['printOnRaspberry'].value:
+			ipCommClient = self.settings['ipAddressRaspi'].value
+			portCommClient = self.settings['networkPortRaspi'].value
+			self.parentWindow.socket.reset(ipCommClient, portCommClient)
+		'''
+
+		# Set print process modules to settings.
+	#	self.settings.setPrintProcessList(self.listViewModules.getPrintProcessList())
+
+		# Set print resolution.
+#		self.settings['pxPerMm'].value = self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value
+		self.settings['pxPerMmX'].setValue(self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value)
+		self.settings['pxPerMmY'].setValue(self.settings['projectorSizeY'].value / self.settings['buildSizeY'].value)
+
+		# Update parent window in response to changing boards.
+		self.parent.updateAllEntries(render=True)
+		if self.resetGui:
+			# Reset build volume box.
+			self.parent.renderView.buildVolume.resize((self.settings['buildSizeX'].value, self.settings['buildSizeY'].value, self.settings['buildSizeZ'].value))
+			self.parent.notebookSettings.setCurrentPage(0)
+			if len(self.parent.modelCollection) > 1:
+				self.parent.setGuiState(1)
+			else:
+				self.parent.setGuiState(0)
+			self.parent.updateAllModels()
+		elif self.reslice:
+			# Set to slicer page if currently in print page.
+			if self.parent.notebookSettings.getCurrentPage() == 3:
+				self.parent.notebookSettings.setCurrentPage(2)
+			# Set gui state if more than the empty default model exists.
+			if len(self.parent.modelCollection) > 1:
+				self.parent.setGuiState(2)
+			self.parent.updateAllModels()
+			self.parent.updateSlider()
+
+		# Close.
+		self.close()
+
+

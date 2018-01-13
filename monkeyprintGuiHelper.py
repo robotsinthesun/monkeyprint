@@ -33,7 +33,6 @@ import inspect	# Provides methdos to check arguments of a function.
 import monkeyprintImageHandling as imageHandling
 import monkeyprintPrintProcess
 import Queue, threading, subprocess
-
 import re
 
 import cv2
@@ -43,12 +42,12 @@ import cv2
 # Main window class that overrides the close event to show an "Are you sure?" box.
 class mainWindow(QtGui.QMainWindow):
 
-	def __init__(self, checkPrinterRunning):
+	def __init__(self, app):
 		QtGui.QMainWindow.__init__(self)
-		self.checkPrinterRunning = checkPrinterRunning
+		self.app = app
 
-	def closeEvent(self,event):
-		if self.checkPrinterRunning():
+	def closeEvent(self, event):
+		if self.app.printRunning:
 			result = QtGui.QMessageBox.information(	self,
 													"Nope",
 													"You cannot exit while a print is running.",
@@ -60,6 +59,7 @@ class mainWindow(QtGui.QMainWindow):
 													QtGui.QMessageBox.Yes| QtGui.QMessageBox.No)
 
 		if result == QtGui.QMessageBox.Yes:
+			self.app.closeNicely()
 			event.accept()
 		else:
 			event.ignore()
@@ -1227,11 +1227,6 @@ class dialogStartPrint(QtGui.QDialog):
 		self.setWindowTitle("Ready to print?")
 		# Set modal.
 		self.setModal(True)
-		#self.set_modal(True)
-		# Associate with parent window (no task bar icon, hide if parent is hidden etc)
-		#self.set_transient_for(parent)
-		#self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
-		#self.show()
 
 		# Create check buttons.
 		self.boxCheckbuttons = QtGui.QVBoxLayout()
@@ -1424,7 +1419,138 @@ class messageWindowSaveSlices(QtGui.QDialog):
 
 
 
+# Pix buf for calibration image display.
+class imageFromFile(QtGui.QWidget):
+	def __init__(self, programSettings, width = 100, customFunctions=[]):
+		# Init super class.
+		QtGui.QWidget.__init__(self)
 
+		# Internalise data.
+		self.programSettings = programSettings
+		self.width = width
+
+		self.customFunctions = customFunctions
+
+		# Get projector width and set height according to projector aspect ratio.
+		aspect = float(self.programSettings['projectorSizeY'].getValue()) / float(self.programSettings['projectorSizeX'].getValue())
+		self.height = int(width * aspect)
+
+		boxMain = QtGui.QVBoxLayout()
+		self.setLayout(boxMain)
+
+		# Create image view.
+		self.imageView = QtGui.QLabel()
+		self.imgSpacingBox =  QtGui.QHBoxLayout()
+		self.imgSpacingBox.addWidget(self.imageView)
+		boxMain.addLayout(self.imgSpacingBox)
+		self.pixmap = QtGui.QPixmap()
+		self.imageView.setPixmap(self.pixmap)
+
+		# Load and delete button.
+		buttonBox = QtGui.QHBoxLayout()
+		boxMain.addLayout(buttonBox)
+		self.buttonLoad = QtGui.QPushButton('Load')
+		buttonBox.addWidget(self.buttonLoad)
+		self.buttonLoad.clicked.connect(self.callbackLoad)
+		self.buttonRemove = QtGui.QPushButton('Remove')
+		buttonBox.addWidget(self.buttonRemove)
+		self.buttonRemove.clicked.connect(self.callbackRemove)
+		self.buttonRemove.setEnabled(self.programSettings['calibrationImage'].getValue())
+
+		# Create white dummy image.
+		self.imageWhite = numpy.ones((self.height, self.width, 3), numpy.uint8) * 255
+
+		# Load the image.
+		self.updateImage()
+
+
+	def updateImage(self):
+		# Load calibration image into pixmap if present.
+		if (self.programSettings['calibrationImage'].getValue() == True):
+			# Load image from file.
+			if (os.path.isfile('./calibrationImage.jpg')):
+				print "foo"
+				# Write image to pixmap.
+				self.pixmap.load('./calibrationImage.jpg')
+				# Resize the image.
+			#self.pixmap = self.pixmap.scaled(self.width, self.height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+			elif (os.path.isfile('./calibrationImage.png')):
+				# Write image to pixmap.
+				self.pixmap.load('./calibrationImage.png')
+				# Resize the image.
+				self.pixmap = self.pixmap.scaled(self.width, self.height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+			else:
+				self.programSettings['calibrationImage'].setValue(False)
+
+
+		# If no image present, create white dummy image.
+		if self.programSettings['calibrationImage'].getValue() == False:
+			image = self.imageWhite
+			image = imageHandling.convertSingle2RGB(image)
+			imageQt = QtGui.QImage(image, image.shape[1], image.shape[0], QtGui.QImage.Format_RGB888)
+			self.pixmap = QtGui.QPixmap.fromImage(imageQt)
+
+		# Set image to viewer.
+		self.imageView.setPixmap(self.pixmap)
+
+
+
+
+
+
+	def callbackLoad(self, data=None):
+		filepath = ""
+		fileChooser = QtGui.QFileDialog()
+		fileChooser.setFileMode(QtGui.QFileDialog.AnyFile)
+		fileChooser.setFilter("Images (*.jpg *.png)")
+		fileChooser.setWindowTitle("Select calibration image")
+		fileChooser.setDirectory(self.programSettings['currentFolder'].getValue())
+		filenames = QtCore.QStringList()
+		if fileChooser.exec_() == QtGui.QDialog.Accepted:
+			filepath = str(fileChooser.selectedFiles()[0])
+			filename = filepath.split('/')[-1]
+			fileExtension = filepath.lower()[-4:]
+			# Check if file is an image. If not...
+			if (fileExtension == ".jpg" or fileExtension == ".png"):
+				# Copy image file to program path.
+				try:
+					shutil.copy(filepath, './calibrationImage' + fileExtension)
+				except shutil.Error:
+					print "You selected the current calibration image. Nothing changed."
+				# Set button sensitivities.
+				self.buttonRemove.setEnabled(True)
+				self.programSettings['calibrationImage'].setValue(True)
+				# Update the image.
+				self.updateImage()
+
+				# Run custom functions.
+				for fnc in self.customFunctions:
+					fnc()
+
+
+
+	def callbackRemove(self, data=None):
+		self.programSettings['calibrationImage'].setValue(False)
+
+		# Set button sensitivities.
+		self.buttonRemove.setEnabled(False)
+		# Update the image.
+		self.updateImage()
+
+		# Run custom functions.
+		for fnc in self.customFunctions:
+			fnc()
+
+	def deleteImageFile(self):
+		# Delete the current file.
+		try:
+			os.remove('./calibrationImage.jpg')
+		except (OSError, IOError):
+			pass
+		try:
+			os.remove('./calibrationImage.png')
+		except (OSError, IOError):
+			pass
 
 
 

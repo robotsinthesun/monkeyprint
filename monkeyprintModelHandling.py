@@ -385,7 +385,7 @@ class modelCollection(dict):
 		self.console = console
 
 		# Create slice image. *********************************
-		self.sliceImage = imageHandling.createImageGray(self.programSettings['projectorSizeX'].value, self.programSettings['projectorSizeY'].value, 0)
+		self.sliceImage = imageHandling.createImageGray(self.programSettings['projectorSizeX'].getValue(), self.programSettings['projectorSizeY'].getValue(), 0)
 		self.sliceImageBlack = numpy.empty_like(self.sliceImage)
 
 		# Preview slice stack. ********************************
@@ -1091,41 +1091,41 @@ class modelData:
 
 		# Get settings.
 		# Model settings.
-		self.active = self.settings['active'].value
-		self.scaling = self.settings['scaling'].value
-		self.rotationX = self.settings['rotationX'].value
-		self.rotationY = self.settings['rotationY'].value
-		self.rotationZ = self.settings['rotationZ'].value
-		self.positionX = self.settings['positionX'].value
-		self.positionY = self.settings['positionY'].value
-		self.bottomClearance = self.settings['bottomClearance'].value
-		self.modelSafetyDistance = self.programSettings['modelSafetyDistance'].value
-		self.buildSizeX = self.programSettings['buildSizeX'].value
-		self.buildSizeY = self.programSettings['buildSizeY'].value
-		self.buildSizeZ = self.programSettings['buildSizeZ'].value
+		self.active = self.settings['active'].getValue()
+		self.scaling = self.settings['scaling'].getValue()
+		self.rotationX = self.settings['rotationX'].getValue()
+		self.rotationY = self.settings['rotationY'].getValue()
+		self.rotationZ = self.settings['rotationZ'].getValue()
+		self.positionX = self.settings['positionX'].getValue()
+		self.positionY = self.settings['positionY'].getValue()
+		self.bottomClearance = self.settings['bottomClearance'].getValue()
+		self.modelSafetyDistance = self.programSettings['modelSafetyDistance'].getValue()
+		self.buildSizeX = self.programSettings['buildSizeX'].getValue()
+		self.buildSizeY = self.programSettings['buildSizeY'].getValue()
+		self.buildSizeZ = self.programSettings['buildSizeZ'].getValue()
 
 		# Support settings.
-		self.createBottomPlate = self.settings['createBottomPlate'].value
-		self.createSupports = self.settings['createSupports'].value
-		self.bottomPlateThickness = self.settings['bottomPlateThickness'].value
-		self.overhangAngle = self.settings['overhangAngle'].value
-		self.spacingX = self.settings['spacingX'].value
-		self.spacingY = self.settings['spacingY'].value
-		self.maximumHeight = self.settings['maximumHeight'].value
-		self.baseDiameter = self.settings['baseDiameter'].value
-		self.tipDiameter = self.settings['tipDiameter'].value
-		self.coneHeight = self.settings['coneHeight'].value
+		self.createBottomPlate = self.settings['createBottomPlate'].getValue()
+		self.createSupports = self.settings['createSupports'].getValue()
+		self.bottomPlateThickness = self.settings['bottomPlateThickness'].getValue()
+		self.overhangAngle = self.settings['overhangAngle'].getValue()
+		self.spacingX = self.settings['spacingX'].getValue()
+		self.spacingY = self.settings['spacingY'].getValue()
+		self.maximumHeight = self.settings['maximumHeight'].getValue()
+		self.baseDiameter = self.settings['baseDiameter'].getValue()
+		self.tipDiameter = self.settings['tipDiameter'].getValue()
+		self.coneHeight = self.settings['coneHeight'].getValue()
 		# Slicer settings.
-		self.projectorSizeX = self.programSettings['projectorSizeX'].value
-		self.projectorSizeY = self.programSettings['projectorSizeY'].value
-		self.previewSliceWidth = self.programSettings['previewSliceWidth'].value
-		self.layerHeight = self.programSettings['layerHeight'].value
-		self.printHollow = self.settings['printHollow'].value
-		self.fill = self.settings['fill'].value
-		self.fillShellWallThickness = self.settings['fillShellWallThickness'].value
-		self.fillSpacing = self.settings['fillSpacing'].value
-		self.fillPatternWallThickness = self.settings['fillPatternWallThickness'].value
-		self.multiBodySlicing = self.programSettings['multiBodySlicing'].value
+		self.projectorSizeX = self.programSettings['projectorSizeX'].getValue()
+		self.projectorSizeY = self.programSettings['projectorSizeY'].getValue()
+		self.previewSliceWidth = self.programSettings['previewSliceWidth'].getValue()
+		self.layerHeight = self.programSettings['layerHeight'].getValue()
+		self.printHollow = self.settings['printHollow'].getValue()
+		self.fill = self.settings['fill'].getValue()
+		self.fillShellWallThickness = self.settings['fillShellWallThickness'].getValue()
+		self.fillSpacing = self.settings['fillSpacing'].getValue()
+		self.fillPatternWallThickness = self.settings['fillPatternWallThickness'].getValue()
+		self.multiBodySlicing = self.programSettings['multiBodySlicing'].getValue()
 
 
 		self.flagSlicerRunning = False
@@ -2727,7 +2727,7 @@ class sliceCombiner(threading.Thread):
 					imageSlice = imageSlice[sliceBorderWidth:sliceHeight-sliceBorderWidth, sliceBorderWidth:sliceWidth-sliceBorderWidth]
 
 					# Once the slice image is complete, subtract the calibration image.
-					if self.calibrationImage != None:
+					if self.programSettings['calibrationImage'].getValue():
 						imageSlice = cv2.subtract(imageSlice, self.calibrationImage)
 					# Then, add the image to the stack or write it to disk.
 					if mode == "preview":#i in sliceNumbers:
