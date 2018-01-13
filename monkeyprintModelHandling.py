@@ -2048,27 +2048,27 @@ class modelData:
 	def settingsChangedSlicer(self):
 		# Check for changes.
 		settingsChanged = []
-		settingsChanged.append(self.projectorSizeX != self.programSettings['projectorSizeX'].value)
-		settingsChanged.append(self.projectorSizeY != self.programSettings['projectorSizeY'].value)
-		settingsChanged.append(self.previewSliceWidth != self.programSettings['previewSliceWidth'].value)
-		settingsChanged.append(self.layerHeight != self.programSettings['layerHeight'].value)
-		settingsChanged.append(self.printHollow != self.settings['printHollow'].value)
-		settingsChanged.append(self.fill != self.settings['fill'].value)
-		settingsChanged.append(self.fillShellWallThickness != self.settings['fillShellWallThickness'].value)
-		settingsChanged.append(self.fillSpacing != self.settings['fillSpacing'].value)
-		settingsChanged.append(self.fillPatternWallThickness != self.settings['fillPatternWallThickness'].value)
-		settingsChanged.append(self.multiBodySlicing != self.programSettings['multiBodySlicing'].value)
+		settingsChanged.append(self.projectorSizeX != self.programSettings['projectorSizeX'].getValue())
+		settingsChanged.append(self.projectorSizeY != self.programSettings['projectorSizeY'].getValue())
+		settingsChanged.append(self.previewSliceWidth != self.programSettings['previewSliceWidth'].getValue())
+		settingsChanged.append(self.layerHeight != self.programSettings['layerHeight'].getValue())
+		settingsChanged.append(self.printHollow != self.settings['printHollow'].getValue())
+		settingsChanged.append(self.fill != self.settings['fill'].getValue())
+		settingsChanged.append(self.fillShellWallThickness != self.settings['fillShellWallThickness'].getValue())
+		settingsChanged.append(self.fillSpacing != self.settings['fillSpacing'].getValue())
+		settingsChanged.append(self.fillPatternWallThickness != self.settings['fillPatternWallThickness'].getValue())
+		settingsChanged.append(self.multiBodySlicing != self.programSettings['multiBodySlicing'].getValue())
 		# Update.
-		self.projectorSizeX = self.programSettings['projectorSizeX'].value
-		self.projectorSizeY = self.programSettings['projectorSizeY'].value
-		self.previewSliceWidth = self.programSettings['previewSliceWidth'].value
-		self.layerHeight = self.programSettings['layerHeight'].value
-		self.printHollow = self.settings['printHollow'].value
-		self.fill = self.settings['fill'].value
-		self.fillShellWallThickness = self.settings['fillShellWallThickness'].value
-		self.fillSpacing = self.settings['fillSpacing'].value
-		self.fillPatternWallThickness = self.settings['fillPatternWallThickness'].value
-		self.multiBodySlicing = self.programSettings['multiBodySlicing'].value
+		self.projectorSizeX = self.programSettings['projectorSizeX'].getValue()
+		self.projectorSizeY = self.programSettings['projectorSizeY'].getValue()
+		self.previewSliceWidth = self.programSettings['previewSliceWidth'].getValue()
+		self.layerHeight = self.programSettings['layerHeight'].getValue()
+		self.printHollow = self.settings['printHollow'].getValue()
+		self.fill = self.settings['fill'].getValue()
+		self.fillShellWallThickness = self.settings['fillShellWallThickness'].getValue()
+		self.fillSpacing = self.settings['fillSpacing'].getValue()
+		self.fillPatternWallThickness = self.settings['fillPatternWallThickness'].getValue()
+		self.multiBodySlicing = self.programSettings['multiBodySlicing'].getValue()
 		# Return change status.
 		return any(settingsChanged)
 

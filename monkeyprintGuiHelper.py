@@ -18,12 +18,6 @@
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
-#import pygtk
-#pygtk.require('2.0')
-#import gtk, gobject
-#import cairo
-#from math import pi
-
 import PyQt4
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt
@@ -87,12 +81,18 @@ class checkbox(QtGui.QCheckBox):
 
 class toggleButton(QtGui.QCheckBox):
 	# Override init function.
-	def __init__(self, string, settings, customFunctions=None, displayString=None):
+	def __init__(self, string, settings=None, modelCollection=None, customFunctions=None, displayString=None):
 
 		# Internalise params.
 		self.string = string
-		self.settings = settings
+		self.modelCollection = modelCollection
 		self.customFunctions = customFunctions
+
+		# Get settings object if model collection was supplied.
+		if self.modelCollection != None:
+			self.settings = self.modelCollection.getCurrentModel().settings
+		elif settings != None:
+			self.settings = settings
 
 		# Create the label string.
 		if displayString != None:
@@ -120,23 +120,36 @@ class toggleButton(QtGui.QCheckBox):
 			for function in self.customFunctions:
 				function()
 
-
 	# Update the toggle state if current model has changed.
 	def update(self):
-		self.set_active(self.settings[self.string].getValue())
+		# If this is a model setting...
+		if self.modelCollection != None:
+			self.set_active(self.modelCollection.getCurrentModel().settings[self.string].getValue())
+		else:
+			self.set_active(self.settings[self.string].getValue())
+
+	## Update the toggle state if current model has changed.
+	#def update(self):
+	#	self.set_active(self.settings[self.string].getValue())
 
 
 # A text entry including a label on the left. ##################################
 # Will call a function passed to it on input. Label, default value and
 # callback function are taken from the settings object.
 
-class entry(QtGui.QHBoxLayout):
+class entry(QtGui.QWidget):
 
 
 	# Override init function.
 	def __init__(self, string, settings=None, modelCollection=None, customFunctions=None, width=None, displayString=None):
 		# Call super class init function.
-		QtGui.QHBoxLayout.__init__(self)
+		QtGui.QWidget.__init__(self)
+
+		box = QtGui.QHBoxLayout()
+		box.setContentsMargins(0,0,0,0)
+		box.setSpacing(0)
+		box.setAlignment(QtCore.Qt.AlignLeft)
+		self.setLayout(box)
 
 		# Internalise params.
 		self.string = string
@@ -163,13 +176,13 @@ class entry(QtGui.QHBoxLayout):
 
 		# Make label.
 		self.label = QtGui.QLabel(self.labelString)
-		self.addWidget(self.label)
-		self.addStretch(1)
+		box.addWidget(self.label, 0, QtCore.Qt.AlignVCenter and QtCore.Qt.AlignLeft)
+		box.addStretch(1)
 
 		# Make text entry.
 		self.entry = QtGui.QLineEdit()
 		self.setColor(False)
-		self.addWidget(self.entry)
+		box.addWidget(self.entry, 0, Qt.AlignVCenter)
 		if width == None:
 			self.entry.setFixedWidth(60)
 		else:
@@ -352,6 +365,8 @@ class modelTableView(QtGui.QWidget):
 		self.guiParent = guiParent
 
 		self.box = QtGui.QVBoxLayout()
+		self.box.setSpacing(0)
+		self.box.setContentsMargins(0,0,0,0)
 		self.setLayout(self.box)
 
 		self.tableView = QtGui.QTableView()
@@ -373,6 +388,8 @@ class modelTableView(QtGui.QWidget):
 
 		self.box.addWidget(self.tableView)
 		self.boxButtons = QtGui.QHBoxLayout()
+		self.boxButtons.setSpacing(0)
+		self.boxButtons.setContentsMargins(0,0,0,0)
 		self.box.addLayout(self.boxButtons)
 		self.buttonAdd = QtGui.QPushButton("Add")
 		self.buttonAdd.clicked.connect(self.callbackButtonAdd)
@@ -885,6 +902,8 @@ class notebook(QtGui.QTabWidget):
 		# Tab sensitivity checking is done there.
 		self.connect(self, QtCore.SIGNAL("currentChanged(int)"), self.callbackPageSwitch)
 
+		self.setStyleSheet("QTabBar.tab { min-width: 100px; }")
+
 	# Function to set tab sensitivity for a given page.
 	'''
 	def setTabEnabled(self, page, sens):
@@ -967,6 +986,9 @@ class imageSlider(QtGui.QVBoxLayout):
 		# Call super class init function.
 		QtGui.QVBoxLayout.__init__(self)
 
+		self.setSpacing(0)
+		self.setContentsMargins(0,0,0,0)
+
 		# Internalise parameters.
 		self.modelCollection = modelCollection
 		self.console = console
@@ -987,7 +1009,7 @@ class imageSlider(QtGui.QVBoxLayout):
 		self.pixmap = QtGui.QPixmap.fromImage(imgQt)
 		# Set image to viewer.
 		self.imageView.setPixmap(self.pixmap)
-		self.addWidget(self.imageView)
+		self.addWidget(self.imageView, 0, QtCore.Qt.AlignHCenter)
 		self.imageView.show()
 
 		# Create slider.
@@ -995,10 +1017,8 @@ class imageSlider(QtGui.QVBoxLayout):
 		# Make horizontal.
 		self.slider.setOrientation(1)
 		# Add to box.
-		self.addWidget(self.slider)
-		for s in dir(self.slider):
-			if 'set' in s:
-				print s
+		self.addWidget(self.slider)#, 0, QtCore.Qt.AlignHCenter)
+		# Init values.
 		self.slider.setRange(1,100)
 		self.slider.setValue(1)
 		# Connect event handler. We only want to update if the button was released.
@@ -1075,6 +1095,104 @@ class imageSlider(QtGui.QVBoxLayout):
 			self.slider.setMaximum(height)
 		self.maxLabel.setText(str(height))
 		self.currentLabel.setText(str(height))
+
+
+
+
+
+
+
+ #####  #####   ####   ##### #####   #####  ##### #####   #####   ####  #####
+ ##  ## ##  ## ##  ## ##     ##  ## ##     ##    ##       ##  ## ##  ## ##  ##
+ ##  ## ##  ## ##  ## ##     ##  ## ####    ####  ####    #####  ##  ## ##  ##
+ #####  #####  ##  ## ## ### #####  ##         ##    ##   ##  ## ###### #####
+ ##     ## ##  ##  ## ##  ## ## ##  ##         ##    ##   ##  ## ##  ## ## ##
+ ##     ##  ##  ####   ####  ##  ##  ##### ##### #####    #####  ##  ## ##  ##
+
+ # Standard QProgressBar does not provide methods to change the overlay text.
+ # Thus, we create a progress bar overlaid by a label to display custom text.
+class MyBar(QtGui.QWidget):
+	# style ='''
+	# 	QProgressBar
+	# 	{
+	# 		border: 2px solid grey;
+	# 		border-radius: 5px;
+	# 		text-align: center;
+	# 	}
+	# '''
+	def __init__(self):
+		super(MyBar, self).__init__()
+		grid = QtGui.QGridLayout()
+
+		self.bar = QtGui.QProgressBar()
+		self.bar.setTextVisible(False)
+		#self.bar.setMaximum(2)
+		#self.bar.setMinimum(0)
+		self.bar.setValue(50)
+
+		#self.bar.setStyleSheet(self.style)
+
+		# Set range to normal.
+		self.bar.setRange(0,1)
+
+		self.label=QtGui.QLabel("Nudge")
+		#self.label.setStyleSheet("QLabel { font-size: 20px }")
+		self.label.setAlignment(QtCore.Qt.AlignCenter)
+
+		# Stack bar and label on top of each other.
+		grid.addWidget(self.bar, 0,0)
+		grid.addWidget(self.label, 0,0)
+		self.setLayout(grid)
+
+	def setNudging(self):
+		self.bar.setRange(0,0)
+
+
+
+class printProgressBar(QtGui.QProgressBar):
+	def __init__(self, sliceQueue=None):
+		QtGui.QProgressBar.__init__(self)
+		self.setRange(0, 13)
+		self.setValue(3)
+		self.setTextVisible(True)
+		self.setText('foo')
+		self.sliceQueue = sliceQueue
+		self.queueStatus = Queue.Queue()
+		self.setFormat("Foo")
+		self.conversion = 1.
+		self.limit = 1.
+
+	# Set number of slices as upper limit.
+	# As the progress bar only takes percentages,
+	# we create a conversion factor from slice
+	# number to percentage using the max number
+	# of slices.
+	def setLimit(self, valMax):
+		self.limit = valMax
+		self.conversion = 100 / float(valMax)
+
+	def setText(self, text):
+		# We cannot
+		self.setFormat(text)
+
+	def setModePending(self):
+		self.setRange(0, 0)
+
+	def setModeNormal(self):
+		self.setRange(0, 1)
+
+
+	def updateValue(self, value=None):
+		# Get the value from the queue.
+		if self.sliceQueue!=None and self.sliceQueue.qsize():
+			self.setValue(int(self.sliceQueue.get() * self.conversion))
+		# Update progress bar if value existant.
+		if value != None:
+			frac = float(value/self.limit)
+			self.set_fraction(frac)
+
+
+
 
 
 '''

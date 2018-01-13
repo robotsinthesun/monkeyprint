@@ -43,7 +43,7 @@ import signal
 import sys
 
 import PyQt4
-from PyQt4 import QtGui, QtCore
+from PyQt4 import QtGui, QtCore, Qt
 from vtk.qt4.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 
@@ -228,6 +228,7 @@ class gui(QtGui.QApplication):
 		# ********************************************************************
 		#The Main window
 		self.mainWindow = QtGui.QMainWindow()
+		self.mainWindow.showMaximized()
 
 		self.centralWidget = QtGui.QWidget()
 		self.mainWindow.setCentralWidget(self.centralWidget)
@@ -315,18 +316,27 @@ class gui(QtGui.QApplication):
 	def createSettingsBox(self):
 		# Create settings box.
 		boxSettings = QtGui.QVBoxLayout()
+		boxSettings.setSpacing(5)
+		boxSettings.setContentsMargins(0,0,0,0)
 
 		# Create model list view.
+		# Label.
+		labelModelTableView = QtGui.QLabel('<b>Models</b>')
+		boxSettings.addWidget(labelModelTableView, 0, QtCore.Qt.AlignTop)
+		# Table view.
 		self.modelTableView = monkeyprintGuiHelper.modelTableView(self.programSettings, self.modelCollection, self.console, self)
+		boxSettings.addWidget(self.modelTableView, 0)
 
-		boxSettings.addWidget(self.modelTableView)
+
+
+		#boxSettings.addWidget(self.modelTableView)
 
 		# Create settings notebook.
 		self.notebookSettings = monkeyprintGuiHelper.notebook()
-		self.notebookSettings.addTab(self.createSettingsModel(),'Model')
-		self.notebookSettings.addTab(self.createSettingsSupports(),'Supports')
-		self.notebookSettings.addTab(self.createSettingsSlicing(),'Slicing')
-		self.notebookSettings.addTab(QtGui.QWidget(),'Print')
+		self.notebookSettings.addTab(self.createSettingsModel(), 'Model')
+		self.notebookSettings.addTab(self.createSettingsSupports(), 'Supports')
+		self.notebookSettings.addTab(self.createSettingsSlicing(), 'Slicing')
+		self.notebookSettings.addTab(self.createSettingsPrint(),'Print')
 
 		# Add notebook to gui.
 		boxSettings.addWidget(self.notebookSettings)
@@ -371,22 +381,22 @@ class gui(QtGui.QApplication):
 		# Create entries.
 		# Scaling.
 		self.entryScaling = monkeyprintGuiHelper.entry('scaling', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
-		boxModelModifications.addLayout(self.entryScaling)
+		boxModelModifications.addWidget(self.entryScaling)
 		# Rotation.
 		self.entryRotationX = monkeyprintGuiHelper.entry('rotationX', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxModelModifications.addLayout(self.entryRotationX)
+		boxModelModifications.addWidget(self.entryRotationX)
 		self.entryRotationY = monkeyprintGuiHelper.entry('rotationY', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxModelModifications.addLayout(self.entryRotationY)
+		boxModelModifications.addWidget(self.entryRotationY)
 		self.entryRotationZ = monkeyprintGuiHelper.entry('rotationZ', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxModelModifications.addLayout(self.entryRotationZ)
+		boxModelModifications.addWidget(self.entryRotationZ)
 		# Position.
 		self.entryPositionX = monkeyprintGuiHelper.entry('positionX', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxModelModifications.addLayout(self.entryPositionX)
+		boxModelModifications.addWidget(self.entryPositionX)
 		self.entryPositionY = monkeyprintGuiHelper.entry('positionY', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxModelModifications.addLayout(self.entryPositionY)
+		boxModelModifications.addWidget(self.entryPositionY)
 		# Bottom clearance.
 		self.entryBottomClearance = monkeyprintGuiHelper.entry('bottomClearance', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxModelModifications.addLayout(self.entryBottomClearance)
+		boxModelModifications.addWidget(self.entryBottomClearance)
 
 		boxSettingsModel.addStretch()
 		return tabSettingsModel
@@ -399,6 +409,7 @@ class gui(QtGui.QApplication):
 		tabSettingsSupports = QtGui.QWidget()
 		# Create main tab box.
 		boxSettingsSupports = QtGui.QVBoxLayout()
+		#boxSettingsSupports.setContentsMargins(0,0,0,0)
 		tabSettingsSupports.setLayout(boxSettingsSupports)
 
 		# Create support pattern frame.
@@ -411,18 +422,18 @@ class gui(QtGui.QApplication):
 		# Create entries.
 		# Overhang angle.
 		self.entryOverhangAngle = monkeyprintGuiHelper.entry('overhangAngle', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxSupportPattern.addLayout(self.entryOverhangAngle)
+		boxSupportPattern.addWidget(self.entryOverhangAngle, 0)
 		# Spacing.
 		self.entrySupportSpacingX = monkeyprintGuiHelper.entry('spacingX', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxSupportPattern.addLayout(self.entrySupportSpacingX)
+		boxSupportPattern.addWidget(self.entrySupportSpacingX)
 		self.entrySupportSpacingY = monkeyprintGuiHelper.entry('spacingY', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxSupportPattern.addLayout(self.entrySupportSpacingY)
+		boxSupportPattern.addWidget(self.entrySupportSpacingY, 0)
 		# Max height.
 		self.entrySupportMaxHeight = monkeyprintGuiHelper.entry('maximumHeight', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxSupportPattern.addLayout(self.entrySupportMaxHeight)
+		boxSupportPattern.addWidget(self.entrySupportMaxHeight, 0)
 		# Bottom plate thickness.
 		self.entrySupportBottomPlateThickness = monkeyprintGuiHelper.entry('bottomPlateThickness', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries] )
-		boxSupportPattern.addLayout(self.entrySupportBottomPlateThickness)
+		boxSupportPattern.addWidget(self.entrySupportBottomPlateThickness, 0)
 
 		# Create support geometry frame.
 		frameSettingsSupportGeo = QtGui.QGroupBox("Support geometry")
@@ -433,13 +444,13 @@ class gui(QtGui.QApplication):
 
 		# Position.
 		self.entrySupportBaseDiameter = monkeyprintGuiHelper.entry('baseDiameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
-		boxSupportGeo.addLayout(self.entrySupportBaseDiameter)
+		boxSupportGeo.addWidget(self.entrySupportBaseDiameter)
 		self.entrySupportTipDiameter = monkeyprintGuiHelper.entry('tipDiameter', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
-		boxSupportGeo.addLayout(self.entrySupportTipDiameter)
+		boxSupportGeo.addWidget(self.entrySupportTipDiameter)
 		# Bottom clearance.
 		self.entrySupportTipHeight = monkeyprintGuiHelper.entry('coneHeight', modelCollection=self.modelCollection, customFunctions=[self.updateCurrentModel, self.renderView.render, self.updateAllEntries])
 
-		boxSupportGeo.addLayout(self.entrySupportTipHeight)
+		boxSupportGeo.addWidget(self.entrySupportTipHeight)
 
 		return tabSettingsSupports
 
@@ -449,8 +460,10 @@ class gui(QtGui.QApplication):
 
 		# Create widget.
 		tabSettingsSlicing = QtGui.QWidget()
+
 		# Create main tab box.
 		boxSettingsSlicing = QtGui.QVBoxLayout()
+		boxSettingsSlicing.setContentsMargins(3,3,3,3)
 		tabSettingsSlicing.setLayout(boxSettingsSlicing)
 
 		# Create slicing parameters frame.
@@ -458,12 +471,14 @@ class gui(QtGui.QApplication):
 		boxSettingsSlicing.addWidget(frameSettingsSlicingParameters)
 		# Create slicing parameters box.
 		boxSlicingParameters = QtGui.QVBoxLayout()
+		boxSlicingParameters.setContentsMargins(0,3,0,3)
+
 		frameSettingsSlicingParameters.setLayout(boxSlicingParameters)
 
 		# Create entries.
 		# Layer height.
 		self.entryLayerHeight = monkeyprintGuiHelper.entry('layerHeight', settings=self.programSettings, customFunctions=[self.modelCollection.updateSliceStack, self.updateSlider, self.renderView.render, self.updateAllEntries])
-		boxSlicingParameters.addLayout(self.entryLayerHeight)
+		boxSlicingParameters.addWidget(self.entryLayerHeight)
 
 
 		# Create fill parameters frame.
@@ -471,16 +486,30 @@ class gui(QtGui.QApplication):
 		boxSettingsSlicing.addWidget(frameSettingsFillParameters)
 		# Create fill parameters box.
 		boxFillParameters = QtGui.QVBoxLayout()
+		boxFillParameters.setContentsMargins(0,3,0,3)
 		frameSettingsFillParameters.setLayout(boxFillParameters)
+		# Create fill parameters checkbox box.
+		boxFillParameterToggles = QtGui.QHBoxLayout()
+		boxFillParameterToggles.setContentsMargins(0,0,0,0)
+		boxFillParameters.addLayout(boxFillParameterToggles)
 
+		# Create toggle buttons.
+		# Hollow.
+		self.toggleButtonHollow = monkeyprintGuiHelper.toggleButton('printHollow', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack, self.updateSlider, self.renderView.render, self.updateAllEntries, self.updateSlicingEntries])
+		boxFillParameterToggles.addWidget(self.toggleButtonHollow, 0, QtCore.Qt.AlignLeft)
+		# Fill.
+		self.toggleButtonFill = monkeyprintGuiHelper.toggleButton('fill', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack, self.updateSlider, self.renderView.render, self.updateAllEntries, self.updateSlicingEntries])
+		boxFillParameterToggles.addWidget(self.toggleButtonFill, 0, QtCore.Qt.AlignLeft)
+
+		# Create entries.
 		# Position.
-		self.entryFillShellThickness = monkeyprintGuiHelper.entry('fillShellWallThickness', modelCollection=self.modelCollection)
-		boxFillParameters.addLayout(self.entryFillShellThickness)
-		self.entryFillSpacing = monkeyprintGuiHelper.entry('fillSpacing', modelCollection=self.modelCollection )
-		boxFillParameters.addLayout(self.entryFillSpacing)
+		self.entryFillShellThickness = monkeyprintGuiHelper.entry('fillShellWallThickness', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack, self.updateSlider, self.renderView.render, self.updateAllEntries])
+		boxFillParameters.addWidget(self.entryFillShellThickness)
+		self.entryFillSpacing = monkeyprintGuiHelper.entry('fillSpacing', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack, self.updateSlider, self.renderView.render, self.updateAllEntries])
+		boxFillParameters.addWidget(self.entryFillSpacing)
 		# Bottom clearance.
-		self.entryFillThickness = monkeyprintGuiHelper.entry('fillPatternWallThickness', modelCollection=self.modelCollection )
-		boxFillParameters.addLayout(self.entryFillThickness)
+		self.entryFillThickness = monkeyprintGuiHelper.entry('fillPatternWallThickness', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack, self.updateSlider, self.renderView.render, self.updateAllEntries])
+		boxFillParameters.addWidget(self.entryFillThickness)
 
 		# Create preview frame.
 		frameSlicePreview = QtGui.QGroupBox("Slice preview")
@@ -513,26 +542,163 @@ class gui(QtGui.QApplication):
 
 
 
+	def createSettingsPrint(self):
+
+		# Create widget.
+		tabSettingsPrint = QtGui.QWidget()
+		# Create main tab box.
+		boxSettingsPrint = QtGui.QVBoxLayout()
+		#boxSettingsPrint.setContentsMargins(0,0,0,0)
+		tabSettingsPrint.setLayout(boxSettingsPrint)
+
+
+		# Create slicing parameters frame.
+		frameSettingsPrintParameters = QtGui.QGroupBox("Print parameters")
+		boxSettingsPrint.addWidget(frameSettingsPrintParameters)
+		# Create print parameters box.
+		boxPrintParameters = QtGui.QVBoxLayout()
+		boxPrintParameters.setContentsMargins(0,3,0,3)
+
+		frameSettingsPrintParameters.setLayout(boxPrintParameters)
+
+		# Create entries.
+		self.entryExposure = monkeyprintGuiHelper.entry('exposureTime', settings=self.programSettings)
+		boxPrintParameters.addWidget(self.entryExposure)
+		self.entryExposureBase = monkeyprintGuiHelper.entry('exposureTimeBase', settings=self.programSettings)
+		boxPrintParameters.addWidget(self.entryExposureBase)
+		self.entryNumberOfBaseLayers = monkeyprintGuiHelper.entry('numberOfBaseLayers', settings=self.programSettings)
+		boxPrintParameters.addWidget(self.entryNumberOfBaseLayers)
+	#	self.entrySettleTime = monkeyprintGuiHelper.entry('Resin settle time', settings=self.programSettings)
+	#	self.boxPrintParameters.pack_start(self.entrySettleTime, expand=True, fill=True)
+
+		# Create model volume frame.
+		frameResinVolume = QtGui.QGroupBox("Resin volume")
+		boxSettingsPrint.addWidget(frameResinVolume)
+		# Create print parameters box.
+		boxResinVolume = QtGui.QVBoxLayout()
+		boxResinVolume.setContentsMargins(0,3,0,3)
+		frameResinVolume.setLayout(boxResinVolume)
+
+		# Resin volume label.
+		self.resinVolumeLabel = QtGui.QLabel("Volume: ")
+		boxResinVolume.addWidget(self.resinVolumeLabel, 0, QtCore.Qt.AlignHCenter)
+
+		'''
+		# Create camerra trigger frame.
+		self.frameCameraTrigger = gtk.Frame(label="Camera trigger")
+		self.printTab.pack_start(self.frameCameraTrigger, expand=False, fill=False, padding = 5)
+		self.frameCameraTrigger.show()
+		self.boxCameraTrigger = gtk.HBox()
+		self.frameCameraTrigger.add(self.boxCameraTrigger)
+		self.boxCameraTrigger.show()
+
+		# Camera trigger checkbuttons.
+#TODO		self.checkButtonCameraTrigger1 = monkeyprintGuiHelper.toggleButton(string="During exposure",)
+		self.labelCamTrigger1 = gtk.Label("During exposure")
+		self.boxCameraTrigger.pack_start(self.labelCamTrigger1, expand=False, fill=False, padding=5)
+		self.labelCamTrigger1.show()
+		self.checkboxCameraTrigger1 = gtk.CheckButton()
+		self.boxCameraTrigger.pack_start(self.checkboxCameraTrigger1, expand=False, fill=False, padding=5)
+		self.checkboxCameraTrigger1.set_active(self.programSettings['camTriggerWithExposure'].value)
+		self.checkboxCameraTrigger1.connect("toggled", self.callbackCheckButtonTrigger1)
+		self.checkboxCameraTrigger1.show()
+		self.labelCamTrigger2 = gtk.Label("After exposure")
+		self.boxCameraTrigger.pack_start(self.labelCamTrigger2, expand=False, fill=False, padding=5)
+		self.labelCamTrigger2.show()
+		self.checkboxCameraTrigger2 = gtk.CheckButton()
+		self.boxCameraTrigger.pack_start(self.checkboxCameraTrigger2, expand=False, fill=False, padding=5)
+		self.checkboxCameraTrigger2.set_active(self.programSettings['camTriggerAfterExposure'].value)
+		self.checkboxCameraTrigger2.connect("toggled", self.callbackCheckButtonTrigger2)
+		self.checkboxCameraTrigger2.show()
+		'''
+		# Create model volume frame.
+		framePrintControl = QtGui.QGroupBox("Print control")
+		boxSettingsPrint.addWidget(framePrintControl)
+		# Create print parameters box.
+		boxPrintControl = QtGui.QHBoxLayout()
+		boxPrintControl.setContentsMargins(0,3,0,3)
+		boxPrintControl.setSpacing(0)
+		framePrintControl.setLayout(boxPrintControl)
+		boxPrintControl.setSpacing(0)
+
+
+		# Create print control buttons.
+		self.buttonPrintStart = QtGui.QPushButton('Print')
+		self.buttonPrintStart.setMaximumSize(QtCore.QSize(40,23))
+		boxPrintControl.addWidget(self.buttonPrintStart)
+		self.buttonPrintStop = QtGui.QPushButton('Stop')
+		self.buttonPrintStop.setMaximumSize(QtCore.QSize(40,23))
+		self.buttonPrintStop.setEnabled(False)
+		boxPrintControl.addWidget(self.buttonPrintStop)
+		'''
+		self.boxPrintButtons = gtk.HBox()
+		self.boxPrintControl.pack_start(self.boxPrintButtons, expand=False, fill=False)
+		self.boxPrintButtons.show()
+		self.buttonPrintStart = gtk.Button('Print')
+		self.boxPrintButtons.pack_start(self.buttonPrintStart, expand=False, fill=False)
+		self.buttonPrintStart.connect('clicked', self.callbackStartPrintProcess)
+		self.buttonPrintStart.show()
+		self.buttonPrintStop = gtk.Button('Stop')
+		self.boxPrintButtons.pack_start(self.buttonPrintStop, expand=False, fill=False)
+		self.buttonPrintStop.set_sensitive(False)
+		self.buttonPrintStop.show()
+		self.buttonPrintStop.connect('clicked', self.callbackStopPrintProcess)
+		'''
+		# Create progress bar.
+		#self.progressBar1 = monkeyprintGuiHelper.MyBar()
+		#boxPrintControl.addWidget(self.progressBar1)
+
+		self.progressBar = monkeyprintGuiHelper.printProgressBar()
+		boxPrintControl.addWidget(self.progressBar)
+		'''
+		# Create preview frame.
+		self.framePreviewPrint = gtk.Frame(label="Slice preview")
+		self.printTab.pack_start(self.framePreviewPrint, padding = 5)
+		self.framePreviewPrint.show()
+		self.boxPreviewPrint = gtk.HBox()
+		self.framePreviewPrint.add(self.boxPreviewPrint)
+		self.boxPreviewPrint.show()
+
+		# Create slice image.
+		self.sliceView = monkeyprintGuiHelper.imageView(settings=self.programSettings, modelCollection=self.modelCollection, width=self.programSettings['previewSliceWidth'].value)
+		self.boxPreviewPrint.pack_start(self.sliceView, expand=True, fill=True)
+		self.sliceView.show()
+		'''
+
+		return tabSettingsPrint
+
 
 	# **************************************************************************
 	# Gui update function. *****************************************************
 	# **************************************************************************
 
 	def checkSlicer(self):
-		if self.slicerRunning == True and self.modelCollection.sliceCombinerFinished == True:
+		if self.slicerRunning and self.modelCollection.sliceCombinerFinished:
 			self.updateSlider()
+			self.setGuiState(3)
 			self.slicerRunning = False
+		elif self.slicerRunning and not self.modelCollection.sliceCombinerFinished:
+			if self.getGuiState() == 3:
+				self.setGuiState(2)
 		self.slicerRunning = not self.modelCollection.sliceCombinerFinished
 
+	def updateSlicingEntries(self):
+		print self.toggleButtonHollow.isChecked()
+		print self.toggleButtonFill.isChecked()
+		self.entryFillShellThickness.setEnabled(self.toggleButtonHollow.isChecked())
+		enableFill = self.toggleButtonHollow.isChecked and self.toggleButtonFill.isChecked()
+		self.entryFillSpacing.setEnabled(enableFill)
+		self.entryFillThickness.setEnabled(enableFill)
 
 
 	def updateVolume(self):
-		self.resinVolumeLabel.set_text("Volume: " + str(self.modelCollection.getTotalVolume()) + " ml.")
+		self.resinVolumeLabel.setText("Volume: " + str(self.modelCollection.getTotalVolume()) + " ml.")
 
 
 
 	def setGuiState(self, state):
-		# State for is for printing.
+		# State 4 is for printing.
+		# Disables the model, supports and slicer tabs.
 		if state == 4:
 			for i in range(self.notebookSettings.count()):
 				if i < 3:
@@ -542,6 +708,7 @@ class gui(QtGui.QApplication):
 		else:
 			for i in range(self.notebookSettings.count()):
 				if i<=state:
+					print "foo"
 					self.notebookSettings.setTabEnabled(i, True)
 				else:
 					self.notebookSettings.setTabEnabled(i, False)
