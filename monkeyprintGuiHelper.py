@@ -40,6 +40,32 @@ import cv2
 
 
 
+# Main window class that overrides the close event to show an "Are you sure?" box.
+class mainWindow(QtGui.QMainWindow):
+
+	def __init__(self, checkPrinterRunning):
+		QtGui.QMainWindow.__init__(self)
+		self.checkPrinterRunning = checkPrinterRunning
+
+	def closeEvent(self,event):
+		if self.checkPrinterRunning():
+			result = QtGui.QMessageBox.information(	self,
+													"Nope",
+													"You cannot exit while a print is running.",
+													QtGui.QMessageBox.Ok)
+		else:
+			result = QtGui.QMessageBox.question(	self,
+													"Confirm Exit...",
+													"Are you sure you want to exit ?",
+													QtGui.QMessageBox.Yes| QtGui.QMessageBox.No)
+
+		if result == QtGui.QMessageBox.Yes:
+			event.accept()
+		else:
+			event.ignore()
+
+
+
 # Button convenience class.
 class button(QtGui.QPushButton):
 	def __init__(self, label, callback):
@@ -1077,7 +1103,7 @@ class imageSlider(QtGui.QVBoxLayout):
 				val = None
 				for arg in inspect.getargspec(function)[0]:
 					if arg == 'sliceNumber':
-						val = sliderValue
+						val = sliderValue-1
 				# Run function.
 				if val != None: function(val)
 				else: function()
@@ -1150,17 +1176,15 @@ class MyBar(QtGui.QWidget):
 
 
 class printProgressBar(QtGui.QProgressBar):
-	def __init__(self, sliceQueue=None):
+	def __init__(self):
 		QtGui.QProgressBar.__init__(self)
-		self.setRange(0, 13)
+		self.setRange(0, 100)
 		self.setValue(3)
 		self.setTextVisible(True)
-		self.setText('foo')
-		self.sliceQueue = sliceQueue
-		self.queueStatus = Queue.Queue()
-		self.setFormat("Foo")
-		self.conversion = 1.
-		self.limit = 1.
+		#self.conversion = 1.
+		#self.limit = 1.
+
+		self.setValue(0)
 
 	# Set number of slices as upper limit.
 	# As the progress bar only takes percentages,
@@ -1168,11 +1192,10 @@ class printProgressBar(QtGui.QProgressBar):
 	# number to percentage using the max number
 	# of slices.
 	def setLimit(self, valMax):
-		self.limit = valMax
-		self.conversion = 100 / float(valMax)
+		self.setRange(0, valMax)
+		#self.conversion = 100 / float(valMax)
 
 	def setText(self, text):
-		# We cannot
 		self.setFormat(text)
 
 	def setModePending(self):
@@ -1183,13 +1206,231 @@ class printProgressBar(QtGui.QProgressBar):
 
 
 	def updateValue(self, value=None):
-		# Get the value from the queue.
-		if self.sliceQueue!=None and self.sliceQueue.qsize():
-			self.setValue(int(self.sliceQueue.get() * self.conversion))
 		# Update progress bar if value existant.
 		if value != None:
-			frac = float(value/self.limit)
-			self.set_fraction(frac)
+			self.setValue(int(value))
+
+
+
+
+
+
+# Start print dialogue. ########################################################
+# Start the dialog, evaluate the check boxes on press of OK and exit,
+# or just exit on cancel.
+class dialogStartPrint(QtGui.QDialog):
+	# Override init function.
+	def __init__(self, parent):
+		# Call super class init function.
+		QtGui.QDialog.__init__(self, parent)
+		# Set title.
+		self.setWindowTitle("Ready to print?")
+		# Set modal.
+		self.setModal(True)
+		#self.set_modal(True)
+		# Associate with parent window (no task bar icon, hide if parent is hidden etc)
+		#self.set_transient_for(parent)
+		#self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
+		#self.show()
+
+		# Create check buttons.
+		self.boxCheckbuttons = QtGui.QVBoxLayout()
+		# Checkbutton resin.
+		self.checkboxResin = QtGui.QCheckBox("VAT filled with resin?")
+		self.boxCheckbuttons.addWidget(self.checkboxResin)
+		self.checkboxResin.setChecked(False)
+		# Checkbutton build platform.
+		self.checkboxBuild = QtGui.QCheckBox("Build platform empty?")
+		self.boxCheckbuttons.addWidget(self.checkboxBuild)
+		self.checkboxBuild.setChecked(False)
+
+		# Checkbutton 3rd condition.
+		self.checkboxCustom = QtGui.QCheckBox("Everything else OK?")
+		self.boxCheckbuttons.addWidget(self.checkboxCustom)
+		self.checkboxCustom.setChecked(False)
+
+		# Create OK and Cancel button.
+		self.buttonBox = QtGui.QVBoxLayout()
+		self.boxCheckbuttons.addLayout(self.buttonBox)
+		self.buttonCancel = QtGui.QPushButton("Cancel")
+		self.buttonBox.addWidget(self.buttonCancel)
+
+		self.buttonOK = QtGui.QPushButton("OK")
+		self.buttonOK.setEnabled(False)
+		self.buttonBox.addWidget(self.buttonOK)
+
+
+		# Set callbacks
+		self.buttonOK.clicked.connect(self.accept)
+		self.buttonCancel.clicked.connect(self.reject)
+		self.checkboxCustom.stateChanged.connect(self.callbackCheckbox)
+		self.checkboxBuild.stateChanged.connect(self.callbackCheckbox)
+		self.checkboxResin.stateChanged.connect(self.callbackCheckbox)
+
+		self.setLayout(self.boxCheckbuttons)
+
+
+
+	def callbackCheckbox(self, data=None):
+		if self.checkboxResin.isChecked() and self.checkboxBuild.isChecked() and self.checkboxCustom.isChecked():
+			self.buttonOK.setEnabled(True)
+		else:
+			self.buttonOK.setEnabled(False)
+
+
+
+
+
+
+class imageView(QtGui.QLabel):
+	def __init__(self, settings, modelCollection, mode, width=None, console=None):
+		# Call super class init function.
+		QtGui.QLabel.__init__(self)
+
+		# Internalise parameters.
+		self.modelCollection = modelCollection
+		self.console = console
+		self.settings = settings
+		self.mode = mode
+
+		# Get width and set height according to projector aspect ratio.
+		if self.mode == 'preview' and width == None:
+			self.width = self.settings['previewSliceWidth'].getValue()
+			aspect = float(self.settings['projectorSizeY'].getValue()) / float(self.settings['projectorSizeX'].getValue())
+			self.height = int(self.width * aspect)
+		elif self.mode == 'full' and width == None:
+			self.width = self.settings['projectorSizeX'].getValue()
+			self.height = self.settings['projectorSizeY'].getValue()
+		elif width != None:
+			aspect = float(self.settings['projectorSizeY'].getValue()) / float(self.settings['projectorSizeX'].getValue())
+			self.width = width
+			self.height = int(self.width * aspect)
+
+		# Create black dummy image.
+		self.imageBlack = numpy.zeros((self.height, self.width, 3), numpy.uint8)
+
+		# Set black.
+		self.updateImage(-1)
+
+
+	# Check if a new slice number is in the queue.
+	def updateImage(self, sliceNumber):
+		if sliceNumber != -1:
+			# Get image.
+			image = self.modelCollection.updateSliceImage(sliceNumber, self.mode)
+			# Get the image from the slice buffer and convert it to 3 channels.
+			image = imageHandling.convertSingle2RGB(image)
+			# Resize if necessary.
+			if image.shape[0] != self.width or image.shape[1] != self.height:
+				image = cv2.resize(image, (self.width, self.height))
+			# Write image to pixmap.
+			imageQt = QtGui.QImage(image, image.shape[1], image.shape[0], QtGui.QImage.Format_RGB888)
+			self.pixmap = QtGui.QPixmap.fromImage(imageQt)
+			# Resize the image if it doesn't fit.
+			#if self.settings['debug'].value:
+			#if self.resizeFlag and image.shape[1] != self.settings['previewSliceWidth'].value:
+			#	self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
+		else:
+			image = self.imageBlack
+			image = imageHandling.convertSingle2RGB(image)
+			imageQt = QtGui.QImage(image, image.shape[1], image.shape[0], QtGui.QImage.Format_RGB888)
+			self.pixmap = QtGui.QPixmap.fromImage(imageQt)
+		# Set pixbuf.
+		self.setPixmap(self.pixmap)
+
+
+
+
+
+
+
+
+class projectorDisplay(QtGui.QMainWindow):
+	def __init__(self, settings, modelCollection):
+		# Init base class and set window hint to undecorated.
+		QtGui.QMainWindow.__init__(self, None, QtCore.Qt.FramelessWindowHint)
+
+		# Internalise parameters.
+		self.settings = settings
+		self.modelCollection = modelCollection
+
+		debugWidth = 200
+
+		self.debug = self.settings['debug'].value
+
+		# Customise window.
+		# Call resize before showing the window.
+		if self.debug:
+			aspect = float(self.settings['projectorSizeY'].value) / float(self.settings['projectorSizeX'].value)
+			self.setGeometry(200, 100, debugWidth, int(debugWidth*aspect))
+		else:
+			self.setGeometry(self.settings['projectorPositionX'].value, self.settings['projectorPositionY'].value, self.settings['projectorSizeX'].value, self.settings['projectorSizeY'].value)
+		# Show the window.
+		self.show()
+
+		# Create image view.
+		if self.debug:
+			self.imageView = imageView(self.settings, self.modelCollection, mode = 'full', width = debugWidth)
+		else:
+			self.imageView = imageView(self.settings, self.modelCollection, mode = 'full')
+
+
+		self.setCentralWidget(self.imageView)
+		self.show()
+
+	def updateImage(self, sliceNumber):
+		self.imageView.updateImage(sliceNumber)
+
+
+
+
+
+
+
+
+
+
+class messageWindowSaveSlices(QtGui.QDialog):
+	# Override init function.
+	def __init__(self, parent, modelCollection, path):
+		# Call super class init function.
+		QtGui.QDialog.__init__(self, parent)
+		# Set title.
+		self.setWindowTitle("Saving slice images...")
+		# Set modal.
+		self.setModal(True)
+
+		# Main layout.
+		box = QtGui.QVBoxLayout()
+		self.setLayout(box)
+
+		# Progress bar.
+		self.bar = QtGui.QProgressBar()
+		self.bar.setValue(0)
+		box.addWidget(self.bar)
+
+		# Show dialog.
+		self.show()
+
+		# Save the model collection to the given location.
+		modelCollection.saveSliceStack(path=path, updateFunction=self.updateBar)
+
+	def updateBar(self, value):
+		self.bar.setValue(value)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -95,7 +95,7 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 
 		# Create additional variables.*************************
 		# Flag to set during print process.
-		self.printFlag = True
+		self.printRunning = True
 		self.programSettings['printOnRaspberry'].value = True
 
 		# Create the print window.
@@ -125,7 +125,7 @@ class noGui(monkeyprintGuiHelper.projectorDisplay):
 			#self.progressBar.setText(self.queueStatus.get())
 			message = self.queueStatus.get()
 			if message == "destroy":
-				self.printFlag = False
+				self.printRunning = False
 				del self.printProcess
 				gtk.main_quit()
 				self.destroy()
@@ -176,6 +176,9 @@ class gui(QtGui.QApplication):
 		# Call super class function.
 		super(gui, self).__init__(sys.argv)
 
+		# Connect close event.
+		#self.aboutToQuit.connect(self.onClose)
+
 		# Internalise parameters.
 		self.modelCollection = modelCollection
 		self.programSettings = programSettings
@@ -184,42 +187,60 @@ class gui(QtGui.QApplication):
 		# Create signal for Strg+C TODO: check out why this works.
 		signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+		# Flag to set during print process.
+		self.printRunning = False
+		self.slicerRunning = False
+
+		# Create queues for inter-thread communication.
+		# Queue for setting print progess bar.
+		self.queueSliceOut  = Queue.Queue(maxsize=1)
+		self.queueSliceIn = Queue.Queue(maxsize=1)
+		self.slicerFinished = False
+		# Queues for controlling the file transmission thread.
+		self.queueFileTransferIn = Queue.Queue(maxsize=1)
+		self.queueFileTransferOut = Queue.Queue(maxsize=1)
+		# Queue for print process commands.
+
+		# Queue for status infos displayed above the status bar.
+		self.queueStatus = Queue.Queue()
+		# Queue for commands sent to print process.
+		self.queueCommands = Queue.Queue(maxsize=1)
+		# Queue for console messages.
+		self.queueConsole = Queue.Queue()
+
+		# Is this running from Raspberry Pi or from PC?
+		self.runningOnRasPi = False
+		# TODO: Use this flag to combine this class and server class.
+
+
+		# Get current working directory and set paths.
+		self.cwd = os.getcwd()
+		self.programSettings['localMkpPath'].value = self.cwd + "/currentPrint.mkp"
+
+
 
 		# ********************************************************************
 		# Add thread listener functions to run every n ms.********************
 		# ********************************************************************
-		# Check if the slicer threads have finished. Needed in model collection.
-		self.timerSlicerListener = QtCore.QTimer()
-		self.timerSlicerListener.timeout.connect(self.modelCollection.checkSlicerThreads)#self.updateSlicerStatus)
-		self.timerSlicerListener.start(100)
-		# Check if slice combiner has finished. Needed in model collection.
-		self.timerSliceCombinerListener = QtCore.QTimer()
-		self.timerSliceCombinerListener.timeout.connect(self.modelCollection.checkSliceCombinerThread)#self.updateSlicerStatus)
-		self.timerSliceCombinerListener.start(100)
+		# Check if the slicer threads and/or slice combiner thread have finished. Needed in model collection.
+		#self.timerSlicerListener = QtCore.QTimer()
+		#self.timerSlicerListener.timeout.connect(self.modelCollection.checkSlicer)
+		#self.timerSlicerListener.start(100)
 		# Check if slicer has finished. Needed to update slice preview.
-		self.slicerRunning = False
 		self.timerSlicePreviewUpdater = QtCore.QTimer()
 		self.timerSlicePreviewUpdater.timeout.connect(self.checkSlicer)#self.updateSlicerStatus)
 		self.timerSlicePreviewUpdater.start(100)
-
-		#sliceCombinerListenerId = gobject.timeout_add(100, self.modelCollection.checkSliceCombinerThread)
-		# Update the progress bar, projector image and 3d view. during prints.
-		'''
-		self.timerPollPrintQueues = QtCore.QTimer()
-		self.timerPollPrintQueues.timeout.connect(self.pollPrintQueues)
-		self.timerPollPrintQueues.start(50)
-		'''
-		#pollPrintQueuesId = gobject.timeout_add(50, self.pollPrintQueues)
+		# Update the progress bar, projector image and 3d view during prints.
+		self.timerPrintQueueListener = QtCore.QTimer()
+		self.timerPrintQueueListener.timeout.connect(self.checkPrintQueues)
+		self.timerPrintQueueListener.start(50)
 		# Request status info from raspberry pi.
 	#	pollRasPiConnectionId = gobject.timeout_add(500, self.pollRasPiConnection)
 		# Request status info from slicer.
-		'''
-		self.timerPollSlicerStatus = QtCore.QTimer()
-		self.timerPollSlicerStatus.timeout.connect(self.pollSlicerStatus)
-		self.timerPollSlicerStatus.start(100)
-		'''
 		#pollSlicerStatusId = gobject.timeout_add(100, self.pollSlicerStatus)
 		# TODO: combine this with slicerListener.
+
+
 
 
 
@@ -227,9 +248,8 @@ class gui(QtGui.QApplication):
 		# Create the main GUI. ***********************************************
 		# ********************************************************************
 		#The Main window
-		self.mainWindow = QtGui.QMainWindow()
+		self.mainWindow = monkeyprintGuiHelper.mainWindow(self.checkPrinterRunning)
 		self.mainWindow.showMaximized()
-
 		self.centralWidget = QtGui.QWidget()
 		self.mainWindow.setCentralWidget(self.centralWidget)
 
@@ -250,8 +270,11 @@ class gui(QtGui.QApplication):
 		self.renderView.renderWindowInteractor.Initialize()
 
 		# Create settings box.
+		widgetSettings = QtGui.QWidget()
+		widgetSettings.setFixedWidth(250)
+		self.boxMain.addWidget(widgetSettings)
 		self.boxSettings =self.createSettingsBox()
-		self.boxMain.addLayout(self.boxSettings)
+		widgetSettings.setLayout(self.boxSettings)
 
 
 		# Update.
@@ -261,6 +284,185 @@ class gui(QtGui.QApplication):
 	#	self.createButtons()
 		self.mainWindow.show()
 		self.mainWindow.raise_()
+
+
+	def checkPrinterRunning(self):
+		return self.printRunning
+
+	# *************************************************************************
+	# Function that updates all relevant GUI elements during prints. **********
+	# *************************************************************************
+	# This runs every 100 ms as a gobject timeout function.
+	# Updates 3d view and projector view. Also forwards status info.
+	def checkPrintQueues(self):
+		# Check the queues...
+		# If slice number queue has slice number...
+		if self.queueSliceOut.qsize():
+			# ... get it from the queue.
+			sliceNumber = self.queueSliceOut.get()
+			# If it's an actual slice number...
+			if sliceNumber >=0:
+				# Set 3d view to given slice.
+				self.modelCollection.updateAllSlices3d(sliceNumber)
+				self.renderView.render()
+			# Set slice view to given slice. If sliceNumber is -1 black is displayed.
+			# Only if not printing from raspberry. In this case the projector display will not exist.
+			if self.projectorDisplay != None:
+				self.projectorDisplay.updateImage(sliceNumber)
+			# Update slice preview in the gui.
+			self.sliceView.updateImage(sliceNumber)
+			# Signal to print process that slice image is set and exposure time can begin.
+			if self.queueSliceIn.empty():
+				self.queueSliceIn.put(True)
+
+		# If status queue has info...
+		if self.queueStatus.qsize():
+			# ... get the status.
+			message = self.queueStatus.get()
+			#print message
+			# Check if this is the destroy message for terminating the print window.
+			if message == "destroy":
+				# If running on Raspberry, destroy projector display and clean up files.
+				if self.runningOnRasPi:
+					print "Print process finished! Idling..."
+					self.printRunning = False
+					del self.printProcess
+					self.projectorDisplay.destroy()
+					del self.projectorDisplay
+					# Remove print file.
+					if os.path.isfile(self.localPath + self.localFilename):
+						os.remove(self.localPath + self.localFilename)
+				# If not running on Raspberry Pi, destroy projector display and reset GUI.
+				else:
+					self.buttonPrintStart.setEnabled(True)
+					self.buttonPrintStop.setEnabled(False)
+					self.modelCollection.updateAllSlices3d(0)
+					self.renderView.render()
+					self.progressBar.updateValue(0)
+					self.printRunning = False
+					print "foo"
+					del self.printProcess
+					self.projectorDisplay.destroy()
+					del self.projectorDisplay
+					print "bar"
+			else:
+				# If running on Raspberry forward the message to the socket connection.
+
+				if self.runningOnRasPi:
+					self.socket.sendMulti("status", message)
+
+				# If not, update the GUI.
+				else:
+					self.processStatusMessage(message)
+	#				print message
+		# Poll the command queue.
+		# Only do this when running on Raspberry Pi.
+		# If command queue has info...
+		if self.queueCommands.qsize():
+			# ... get the command.
+			command = self.queueCommands.get()
+			self.processCommandMessage(command)
+
+		# If console queue has info...
+		if self.queueConsole.qsize():
+			if self.console != None:
+				self.console.addLine(self.queueConsole.get())
+
+		# Return true, otherwise function won't run again.
+		return True
+
+
+
+
+	# *************************************************************************
+	# Function to process output of commandQueue and control print process. ***
+	# *************************************************************************
+	def processCommandMessage(self, message):
+		# Only needed on Rasperry Pi.
+		#if self.runningOnRasPi:
+			# Split the string.
+			command, parameter = message.split(":")
+			if command == "start":
+				if self.printRunning:
+					pass
+					# TODO: Send error message.
+					#zmq_socket.send_multipart(["error", "Print running already."])
+				else:
+					# Start the print.
+					self.printProcessStart()
+			elif command == "stop":
+				print "command: stop"
+				if self.printRunning:
+					self.printProcessStop()
+					#self.printProcess.stop()
+			elif command == "pause":
+				if self.printRunning:
+					self.printProcess.pause()
+
+
+	# *************************************************************************
+	# Function to process the output of statusQueue and update the GUI. *******
+	# *************************************************************************
+	def processStatusMessage(self, message):
+		# Split the string.
+		status, param, value = message.split(":")
+		# Check the status and retreive other data.
+		printRunning = True
+		if status == "slicing":
+			if param == "nSlices":
+				# Set number of slices for status bar.
+				self.progressBar.setLimit(int(value))
+			elif param == "slice":
+				# Set current slice in status bar.
+				currentSlice = int(value)
+				# TODO get current slice, this will work once slicer thread returns single slices.
+				if not self.queueSliceOut.qsize():
+					self.queueSliceOut.put(int(currentSlice))
+			self.progressBar.setText("Slicing.")
+		elif status == "preparing":
+			if param == "nSlices":
+				self.progressBar.setLimit(int(value))
+			if param == "homing":
+				self.progressBar.setText("Homing build platform.")
+			if param == "bubbles":
+				self.progressBar.setText("Removing bubbles.")
+		elif status == "printing":
+			if param == "nSlices":
+				# Set number of slices for status bar.
+				self.progressBar.setLimit(int(value))
+			if param == "slice":
+				# Set current slice in status bar.
+				self.progressBar.updateValue(int(value))
+				self.progressBar.setText("Printing slice " + value + ".")
+				if not self.queueSliceOut.qsize():
+					self.queueSliceOut.put(int(value))
+		elif status == "stopping":
+			self.progressBar.setText("Stopping print.")
+		elif status == "paused":
+			self.progressBar.setText("Print paused.")
+		elif status == "stopped":
+			if param == "slice":
+				if value == 1:
+					self.progressBar.setText("Print stopped after " + value + " slice.")
+				else:
+					self.progressBar.setText("Print stopped after " + value + " slices.")
+			else:
+				self.progressBar.setText("Print stopped.")
+			# Reset stop button to insensitive.
+			self.buttonPrintStart.setEnabled(True)
+			self.buttonPrintStop.setEnabled(False)
+		elif status == "idle":
+			if param == "slice":
+				self.progressBar.updateValue(int(value))
+			printRunning = False
+			self.progressBar.setText("Idle.")
+			# Reset gui sensitivities.
+			self.setGuiState(3)
+		self.printRunning = printRunning
+
+
+
+
 
 
 
@@ -495,10 +697,10 @@ class gui(QtGui.QApplication):
 
 		# Create toggle buttons.
 		# Hollow.
-		self.toggleButtonHollow = monkeyprintGuiHelper.toggleButton('printHollow', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack, self.updateSlider, self.renderView.render, self.updateAllEntries, self.updateSlicingEntries])
+		self.toggleButtonHollow = monkeyprintGuiHelper.toggleButton('printHollow', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack])#, self.updateSlider, self.renderView.render, self.updateAllEntries, self.updateSlicingEntries])
 		boxFillParameterToggles.addWidget(self.toggleButtonHollow, 0, QtCore.Qt.AlignLeft)
 		# Fill.
-		self.toggleButtonFill = monkeyprintGuiHelper.toggleButton('fill', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack, self.updateSlider, self.renderView.render, self.updateAllEntries, self.updateSlicingEntries])
+		self.toggleButtonFill = monkeyprintGuiHelper.toggleButton('fill', modelCollection=self.modelCollection, customFunctions=[self.modelCollection.updateSliceStack])#, self.updateSlider, self.renderView.render, self.updateAllEntries, self.updateSlicingEntries])
 		boxFillParameterToggles.addWidget(self.toggleButtonFill, 0, QtCore.Qt.AlignLeft)
 
 		# Create entries.
@@ -520,23 +722,18 @@ class gui(QtGui.QApplication):
 
 		self.sliceSlider = monkeyprintGuiHelper.imageSlider(modelCollection=self.modelCollection, programSettings=self.programSettings, width=200, console=self.console, customFunctions=[self.modelCollection.updateAllSlices3d, self.renderView.render])
 		boxSlicePreview.addLayout(self.sliceSlider)
-		# Register slice image update function to GUI main loop.
-	#	listenerSliceSlider = gobject.timeout_add(100, self.sliceSlider.updateImage)
-		'''
 
 		# Create save image stack frame.
-		self.frameSaveSlices = gtk.Frame("Save slice images")
-		self.slicingTab.pack_start(self.frameSaveSlices, expand=True, fill=True, padding=5)
-		self.frameSaveSlices.show()
-		self.boxSaveSlices = gtk.HBox()
-		self.frameSaveSlices.add(self.boxSaveSlices)
-		self.boxSaveSlices.show()
-		self.buttonSaveSlices = gtk.Button("Save")
-		self.buttonSaveSlices.set_sensitive(False)
-		self.buttonSaveSlices.connect('clicked', self.callbackSaveSlices)
-		self.boxSaveSlices.pack_start(self.buttonSaveSlices, expand=True, fill=True, padding=5)
-		self.buttonSaveSlices.show()
-		'''
+		frameSaveSlices = QtGui.QGroupBox("Save slice images")
+		boxSettingsSlicing.addWidget(frameSaveSlices)
+		boxSaveSlices = QtGui.QVBoxLayout()
+		boxSettingsSlicing.addLayout(boxSaveSlices)
+		self.buttonSaveSlices = QtGui.QPushButton("Save")
+		self.buttonSaveSlices.clicked.connect(self.callbackSaveSlices)
+		self.buttonSaveSlices.setEnabled(False)
+		boxSaveSlices.addWidget(self.buttonSaveSlices)
+
+
 		return tabSettingsSlicing
 
 
@@ -568,8 +765,8 @@ class gui(QtGui.QApplication):
 		boxPrintParameters.addWidget(self.entryExposureBase)
 		self.entryNumberOfBaseLayers = monkeyprintGuiHelper.entry('numberOfBaseLayers', settings=self.programSettings)
 		boxPrintParameters.addWidget(self.entryNumberOfBaseLayers)
-	#	self.entrySettleTime = monkeyprintGuiHelper.entry('Resin settle time', settings=self.programSettings)
-	#	self.boxPrintParameters.pack_start(self.entrySettleTime, expand=True, fill=True)
+		#	self.entrySettleTime = monkeyprintGuiHelper.entry('Resin settle time', settings=self.programSettings)
+		#	self.boxPrintParameters.pack_start(self.entrySettleTime, expand=True, fill=True)
 
 		# Create model volume frame.
 		frameResinVolume = QtGui.QGroupBox("Resin volume")
@@ -614,73 +811,69 @@ class gui(QtGui.QApplication):
 		# Create model volume frame.
 		framePrintControl = QtGui.QGroupBox("Print control")
 		boxSettingsPrint.addWidget(framePrintControl)
-		# Create print parameters box.
+
+
+		# Create print control box.
 		boxPrintControl = QtGui.QHBoxLayout()
 		boxPrintControl.setContentsMargins(0,3,0,3)
 		boxPrintControl.setSpacing(0)
 		framePrintControl.setLayout(boxPrintControl)
 		boxPrintControl.setSpacing(0)
-
-
 		# Create print control buttons.
 		self.buttonPrintStart = QtGui.QPushButton('Print')
 		self.buttonPrintStart.setMaximumSize(QtCore.QSize(40,23))
+		self.buttonPrintStart.clicked.connect(self.callbackStartPrintProcess)
 		boxPrintControl.addWidget(self.buttonPrintStart)
 		self.buttonPrintStop = QtGui.QPushButton('Stop')
 		self.buttonPrintStop.setMaximumSize(QtCore.QSize(40,23))
+		self.buttonPrintStop.clicked.connect(self.callbackStopPrintProcess)
 		self.buttonPrintStop.setEnabled(False)
 		boxPrintControl.addWidget(self.buttonPrintStop)
-		'''
-		self.boxPrintButtons = gtk.HBox()
-		self.boxPrintControl.pack_start(self.boxPrintButtons, expand=False, fill=False)
-		self.boxPrintButtons.show()
-		self.buttonPrintStart = gtk.Button('Print')
-		self.boxPrintButtons.pack_start(self.buttonPrintStart, expand=False, fill=False)
-		self.buttonPrintStart.connect('clicked', self.callbackStartPrintProcess)
-		self.buttonPrintStart.show()
-		self.buttonPrintStop = gtk.Button('Stop')
-		self.boxPrintButtons.pack_start(self.buttonPrintStop, expand=False, fill=False)
-		self.buttonPrintStop.set_sensitive(False)
-		self.buttonPrintStop.show()
-		self.buttonPrintStop.connect('clicked', self.callbackStopPrintProcess)
-		'''
 		# Create progress bar.
-		#self.progressBar1 = monkeyprintGuiHelper.MyBar()
-		#boxPrintControl.addWidget(self.progressBar1)
-
 		self.progressBar = monkeyprintGuiHelper.printProgressBar()
 		boxPrintControl.addWidget(self.progressBar)
-		'''
-		# Create preview frame.
-		self.framePreviewPrint = gtk.Frame(label="Slice preview")
-		self.printTab.pack_start(self.framePreviewPrint, padding = 5)
-		self.framePreviewPrint.show()
-		self.boxPreviewPrint = gtk.HBox()
-		self.framePreviewPrint.add(self.boxPreviewPrint)
-		self.boxPreviewPrint.show()
 
+
+		# Create preview frame.
+		frameProjectorView = QtGui.QGroupBox("Projector view")
+		boxSettingsPrint.addWidget(frameProjectorView)
+		boxProjectorView = QtGui.QHBoxLayout()
+		frameProjectorView.setLayout(boxProjectorView)
 		# Create slice image.
-		self.sliceView = monkeyprintGuiHelper.imageView(settings=self.programSettings, modelCollection=self.modelCollection, width=self.programSettings['previewSliceWidth'].value)
-		self.boxPreviewPrint.pack_start(self.sliceView, expand=True, fill=True)
-		self.sliceView.show()
-		'''
+		self.sliceView = monkeyprintGuiHelper.imageView(settings=self.programSettings, modelCollection=self.modelCollection, mode='full', width=self.programSettings['previewSliceWidth'].value)
+		boxProjectorView.addWidget(self.sliceView)
+
 
 		return tabSettingsPrint
 
 
 	# **************************************************************************
-	# Gui update function. *****************************************************
+	# Gui update functions. *****************************************************
 	# **************************************************************************
 
+
+	# *************************************************************************
+	# Function that checks if one of the slicer threads is running. ***********
+	# *************************************************************************
 	def checkSlicer(self):
+		# Call the model collections internal checker methods.
+		self.modelCollection.checkSlicer()
+		# Enable slice stack save button.
+		self.buttonSaveSlices.setEnabled(self.modelCollection.sliceCombinerFinished and self.modelCollection.getNumberOfActiveModels() > 0)
 		if self.slicerRunning and self.modelCollection.sliceCombinerFinished:
+			# update the slider including the image and make print tab available.
 			self.updateSlider()
 			self.setGuiState(3)
 			self.slicerRunning = False
-		elif self.slicerRunning and not self.modelCollection.sliceCombinerFinished:
+		# If slicer is running...
+		elif self.slicerRunning and not self.modelCollection.sliceCombinerFinished or self.modelCollection.getNumberOfActiveModels() == 0:
+			# disable the print tab.
 			if self.getGuiState() == 3:
 				self.setGuiState(2)
 		self.slicerRunning = not self.modelCollection.sliceCombinerFinished
+
+
+
 
 	def updateSlicingEntries(self):
 		print self.toggleButtonHollow.isChecked()
@@ -698,20 +891,24 @@ class gui(QtGui.QApplication):
 
 	def setGuiState(self, state):
 		# State 4 is for printing.
-		# Disables the model, supports and slicer tabs.
+
 		if state == 4:
+			# Disable the model, supports and slicer tabs.
 			for i in range(self.notebookSettings.count()):
 				if i < 3:
 					self.notebookSettings.setTabEnabled(i, False)
 				else:
 					self.notebookSettings.setTabEnabled(i, True)
+			# Disable model list.
+			self.modelTableView.setEnabled(False)
+		# Loop through tabs and enable the ones up to the state.
 		else:
 			for i in range(self.notebookSettings.count()):
 				if i<=state:
-					print "foo"
 					self.notebookSettings.setTabEnabled(i, True)
 				else:
 					self.notebookSettings.setTabEnabled(i, False)
+			self.modelTableView.setEnabled(True)
 
 
 
@@ -868,6 +1065,150 @@ class gui(QtGui.QApplication):
 		'''
 		print menu.text()+" is triggered"
 		'''
+
+	def callbackSaveSlices(self, widget, data=None):
+		# Open a file chooser dialog.
+		fileChooser = QtGui.QFileDialog()
+		fileChooser.setFileMode(QtGui.QFileDialog.AnyFile)
+		fileChooser.setFilter("Image files (*.png)")
+		fileChooser.setWindowTitle("Save slices")
+		fileChooser.setDirectory(self.programSettings['currentFolder'].getValue())
+		filenames = QtCore.QStringList()
+		# Only continue if OK was clicked.
+		if fileChooser.exec_() == QtGui.QDialog.Accepted:
+			# Get path.
+			filepath = str(fileChooser.selectedFiles()[0])
+			fileChooser.destroy()
+			# Add *.png file extension if necessary.
+			if filepath.lower()[-3:] != "png":
+				filepath += '.png'
+			# Console message.
+			if self.console:
+				self.console.addLine("Saving slice images to \"" + filepath.split('/')[-1] + "\".")
+			# Save path without project name for next use.
+			self.programSettings['currentFolder'].value = filepath[:-len(filepath.split('/')[-1])]
+			# Create info window with progress bar
+			infoWindow = monkeyprintGuiHelper.messageWindowSaveSlices(self.mainWindow, self.modelCollection, filepath)
+			#
+			self.console.addLine("Slice stack saved.")
+			infoWindow.destroy()
+		'''
+		# File open dialog to retrive file name and file path.
+		dialog = gtk.FileChooserDialog("Save slices", None, gtk.FILE_CHOOSER_ACTION_SAVE, (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+		dialog.set_modal(True)
+		dialog.set_default_response(gtk.RESPONSE_OK)
+		dialog.set_current_folder(self.programSettings['currentFolder'].value)
+		# File filter for the dialog.
+		fileFilter = gtk.FileFilter()
+		fileFilter.set_name("Image files")
+		fileFilter.add_pattern("*.png")
+		dialog.add_filter(fileFilter)
+		# Run the dialog and return the file path.
+		response = dialog.run()
+		# Process response. If OK...
+		if response == gtk.RESPONSE_OK:
+			# ... get file name.
+			path = dialog.get_filename()
+			dialog.destroy()
+			#... add *.png file extension if necessary.
+			if len(path) < 4 or path[-4:] != ".png":
+				path += ".png"
+			# Console message.
+			self.console.addLine("Saving slice images to \"" + path.split('/')[-1] + "\".")
+			# Save path without project name for next use.
+			self.programSettings['currentFolder'].value = path[:-len(path.split('/')[-1])]
+			# Create info window with progress bar.
+			infoWindow = gtk.Window()
+			infoWindow.set_title("Saving slice images")
+			infoWindow.set_modal(True)
+			infoWindow.set_transient_for(self)
+			infoWindow.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
+			infoWindow.show()
+			infoBox = gtk.VBox()
+			infoWindow.add(infoBox)
+			infoBox.show()
+			infoLabel = gtk.Label("Saving slice images.")
+			infoBox.pack_start(infoLabel, expand=True, fill=True, padding=5)
+			infoLabel.show()
+			progressBar = monkeyprintGuiHelper.printProgressBar()
+			infoBox.pack_start(progressBar, padding=5)
+			# We work in percent here...
+			progressBar.setLimit(100)#self.modelCollection.getNumberOfSlices())
+			progressBar.show()
+			# Update the gui.
+			while gtk.events_pending():
+				gtk.main_iteration(False)
+			# Save the model collection to the given location.
+			self.modelCollection.saveSliceStack(path=path, updateFunction=progressBar.updateValue)
+			#TODO: self.progressBar.setText(message)
+			# Close info window.
+			infoWindow.destroy()
+			self.console.addLine("Slice stack saved.")
+
+
+		# If cancel was pressed...
+		elif response == gtk.RESPONSE_CANCEL:
+			#... do nothing.
+			dialog.destroy()
+		'''
+
+
+	def callbackStartPrintProcess(self, data=None):
+		# Create a print start dialog.
+		self.dialogStart = monkeyprintGuiHelper.dialogStartPrint(parent = self.mainWindow)
+		# Run the dialog and get the result.
+		if self.dialogStart.exec_() == QtGui.QDialog.Accepted:
+			#self.printProcessStart()
+			if not self.queueCommands.qsize():
+				self.queueCommands.put("start:")
+
+
+	def callbackStopPrintProcess(self, data=None):
+		# Create a dialog window with yes/no buttons.
+		reply = QtGui.QMessageBox.question(	self.mainWindow,
+											'Message',
+											"Do you really want to cancel the print?",
+											QtGui.QMessageBox.Yes,
+											QtGui.QMessageBox.No)
+		# Stop if desired.
+		if reply == QtGui.QMessageBox.Yes:
+			if not self.queueCommands.qsize():
+				self.queueCommands.put("stop:")
+
+
+
+	def printProcessStart(self):
+		# If starting print process on PC...
+		if not self.programSettings['printOnRaspberry'].value:
+			#... create the projector window and start the print process.
+			self.console.addLine("Starting print")
+			# Disable window close event.
+			self.printRunning = True
+			# Set gui sensitivity.
+			self.setGuiState(4)
+			# Set progressbar limit according to number of slices.
+			self.progressBar.setLimit(self.modelCollection.getNumberOfSlices())
+			# Create the projector window.2
+			self.projectorDisplay = monkeyprintGuiHelper.projectorDisplay(self.programSettings, self.modelCollection)
+			# Start the print.
+			self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection, self.programSettings, self.queueSliceOut, self.queueSliceIn, self.queueStatus, self.queueConsole)
+			self.printProcess.start()
+		# Set button sensitivities.
+		self.buttonPrintStart.setEnabled(False)
+		self.buttonPrintStop.setEnabled(True)
+
+	def printProcessStop(self, data=None):
+		# Stop the print process.
+		# If print is running on Pi...
+		if self.programSettings['printOnRaspberry'].value:
+			# ... send the stop command.
+			command = "stop"
+			path = ""
+			self.socket.sendMulti(command, path)
+		else:
+			self.printProcess.stop()
+		# Reset stop button to insensitive.
+		self.buttonPrintStop.setEnabled(False)
 
 
 	# Notebook tab switch callback functions. ##################################

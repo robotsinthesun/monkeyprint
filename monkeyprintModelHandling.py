@@ -605,6 +605,8 @@ class modelCollection(dict):
 		return self[modelId]
 
 
+
+
 	# Add a model to the collection.
 	def add(self, newModelId, filenameOrSettings):
 		# Prepare newModelId if this is not the default model.
@@ -660,6 +662,13 @@ class modelCollection(dict):
 		for i in listIters:
 			if self.modelList.get_value(i,0) != "default":
 				self.modelList.remove(i)
+
+
+	def getNumberOfActiveModels(self):
+		nActive = 0
+		for model in self:
+			nActive += (model != "default" and self[model].isActive())
+		return nActive
 
 
 	# Function to retrieve the highest model. This dictates the slice stack height.
@@ -762,8 +771,8 @@ class modelCollection(dict):
 			# Update progress bar.
 			if updateFunction != None:
 				updateFunction(int(status))
-				while gtk.events_pending():
-					gtk.main_iteration(False)
+				#while gtk.events_pending():
+				#	gtk.main_iteration(False)
 			if int(status) == 100:
 				break
 		# Reset slice mode to preview.
@@ -875,11 +884,15 @@ class modelCollection(dict):
 		for model in self:
 			self[model].model.updateSlice3d(sliceNumber)
 
-	# Function that is called every n milliseconds from gtk main loop to
-	# check the slicer queue.
-	def checkSlicerThreads(self):
+	# Function that is called every n milliseconds from GUI main loop to
+	# check the slicers.
+	def checkSlicer(self):
+		# Check the individual model slicer threads.
 		for model in self:
 			self[model].sliceThreadListener()
+		# Also, check the slice combiner thread.
+		self.checkSliceCombinerThread()
+
 
 	def checkSliceCombinerThread(self):
 		if self.sliceMode == "preview":
@@ -890,6 +903,7 @@ class modelCollection(dict):
 				else:
 					self.sliceStackPreview.setSlices(sliceCombinerOutput)#, self.sliceNumbers = sliceCombinerOutput
 					self.sliceCombinerFinished = True
+
 
 	def slicerRunning(self):
 		# Return True if one of the slicers is still running.
@@ -2576,8 +2590,12 @@ class sliceCombiner(threading.Thread):
 			if mode == "preview":
 				sliceStackPreview = sliceStack(self.programSettings, previewDimensions[0], previewDimensions[1], empty=True)
 				sliceStackPreview.append(cv2.resize(imageHandling.createImageGray(sliceWidth, sliceHeight,0), previewDimensions, interpolation = cv2.INTER_AREA))
-			return [sliceStackPreview, sliceNumbers]
+				return [sliceStackPreview, sliceNumbers]
+			if mode == "full":
+				self.queueOut.put(str(100))
+				return sliceStack(self.programSettings, empty=True)
 
+		# If the stack is not empty, go on.
 		else:
 			# Create slicer output directory.
 			self.sliceOutputPath = self.programSettings['tmpDir'].getValue() + '/slicerOutput'
@@ -2590,12 +2608,12 @@ class sliceCombiner(threading.Thread):
 			# Get path for saving slices in full mode.
 			savePath = modelNamesAndHeights[6]
 
-			# Get slice numbers.
+			# Get full list of slice numbers.
 			sliceNumbers = modelNamesAndHeights[0]
-			#if mode == "full":
-			#	sliceNumbers = range(stackHeight)
+
+			# Get single slice number if in single mode.
 			if mode == "single":#type(eval(mode)) == int or type(eval(mode)) == float:
-				sliceNumbers = [int(modelNamesAndHeights[6].split(' ')[1])]
+				sliceNumbers = [int(modelNamesAndHeights[5].split(' ')[1])]
 
 			# Get number of preview slices.
 			numberOfPreviewSlices = len(sliceNumbers)
