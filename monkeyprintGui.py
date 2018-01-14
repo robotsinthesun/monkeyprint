@@ -176,8 +176,12 @@ class gui(QtGui.QApplication):
 		# Call super class function.
 		super(gui, self).__init__(sys.argv)
 
-		# Connect close event.
-		#self.aboutToQuit.connect(self.onClose)
+		# Show splash.
+		versionString = "Monkeyprint version " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue())
+		splash = monkeyprintGuiHelper.splashScreen('./logo.png', duration=2, infoString=versionString)
+		self.processEvents()
+		time.sleep(3)
+
 
 		# Internalise parameters.
 		self.modelCollection = modelCollection
@@ -1545,16 +1549,7 @@ class dialogSettings(QtGui.QDialog):
 		self.settings.loadDefaults()
 		self.imageContainer.updateImage()
 
-	# Cancel function.
-#	def callbackCancel(self, widget, data=None):
-#		# Restore values.
-#		print ("Before: " + str(self.settingsBackup['calibrationImage'].value))
-#		self.settings = self.settingsBackup
-#		print ("After: " + str(self.settings['calibrationImage'].value))
-#		# Delete the calibration image in case it was just added.
-#		if (self.settings['calibrationImage'].value == False): self.imageContainer.deleteImageFile()
-#		# Close with old values restored.
-#		self.destroy()
+
 
 	# Destroy function.
 	def callbackClose(self, widget, data=None):
