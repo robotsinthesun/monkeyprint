@@ -1607,6 +1607,354 @@ class splashScreen(QtGui.QMainWindow):
 
 
 
+
+
+
+
+
+
+
+
+# Model list. ##################################################################
+class printProcessTableView(QtGui.QWidget):
+	def __init__(self, settings, parent, console=None):
+
+		# Init super class.
+		QtGui.QWidget.__init__(self)
+		self.show()
+
+		# Internalise settings.
+		self.settings = settings
+		self.console = console
+		self.parent = parent
+
+		# Main box.
+		boxMain = QtGui.QVBoxLayout()
+		self.setLayout(boxMain)
+
+		# Main frame.
+		framePrintProcess = QtGui.QGroupBox("Print process")
+		framePrintProcess.setFlat(False)
+		boxMain.addWidget(framePrintProcess)
+		boxPrintProcess = QtGui.QVBoxLayout()
+		framePrintProcess.setLayout(boxPrintProcess)
+
+		# Load module list from settings.
+		self.loadModules()
+
+		# Create the print process scrolled window.
+		self.tableView = QtGui.QTableView()
+		# Select whole rows instead of individual cells.
+		self.tableView.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+		# Set single selection mode.
+		self.tableView.setSelectionMode(1)
+		# Hide the cell grid.
+		self.tableView.setShowGrid(False)
+		# Hide the vertical headers.
+		self.tableView.verticalHeader().hide()
+		# Set the row height.
+		self.tableView.verticalHeader().setDefaultSectionSize(20)
+		# Hide the grey dottet line of the item in focus.
+		# This will disable focussing, so no keyboard events can be processed.
+		self.tableView.setFocusPolicy(QtCore.Qt.NoFocus)
+		# Prevent the header font from being made bold if a row is selected.
+		self.tableView.horizontalHeader().setHighlightSections(False)
+		boxPrintProcess.addWidget(self.tableView)
+
+		# Create controls.
+		# Box.
+		boxButtons = QtGui.QHBoxLayout()
+		boxButtons.setSpacing(0)
+		boxButtons.setContentsMargins(0,0,0,0)
+		boxPrintProcess.addLayout(boxButtons)
+		# Module drop down.
+		self.dropdownModules = QtGui.QComboBox(self)
+		self.updateDropdownModules()
+		boxButtons.addWidget(self.dropdownModules)
+		#self.dropdownModules.activated[str].connect(self.style_choice)
+		# Buttons.
+		# Add.
+		self.buttonAdd = QtGui.QPushButton("Add")
+		self.buttonAdd.clicked.connect(self.callbackButtonAdd)
+		boxButtons.addWidget(self.buttonAdd)
+		# Edit.
+		self.buttonEdit = QtGui.QPushButton("Edit")
+		self.buttonEdit.clicked.connect(self.callbackButtonEdit)
+		self.buttonEdit.setEnabled(False)
+		boxButtons.addWidget(self.buttonEdit)
+		# Move up.
+		self.buttonUp = QtGui.QPushButton(u'\u2191')
+		self.buttonUp.setMaximumSize(QtCore.QSize(27,27))
+		self.buttonUp.clicked.connect(self.callbackButtonUp)
+		self.buttonUp.setEnabled(False)
+		boxButtons.addWidget(self.buttonUp)
+		# Move down.
+		self.buttonDown = QtGui.QPushButton(u'\u2193')
+		self.buttonDown.setMaximumSize(QtCore.QSize(27,27))
+		self.buttonDown.clicked.connect(self.callbackButtonDown)
+		self.buttonDown.setEnabled(False)
+		boxButtons.addWidget(self.buttonDown)
+		# Remove.
+		self.buttonRemove = QtGui.QPushButton("Remove")
+		self.buttonRemove.clicked.connect(self.callbackButtonRemove)
+		self.buttonRemove.setEnabled(False)
+		boxButtons.addWidget(self.buttonRemove)
+
+		'''
+		self.scrolledWindowPrintProcess = gtk.ScrolledWindow()
+		self.scrolledWindowPrintProcess.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_ALWAYS)
+		self.boxPrintProcess.pack_start(self.scrolledWindowPrintProcess, expand=True, fill=True, padding = 5)
+		self.scrolledWindowPrintProcess.show()
+
+		# Create view for model list.
+		self.viewPrintProcess = gtk.TreeView()
+		# Create model for print process view.
+		self.printProcessListModel = gtk.ListStore(str,str,str,str,bool)
+		self.updatePrintProcessListModel()
+		self.viewPrintProcess.show()
+	#	self.viewPrintProcess.set_headers_visible(False)	# Make column invisible.
+		self.viewPrintProcess.set_headers_clickable(False)
+		self.viewPrintProcess.set_reorderable(False)
+		self.scrolledWindowPrintProcess.add(self.viewPrintProcess)
+		# Add model name column and respective text cell renderer.
+		self.columnModelPrintProcess = gtk.TreeViewColumn('Module')
+		self.viewPrintProcess.append_column(self.columnModelPrintProcess)
+		self.cellModelPrintProcess = gtk.CellRendererText()
+	#	self.cellModelPrintProcess.set_property('editable', True)
+	#	self.cellModelPrintProcess.connect('edited', self.callbackPrintProcessNameEdited, self.printProcessListModel)
+		self.columnModelPrintProcess.pack_start(self.cellModelPrintProcess, True)
+		self.columnModelPrintProcess.add_attribute(self.cellModelPrintProcess, 'text', 0)
+	#	self.columnModelPrintProcess.set_sort_column_id(0)
+		# Add active? column and respective toggle cell renderer.
+		self.columnValuePrintProcess = gtk.TreeViewColumn('Value')
+		self.viewPrintProcess.append_column(self.columnValuePrintProcess)
+		self.cellValuePrintProcess = gtk.CellRendererText()
+	#	self.cellValuePrintProcess.set_property('editable', True)
+	#	self.cellValuePrintProcess.connect('edited', self.callbackPrintProcessValueEdited, self.printProcessListModel)
+		self.columnValuePrintProcess.pack_start(self.cellValuePrintProcess, False)
+		self.columnValuePrintProcess.add_attribute(self.cellValuePrintProcess, 'text', 1)
+	#	self.columnValuePrintProcess.set_sort_column_id(3)
+
+
+
+
+		# Create drop down menu with available modules list.
+		self.dropdownModulesSimple = gtk.combo_box_new_text()
+		self.boxButtons.pack_start(self.dropdownModulesSimple, True, True, padding=5)
+		self.dropdownModulesSimple.connect('changed',self.callbackModuleDropdownSelectionChanged)
+		# Create the list model for the dropdown combo box.
+		self.moduleListModel = gtk.ListStore(str,str,str,str,bool)
+		self.updateModuleListModel()
+		# Set first item active.
+		self.dropdownModulesSimple.set_active(0)
+		self.dropdownModulesSimple.show()
+
+		# Create buttons.
+		# Add button.
+		self.buttonAdd = gtk.Button("Add")
+		self.boxButtons.pack_start(self.buttonAdd, expand=True, fill=True, padding=5)
+		self.buttonAdd.show()
+		self.buttonAdd.connect("clicked", self.callbackPrintProcessAdd)
+		# Edit button.
+		self.buttonEdit = gtk.Button("Edit")
+		self.boxButtons.pack_start(self.buttonEdit)
+		self.buttonEdit.set_sensitive(False)
+		self.buttonEdit.show()
+		self.buttonEdit.connect("clicked", self.callbackPrintProcessEdit)
+		# Up button.
+		self.buttonUp = gtk.Button(u'\u2191')
+		self.boxButtons.pack_start(self.buttonUp, expand=True, fill=True, padding=5)
+		if len(self.printProcessListModel) == 0:
+			self.buttonUp.set_sensitive(False)
+		self.buttonUp.show()
+		self.buttonUp.connect("clicked", self.callbackPrintProcessUp)
+		# Down button.
+		self.buttonDown = gtk.Button(u'\u2193')
+		self.boxButtons.pack_start(self.buttonDown, expand=True, fill=True, padding=5)
+		if len(self.printProcessListModel) == 0:
+			self.buttonDown.set_sensitive(False)
+		self.buttonDown.show()
+		self.buttonDown.connect("clicked", self.callbackPrintProcessDown)
+		# Remove button.
+		self.buttonRemove = gtk.Button("Remove")
+		self.boxButtons.pack_start(self.buttonRemove, expand=True, fill=True, padding=5)
+		if len(self.printProcessListModel) == 0:
+			self.buttonRemove.set_sensitive(False)
+		self.buttonRemove.show()
+		self.buttonRemove.connect("clicked", self.callbackPrintProcessRemove)
+
+		# Create item selection.
+		self.printProcessModuleSelection = self.viewPrintProcess.get_selection()
+		# Avoid multiple selection.
+		self.printProcessModuleSelection.set_mode(gtk.SELECTION_SINGLE)
+		# Connect to selection change event function.
+		self.printProcessModuleSelection.connect('changed', self.onSelectionChangedPrintProcess)
+		# Select first item.
+		self.printProcessModuleSelection.select_iter(self.printProcessListModel.get_iter_first())
+		'''
+
+
+	# Update list model for dropdown.
+	def loadModules(self):
+		self.moduleList = self.settings.getModuleList()
+
+
+	def updateDropdownModules(self):
+		for module in self.moduleList:
+			self.dropdownModules.addItem(module[0])
+
+
+	# Update list model for print process list.
+	def updatePrintProcessListModel(self):
+		# Get module list from settings.
+		model = gtk.ListStore(str,str,str,str,bool)
+		moduleList = self.settings.getPrintProcessList()
+		for row in moduleList:
+			model.append(row)
+		self.printProcessListModel = model
+		self.viewPrintProcess.set_model(self.printProcessListModel)
+
+
+	def getPrintProcessList(self):
+		moduleList = []
+		for row in self.printProcessListModel:
+			rowList = []
+			for item in row:
+				rowList.append(item)
+			moduleList.append(rowList)
+		return moduleList
+
+
+	# Insert the module selected in drop down into the print process list.
+	def callbackButtonAdd(self, widget, data=None):
+		# Get current selection from dropdown.
+		item = self.moduleList[self.dropdownModules.currentIndex()]
+
+		'''
+		# Get selected iter.
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		# Get item to add.
+		item = self.dropdownModulesSimple.get_active()
+		if item >= 0:
+			# If list is not empty...
+			if treeiter != None:
+				#... insert after selected iter.
+				path = self.printProcessListModel.get_path(treeiter)
+				newIter = self.printProcessListModel.insert(path[0]+1, self.moduleListModel[item])
+			# If list is empty...
+			else:
+				#... append item.
+				newIter = self.printProcessListModel.append(self.moduleListModel[item])
+			self.printProcessModuleSelection.select_iter(newIter)
+		'''
+
+	# Delete the selected module from the print process list.
+	def callbackButtonRemove(self, widget, data=None):
+		pass
+		'''
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		# Get the path of the current iter.
+		if len(self.printProcessListModel) > 0:
+			currentPath = self.printProcessListModel.get_path(treeiter)[0]
+			deletePath = currentPath
+			# Check what to select next.
+			# If current selection at end of list but not the last element remaining...
+			if currentPath == len(self.printProcessListModel) - 1 and len(self.printProcessListModel) > 1:
+				# ... select the previous item.
+				currentPath -= 1
+				self.printProcessModuleSelection.select_path(currentPath)
+			# If current selection is somewhere in the middle...
+			elif currentPath < len(self.printProcessListModel) - 1 and len(self.printProcessListModel) > 1:
+				# ... selected the next item.
+				currentPath += 1
+				self.printProcessModuleSelection.select_path(currentPath)
+		# Remove the item and check if there's a next item.
+		iterValid = self.printProcessListModel.remove(treeiter)
+		# Set button sensitivities.
+		self.setButtonSensitivities()
+		'''
+
+
+	def callbackButtonEdit(self, widget, data=None):
+		pass
+		'''
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		if treeiter != None:
+			editDialog = dialogEditPrintModule(parent=self.parent, modelItem=model[treeiter])
+			editedModelItem = editDialog.run()
+			editDialog.destroy()
+			model[treeiter] = editedModelItem
+		'''
+
+
+	def callbackButtonUp(self, widget, data=None):
+		'''
+		# Get iter of selected item and previous item.
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		path = model.get_path(treeiter)[0]
+		pathPrevious = path - 1
+		treeiterPrevious = model.get_iter(pathPrevious)
+		# Swap items.
+		model.swap(treeiter, treeiterPrevious)
+		# Reset sensitivities manually.
+		self.setButtonSensitivities()
+		'''
+
+
+	def callbackButtonDown(self, widget, data=None):
+		'''
+		# Get iter of selected item and next item.
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		path = model.get_path(treeiter)[0]
+		pathNext = path + 1
+		treeiterNext = model.get_iter(pathNext)
+		# Swap the items.
+		model.swap(treeiter, treeiterNext)
+		# Reset sensitivities manually.
+		self.setButtonSensitivities()
+		'''
+
+
+	# Selection changed callback.
+	def onSelectionChangedPrintProcess(self, selection):
+		'''
+		# Get selected iter.
+		model, treeIter = selection.get_selected()
+		# If iter is valid...
+		if treeIter != None:
+			# Handle button sensitivities.
+			self.setButtonSensitivities()
+		# If iter is not valid (nothing selected) but list is not empty...
+		elif len(model) > 0:
+			# ... select first item.
+			self.printProcessModuleSelection.select_iter(model.get_iter(0)) # Does this invoke selection change event?
+		'''
+
+
+	def setButtonSensitivities(self):
+		'''
+		model, treeiter = self.printProcessModuleSelection.get_selected()
+		if treeiter != None:
+			# Add button is always sensitive.
+			# Set edit button sensitivity.
+			self.buttonEdit.set_sensitive(len(model)>0 and model[treeiter][-1])
+			# Set remove button sensitivity.
+			# Set up button sensitivity.
+			self.buttonUp.set_sensitive(model.get_path(treeiter)[0] != 0 and len(model) > 1)
+			# Set down button sensitivity.
+			self.buttonDown.set_sensitive(model.get_path(treeiter)[0] != len(model)-1 and len(model) > 1)
+			# Set remove button sensitivity.
+			self.buttonRemove.set_sensitive(len(model)>0)
+		else:
+			self.buttonEdit.set_sensitive(False)
+			self.buttonUp.set_sensitive(False)
+			self.buttonDown.set_sensitive(False)
+			self.buttonRemove.set_sensitive(False)
+		'''
+
+
+
+
 '''
 class avrdudeThread(threading.Thread):
 	# Override init function.

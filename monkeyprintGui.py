@@ -180,7 +180,7 @@ class gui(QtGui.QApplication):
 		versionString = "Monkeyprint version " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue())
 		splash = monkeyprintGuiHelper.splashScreen('./logo.png', duration=2, infoString=versionString)
 		self.processEvents()
-		time.sleep(3)
+		time.sleep(0.1)
 
 
 		# Internalise parameters.
@@ -1459,7 +1459,8 @@ class dialogSettings(QtGui.QDialog):
 
 	# Print process tab.
 	def createPrintProcessTab(self):
-
+		return monkeyprintGuiHelper.printProcessTableView(self.settings, self.parent)
+		'''
 		# Create widget.
 		tabSettingsPrintProcess = QtGui.QWidget()
 		# Create main tab box.
@@ -1471,7 +1472,7 @@ class dialogSettings(QtGui.QDialog):
 		#self.listViewModules.show()
 
 		return tabSettingsPrintProcess
-
+		'''
 
 	# Recalculate the approximate memory useage due to preview slice stack.
 	def updateSlicerMemoryUsage(self):

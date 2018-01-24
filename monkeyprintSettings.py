@@ -291,7 +291,7 @@ class programSettings(dict):
 #		self['Shutter position closed GCode'] = setting(value=2450, default=2450, lower=500, upper=2500)
 		self['enableShutterServo'] =		setting(value=False, 			valType=str,	default=False, 	name='Enable shutter servo', output=self.output)
 		self['localMkpPath'] =				setting(value='./currentPrint.mkp', valType=str,default='./currentPrint.mkp', output=self.output)
-		self['monkeyprintBoard'] =			setting(value=True, 			valType=str,	default=True, output=self.output)
+		self['monkeyprintBoard'] =			setting(value=False, 			valType=str,	default=False, output=self.output)
 
 #		self['Tilt GCode']	 = setting(value='G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10', default = 'G1 X{$tiltDist*$tiltDir} F10 G1 X{-$tiltDist*$tiltDir} F10')
 #		self['Build platform GCode'] = setting(value='G1 Z{$layerHeight*$buildDir} F10', default='G1 Z{$layerHeight*$buildDir} F10')
