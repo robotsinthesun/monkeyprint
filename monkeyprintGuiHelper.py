@@ -426,8 +426,8 @@ class modelTableView(QtGui.QWidget):
 		self.buttonRemove.setEnabled(False)
 
 		# Create the model table model.
-		self.modelList = tableModel([], 2) # Create table model with empty list, and two visible columns.
-		# Create a dummy row, otherwise tableView does not accept the tableModel.
+		self.modelList = modelTableModel([], 2) # Create table model with empty list, and two visible columns.
+		# Create a dummy row, otherwise tableView does not accept the modelTableModel.
 		self.modelList.insertRows(['foo', 20, 'bar', 'hoo', True], position=len(self.modelList.tableData), rows=1)
 		self.tableView.setModel(self.modelList)
 		# Delete the dummy row.
@@ -632,7 +632,7 @@ class modelTableView(QtGui.QWidget):
 # Custom table model.
 # Data carries the following columns:
 # Model name, slicer status, model ID, stl path, model acitve flag.
-class tableModel(QtCore.QAbstractTableModel):
+class modelTableModel(QtCore.QAbstractTableModel):
 
 	def __init__(self, tableData, numDispCols, parent = None, *args):
 		QtCore.QAbstractTableModel.__init__(self, parent, *args)
@@ -1615,7 +1615,7 @@ class splashScreen(QtGui.QMainWindow):
 
 
 
-# Model list. ##################################################################
+# Print process table view. ##################################################################
 class printProcessTableView(QtGui.QWidget):
 	def __init__(self, settings, parent, console=None):
 
@@ -1640,7 +1640,12 @@ class printProcessTableView(QtGui.QWidget):
 		framePrintProcess.setLayout(boxPrintProcess)
 
 		# Load module list from settings.
-		self.loadModules()
+		self.moduleList = self.settings.getModuleList()
+
+		# Load print process list from settings.
+		#self.printProcessList = self.settings.getPrintProcessList()
+		# Create table model from list.
+		self.model = printProcessTableModel(self.settings.getPrintProcessList(), 2)
 
 		# Create the print process scrolled window.
 		self.tableView = QtGui.QTableView()
@@ -1660,6 +1665,9 @@ class printProcessTableView(QtGui.QWidget):
 		# Prevent the header font from being made bold if a row is selected.
 		self.tableView.horizontalHeader().setHighlightSections(False)
 		boxPrintProcess.addWidget(self.tableView)
+
+		# Show print process module list.
+		self.tableView.setModel(self.model)
 
 		# Create controls.
 		# Box.
@@ -1952,7 +1960,246 @@ class printProcessTableView(QtGui.QWidget):
 			self.buttonRemove.set_sensitive(False)
 		'''
 
+#*******************************************************************************
+# Create a table model for the print process including add and remove methods.
+#*******************************************************************************
+# Custom table model.
+# Data carries the following columns:
+# Model name, slicer status, model ID, stl path, model acitve flag.
+class printProcessTableModel(QtCore.QAbstractTableModel):
 
+	def __init__(self, tableData, numDispCols, parent = None, *args):
+		QtCore.QAbstractTableModel.__init__(self, parent, *args)
+
+		self.tableData = tableData
+		self.numDispCols = numDispCols
+		self.checkBoxChanged = False
+
+	# This will be called by the view to determine the number of rows to show.
+	def rowCount(self, parent):
+		return len(self.tableData)
+
+	# This will be called by the view to determine the number of columns to show.
+	# We only want to show a certain number of columns, starting from 0 and
+	# ending at numDispCols
+	def columnCount(self, parent):
+		if len(self.tableData) > 0:
+			if self.numDispCols <= len(self.tableData[0]):
+				return self.numDispCols
+			else:
+				return len(self.tableData[0])
+		else:
+			return 0
+
+	# This gets called by the view to get the data at the given index.
+	# Based on the row and column number retrieved from the index, we
+	# assign different roles the the returned data. This predicts how the data
+	# is shown. The view will request all roles and if the requested one matches
+	# the one we want to show for the given index, we'll return it.
+	# DisplayRole will show the data, all other roles will modify the display.
+	def data(self, index, role):
+		# Return nothing if index is invalid.
+		if not index.isValid():
+			return QtCore.QVariant()
+		# Get row and column.
+		row = index.row()
+		column = index.column()
+
+		# Return the data.
+		if role == Qt.DisplayRole:
+			if column == 0:
+				return QtCore.QVariant(self.tableData[index.row()][index.column()])
+			elif column == 1:
+				return QtCore.QVariant(str(self.tableData[index.row()][index.column()]) + " %")
+
+		# If user starts editing the cell by double clicking it, also return the data.
+		# Otherwise cell will be empty once editing is started.
+		if role == Qt.EditRole:
+			return QtCore.QVariant(self.tableData[index.row()][index.column()])
+
+		# Return the picture for slicer status bar if the view asks for a
+		# decoration role.
+		elif role == Qt.DecorationRole:
+			if column == 1:
+				# Bar size.
+				barWidth = 50
+				barHeight =10
+				# Set the color depending on the slicer status.
+				# Small: red, medium: yellow, high: green.
+				if self.tableData[row][1] < barWidth * (100./barWidth) * 0.1:
+					color = 0xFF0000
+				elif self.tableData[row][1] > barWidth * (100./barWidth) * 0.95:
+					color = 0x64FF00
+				else:
+					color = 0xFFC800
+				# Create image.
+				img = QtGui.QImage(barWidth, barHeight, QtGui.QImage.Format_RGB888)
+				img.fill(0xFFFFFF)
+
+				for h in range(barHeight):
+					for w in range(barWidth):
+						if w*(100./barWidth) < self.tableData[row][1]:
+							img.setPixel(w,h,color)
+
+				'''
+				# DOES NOT WORK.
+				# That's because the bardata array
+				# will be deleted after the data() method has returned.
+				# The memory of the img will be overwritten and result in
+				# noise.
+				barWidth = 50
+				barHeight =6
+				# Create a numpy array of 100 x 1 pixels.
+				barData = numpy.ones((barHeight,barWidth,3), dtype = numpy.uint8)*255
+
+				# Set the color depending on the slicer status.
+				# Small: red, medium: yellow, high: green.
+				if self.tableData[row][1] < barWidth * (100./barWidth) * 0.1:
+					color = [255,255,0]#0xFFFF00
+				elif self.tableData[row][1] > barWidth * (100./barWidth) * 0.95:
+					color = [100,255,0]#0x80FF00
+				else:
+					color = [255,200,0]#0x00D0FF
+				# Loop through image columns and set pixel color.
+				barData = numpy.swapaxes(barData,0,1)
+				for i in range(barData.shape[0]):
+					if i*(100./barWidth) < self.tableData[row][1]:
+						barData[i] = color
+				barData = numpy.swapaxes(barData,0,1)
+
+				print barData
+
+				# Convert to image.
+				img = QtGui.QImage(barData.DeepCopy(), barData.shape[1], barData.shape[0], barData.strides[0], QtGui.QImage.Format_RGB888)
+				'''
+				return img
+
+		# Add a check box to all rows in column 1.
+		# Set the checkbox state depending on the data in column 3.
+		elif role == Qt.CheckStateRole:
+			if column == 0:
+				#print self.tableData[row][3]
+				if self.tableData[row][4]:
+					return Qt.Checked
+				else:
+					return Qt.Unchecked
+
+		# Return tooltip.
+		elif role == Qt.ToolTipRole:
+			if column == 0:
+				return "Use the check box to enable or disable this model.\nDouble click to rename."
+			else:
+				return "Current slicer status."
+
+		# Return alignment.
+		elif role == Qt.TextAlignmentRole:
+			#print column
+			if column == 1:
+				return Qt.AlignRight + Qt.AlignVCenter
+			else:
+				return Qt.AlignLeft + Qt.AlignVCenter
+		'''
+		# Return background color.
+		elif role == Qt.BackgroundRole:
+			if column == 1:
+				red = QtGui.QBrush(Qt.red);
+				return red;
+		'''
+		# If none of the conditions is met, return nothing.
+		return QtCore.QVariant()
+
+	# Provide header strings for the horizontal headers.
+	# Vertical headers are empty.
+	# Role works the same as in data().
+	def headerData(self, section, orientation, role):
+		if role == Qt.DisplayRole:
+			if orientation == Qt.Horizontal:
+				if section == 0:
+					return QtCore.QString("Model")
+				elif section == 1:
+					return QtCore.QString("Slicer status")
+
+	# This is called once user editing of a cell has been completed.
+	# The value is the new data that has to be manually set to the
+	# tableData within the setData method.
+	def setData(self, index, value, role=Qt.EditRole):
+		row = index.row()
+		column = index.column()
+		if role == Qt.EditRole:
+			self.tableData[row][column] = value
+		elif role == Qt.CheckStateRole:
+			self.checkBoxChanged = True
+			if value == Qt.Checked:
+				self.tableData[row][4] = Qt.Checked
+			elif value == Qt.Unchecked:
+				self.tableData[row][4] = Qt.Unchecked
+		# Emit the data changed signal to let possible other views that
+		# didn't do the editing know about the changed data.
+		self.dataChanged.emit(index, index)
+		return True
+
+	# This will be called by the view to determine if the cell that
+	# has been clicked is enabled, editable, checkable, selectable and so on.
+	def flags(self, index):
+		# Get row and column.
+		row = index.row()
+		column = index.column()
+
+		if column < 1:
+			return Qt.ItemIsSelectable |  Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsUserCheckable ;
+		else:
+			return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
+	# This is called for inserting a row.
+	# Position: where to insert, rows: how many to insert,
+	# parent: who will be parent in a tree view?
+	# beginInsertRows(index, first, last) tells the views where data is inserted.
+	# index is for hierarchical data, so we pass an empty QModelIndex, that
+	# points to the root index.
+	def insertRows(self, data, position, rows, parent=QtCore.QModelIndex()):
+		self.beginInsertRows(parent, position, position+rows-1)
+		for i in range(rows):
+			if len(data) == 5:
+				self.tableData.insert(position, data)
+		self.endInsertRows()
+		return True
+
+	# This is called for removing a row.
+	# Position: where to insert, rows: how many to insert,
+	# parent: who will be parent in a tree view?
+	def removeRows(self, position, rows, parent=QtCore.QModelIndex()):
+		self.beginRemoveRows(parent, position, position+rows-1)
+		for i in range(rows):
+			# Remove method takes a value, not and index.
+			# So get the value first...
+			value = self.tableData[position]
+			#... and remove it.
+			self.tableData.remove(value)
+
+		self.endRemoveRows()
+		return True
+
+	# Delete all the data.
+	#TODO: leave "default" model in table data upon clearing?
+	#def clearData(self):
+	#	if len(self.tableData) != 0:
+	#		self.beginRemoveRows(QModelIndex(), 0, len(self.tableData) - 1)
+	#		self.tableData = []
+	#		self.endRemoveRows()
+
+
+
+	# Provide a new value for the slicer status of a given row.
+	# Slicer status is in column 1.
+	def updateSlicerProgress(self, slicerProgress):
+		# Set the data.
+		if len(self.tableData) == len(slicerProgress):
+			for row in range(len(self.tableData)):
+				self.tableData[row][1] = slicerProgress[row]
+				# Create index for the changed cell.
+				index = self.createIndex(row, 1)
+				# Emit data changed signal to update all views since we changed the data manually.
+				self.dataChanged.emit(index, index)
 
 
 '''
