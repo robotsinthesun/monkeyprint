@@ -26,7 +26,6 @@ import monkeyprintModelHandling
 import monkeyprintSettings
 import monkeyprintGui
 import monkeyprintGuiHelper
-import monkeyprintPiServer
 
 
 def main(argv):
