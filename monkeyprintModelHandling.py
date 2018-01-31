@@ -2775,13 +2775,13 @@ class sliceCombiner(threading.Thread):
 
 
 	# Stop thread and wait for it to finish.
-	def join(self, timeout=None):
-		'''
-		if self.console != None:
-			self.console.addLine("Stopping combiner thread")
-		'''
-		self.stopThread.set()
-		threading.Thread.join(self, timeout)
+	#def join(self, timeout=None):
+	#	'''
+	#	if self.console != None:
+	#		self.console.addLine("Stopping combiner thread")
+	#	'''
+	#	self.stopThread.set()
+	#	threading.Thread.join(self, timeout)
 
 
 
@@ -2956,11 +2956,11 @@ class backgroundSlicer(threading.Thread):
 
 
 	# Stop thread and wait for it to finish.
-	def join(self, timeout=None):
-		if self.console != None:
-			self.console.addLine("Stopping slicer thread")
-		self.stopThread.set()
-		threading.Thread.join(self, timeout)
+	#def join(self, timeout=None):
+	#	#if self.console != None:
+	#	#	self.console.addLine("Stopping slicer thread")
+	#	self.stopThread.set()
+	#	threading.Thread.join(self, timeout)
 
 
 	# Update the slice stack. This will run on any new input in the

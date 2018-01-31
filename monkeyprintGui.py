@@ -289,22 +289,30 @@ class gui(QtGui.QApplication):
 
 
 	def closeNicely(self):
+		# Save settings to file.
+		self.programSettings.saveFile('./')
+
 		# Get all threads.
 		runningThreads = threading.enumerate()
 		# End kill threads. Main gui thread is the first...
 		for i in range(len(runningThreads)):
 			if i != 0:
-				runningThreads[-1].join(timeout=1000)	# Timeout in ms.
-				print "Background thread " + str(i) + " finished."
+				runningThreads[-1].stop()
+				try:
+					runningThreads[-1].join(timeout=10000)	# Timeout in ms.
+				except RuntimeError:
+					print "Failed to join background thread."
+				else:
+					print "Background thread " + str(i) + " finished."
 				del runningThreads[-1]
+
 		# Clean up files.
 		if os.path.isfile(self.programSettings['localMkpPath'].value):
 			os.remove(self.programSettings['localMkpPath'].value)
+
 		# Remove temp directory.
 		shutil.rmtree(self.programSettings['tmpDir'].value, ignore_errors=True)
-		# Save settings to file.
-		self.programSettings.saveFile('./')
-		# Terminate the gui.
+
 
 
 	def checkPrinterRunning(self):
