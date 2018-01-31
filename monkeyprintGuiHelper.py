@@ -1117,7 +1117,7 @@ class imageSlider(QtGui.QVBoxLayout):
 				val = None
 				for arg in inspect.getargspec(function)[0]:
 					if arg == 'sliceNumber':
-						val = sliderValue-1
+						val = currentSliceNumber-1
 				# Run function.
 				if val != None: function(val)
 				else: function()
