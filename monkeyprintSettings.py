@@ -301,11 +301,9 @@ class programSettings(dict):
 #		self['End commands GCode'] = setting(value='M18', default='M18')
 #		self['Home GCode'] = setting(value='G28', default='G28')
 #		self['Top GCode'] = setting(value='G28 Z0', default='G28 Z0')
-		# Modules for print process. Values are: Type, Display name, Value, Unit, Editable.
-		self['printModulesMonkeyprint'] =	setting(value=	'Initialise printer,,,internal,False;Wait,1.0,,internal,True;Build platform layer up,,buildUp,serialMonkeyprint,False;Build platform to home,,buildHome,serialMonkeyprint,False;Build platform to top,,buildTop,serialMonkeyprint,False;Tilt,,tilt,serialMonkeyprint,False;Shutter open,,shutterOpen,serialMonkeyprint,False;Shutter close,,shutterClose,serialMonkeyprint,False;Expose,,,internal,False;Projector on,,projectorOn,serialMonkeyprint,False;Projector off,,projectorOff,serialMonkeyprint,False;Start loop,,,internal,False;End loop,,,internal,False', 		valType=str, output=self.output)
-		self['printModulesGCode'] =			setting(value='Wait,1.0,,internal,True;Initialise printer,G21 G91 M17,,serialGCode,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True;Build platform to home,G28 X Z,,serialGCode,True;Build platform to top,G162 Z F100,,serialGCode,True;Tilt down,G1 X20 F1000,,serialGCode,True;Tilt up,G1 X-20 F1000,,serialGCode,True;Shutter open,M280 P0 S500,,serialGCode,True;Shutter close,M280 P0 S2500,,serialGCode,True;Expose,,,internal,False;Projector on,,,internal,False;Projector off,,,internal,False;Start loop,,,internal,False;End loop,,,internal,False;Shut down printer,M18,,serialGCode,True;Set steps per unit,M92 X 20.8 Z 10.2,,serialGCode,True;Emergency stop,M112,,serialGCode,True;Beep,M300 S440 P500,,serialGCode,True;Custom G-Code,G91,,serialGCode,True', 		valType=str, output=self.output)
-		self['printProcessMonkeyprint'] =	setting(value='Initialise printer,,,internal,False;Projector on,,projectorOn,serialMonkeyprint,False;Build platform to home,,buildHome,serialMonkeyprint,False;Start loop,,,internal,False;Shutter open,,shutterOpen,serialMonkeyprint,False;Expose,,,internal,False;Shutter close,,shutterClose,serialMonkeyprint,False;Tilt,,tilt,serialMonkeyprint,False;Wait,1.0,,internal,True;End loop,,,internal,False;Build platform to top,,buildTop,serialMonkeyprint,False', 		valType=str, output=self.output)
-		self['printProcessGCode'] =			setting(value='Initialise printer,G21 G91 M17,,serialGCode,True;Projector on,---,,internal,False;Build platform to home,G28 X Z,,serialGCode,True;Start loop,---,,internal,False;Shutter open,M280 P0 S500,,serialGCode,True;Expose,---,,internal,False;Shutter close,M280 P0 S2500,,serialGCode,True;Tilt down,G1 X20 F1000,,serialGCode,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True;Tilt up,G1 X-20 F1000,,serialGCode,True;Wait,1.0,,internal,True;End loop,---,,internal,False;Build platform to top,G162 F100,,serialGCode,True;Shut down printer,M18,,serialGCode,True', 		valType=str, output=self.output)
+		# Modules for print process. Values are: Display name, Value, Unit, Type, Editable, Active.
+		self['printModulesGCode'] =			setting(value='Wait,1.0,,internal,True,True;Initialise printer,G21 G91 M17,,serialGCode,True,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True,True;Build platform to home,G28 X Z,,serialGCode,True,True;Build platform to top,G162 Z F100,,serialGCode,True,True;Tilt down,G1 X20 F1000,,serialGCode,True,True;Tilt up,G1 X-20 F1000,,serialGCode,True,True;Shutter open,M280 P0 S500,,serialGCode,True,True;Shutter close,M280 P0 S2500,,serialGCode,True,True;Expose,,,internal,False,True;Projector on,,,internal,False,True;Projector off,,,internal,False,True;Start loop,,,internal,False,True;End loop,,,internal,False,True;Shut down printer,M18,,serialGCode,True,True;Set steps per unit,M92 X 20.8 Z 10.2,,serialGCode,True,True;Emergency stop,M112,,serialGCode,True,True;Beep,M300 S440 P500,,serialGCode,True,True;Custom G-Code,G91,,serialGCode,True,True', 		valType=str, output=self.output)
+		self['printProcessGCode'] =			setting(value='Initialise printer,G21 G91 M17,,serialGCode,True,True;Projector on,---,,internal,False,True;Build platform to home,G28 X Z,,serialGCode,True,True;Start loop,---,,internal,False,True;Shutter open,M280 P0 S500,,serialGCode,True,True;Expose,---,,internal,False,True;Shutter close,M280 P0 S2500,,serialGCode,True,True;Tilt down,G1 X20 F1000,,serialGCode,True,True;Build platform layer up,G1 Z{$layerHeight} F100,,serialGCode,True,True;Tilt up,G1 X-20 F1000,,serialGCode,True,True;Wait,1.0,,internal,True,True;End loop,---,,internal,False,True;Build platform to top,G162 F100,,serialGCode,True,True;Shut down printer,M18,,serialGCode,True,True', 		valType=str, output=self.output)
 		#self['calibrationImageFile'] = setting(value="calibrationImage.jpg", default="calibrationImage.jpg")
 		self['polylineClosingThreshold'] = 	setting(value=0.1, 		valType=float,	default=0.1, lower=0.0, upper=1.0, output=self.output)
 		self['sliceStackMemory'] = 			setting(value=50, 		valType=int,	default=500, lower=100, unit='MB', name='Slicer memory', output=self.output)
@@ -392,7 +390,9 @@ class programSettings(dict):
 			moduleList = self['printModulesGCode'].value.split(';')
 			for i in range(len(moduleList)):
 				moduleList[i] = moduleList[i].split(',')
+				# Turn True/False string into boolean.
 				moduleList[i][-1] = eval(moduleList[i][-1])
+				moduleList[i][-2] = eval(moduleList[i][-2])
 			return moduleList
 
 	def setModuleList(self, moduleList):
@@ -407,22 +407,14 @@ class programSettings(dict):
 			self['printModulesGCode'].value = settingString
 
 	def getPrintProcessList(self):
-		if self['monkeyprintBoard'].value == True:
-			printProcessList = self['printProcessMonkeyprint'].value.split(';')
-			for i in range(len(printProcessList)):
-				# Split comma separated string for each command.
-				printProcessList[i] = printProcessList[i].split(',')
-				# Turn True/False string into boolean.
-				printProcessList[i][-1] = eval(printProcessList[i][-1])
-			return printProcessList
-		else:
-			printProcessList = self['printProcessGCode'].value.split(';')
-			for i in range(len(printProcessList)):
-				# Split comma separated string for each command.
-				printProcessList[i] = printProcessList[i].split(',')
-				# Turn True/False string into boolean.
-				printProcessList[i][-1] = eval(printProcessList[i][-1])
-			return printProcessList
+		printProcessList = self['printProcessGCode'].value.split(';')
+		for i in range(len(printProcessList)):
+			# Split comma separated string for each command.
+			printProcessList[i] = printProcessList[i].split(',')
+			# Turn True/False string into boolean.
+			printProcessList[i][-1] = eval(printProcessList[i][-1])
+			printProcessList[i][-2] = eval(printProcessList[i][-2])
+		return printProcessList
 
 
 	def setPrintProcessList(self, moduleList):

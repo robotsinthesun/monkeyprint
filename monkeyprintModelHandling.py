@@ -1947,7 +1947,7 @@ class modelData:
 				slicerInputInfo['pxPerMmX'] = self.programSettings['pxPerMmX'].value
 				slicerInputInfo['pxPerMmY'] = self.programSettings['pxPerMmY'].value
 				slicerInputInfo['layerHeight'] = self.programSettings['layerHeight'].value
-				slicerInputInfo['numberOfSlices'] = self.getNumberOfSlices()#int(math.floor(self.bounds[5] / self.layerHeight))
+				slicerInputInfo['numberOfSlices'] = self.getNumberOfSlices()
 				slicerInputInfo['position'] = self.getSlicePositionPx(border=True)
 				slicerInputInfo['size'] = self.getSliceSizePx(border=True)
 				slicerInputInfo['wallThickness'] = self.settings['fillShellWallThickness'].value
@@ -1963,6 +1963,7 @@ class modelData:
 				slicerInputInfo['showVtkErrors'] = self.programSettings['showVtkErrors'].value
 				slicerInputInfo['polylineClosingThreshold'] = self.programSettings['polylineClosingThreshold'].value
 				slicerInputInfo['multiBodySlicing'] = self.programSettings['multiBodySlicing'].value
+
 				# If there's nothing in the queue...
 				if self.queueSlicerIn.empty():
 					# ... write the slicer info to the queue.
@@ -2616,7 +2617,7 @@ class sliceCombiner(threading.Thread):
 				sliceNumbers = [int(modelNamesAndHeights[5].split(' ')[1])]
 
 			# Get number of preview slices.
-			numberOfPreviewSlices = len(sliceNumbers)
+			#numberOfPreviewSlices = len(sliceNumbers)
 
 			# Get highest model.
 			stackHeight = sorted(modelNamesAndHeights[2])[-1]
@@ -2672,9 +2673,9 @@ class sliceCombiner(threading.Thread):
 			# Create base image.
 			imageBlack = imageHandling.createImageGray(sliceWidth, sliceHeight,0)
 
+
 			# Then, walk through slices and check if they are complete.
 			for i in sliceNumbers:
-
 				if not self.stopThread.isSet() and not self.newInputInQueue():
 					# Prepare image.
 					imageSlice = imageBlack
@@ -2725,6 +2726,7 @@ class sliceCombiner(threading.Thread):
 					imageSlice = numpy.flipud(imageSlice)
 					# Clip border.
 					imageSlice = imageSlice[sliceBorderWidth:sliceHeight-sliceBorderWidth, sliceBorderWidth:sliceWidth-sliceBorderWidth]
+
 
 					# Once the slice image is complete, subtract the calibration image.
 					if self.programSettings['calibrationImage'].getValue():
@@ -3012,7 +3014,7 @@ class backgroundSlicer(threading.Thread):
 			# Get support height.
 			self.supportHeight = slicerInputInfo['supportHeight']
 			# Get wall thickness for hollowing.
-			self.wallThicknessLayers = slicerInputInfo['wallThickness'] / float(self.layerHeight)
+			self.wallThicknessLayers = int(math.ceil(slicerInputInfo['wallThickness'] / self.layerHeight))
 			self.wallThicknessPxX = slicerInputInfo['wallThickness'] * self.pxPerMmX
 			self.wallThicknessPxY = slicerInputInfo['wallThickness'] * self.pxPerMmY
 			self.fillPatternSpacingPxX = slicerInputInfo['fillPatternSpacingPxX'] * self.pxPerMmX
@@ -3047,8 +3049,6 @@ class backgroundSlicer(threading.Thread):
 			# Loop through slices.
 			for sliceNumber in range(int(self.numberOfSlices + self.wallThicknessLayers)):
 				progress = int(numpy.min(numpy.array([numpy.ceil(sliceNumber / float(self.numberOfSlices + self.wallThicknessLayers) * 100),100])))
-				print sliceNumber
-				print "  " + str(progress)
 				if progress != self.slicerProgress:
 					# Write progress to queue if empty...
 					if not self.queueSlicerOut.qsize():

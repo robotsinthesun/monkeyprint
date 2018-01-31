@@ -199,7 +199,8 @@ class entry(QtGui.QWidget):
 			self.labelString = self.settings[self.string].name + self.settings[string].unit
 		else:
 			self.labelString = string+self.settings[string].unit
-
+		# Transform into QString to handle special chars better.
+		self.labelString = QtCore.QString.fromUtf8(self.labelString)
 		# Make label.
 		self.label = QtGui.QLabel(self.labelString)
 		box.addWidget(self.label, 0, QtCore.Qt.AlignVCenter and QtCore.Qt.AlignLeft)
@@ -411,6 +412,10 @@ class modelTableView(QtGui.QWidget):
 		self.tableView.setFocusPolicy(QtCore.Qt.NoFocus)
 		# Prevent the header font from being made bold if a row is selected.
 		self.tableView.horizontalHeader().setHighlightSections(False)
+		# Expand last column to fit view.
+		self.tableView.horizontalHeader().setStretchLastSection(True)
+		# Auto-stretch columns to fit contents.
+		self.tableView.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
 
 		self.box.addWidget(self.tableView)
 		self.boxButtons = QtGui.QHBoxLayout()
@@ -1640,12 +1645,12 @@ class printProcessTableView(QtGui.QWidget):
 		framePrintProcess.setLayout(boxPrintProcess)
 
 		# Load module list from settings.
-		self.moduleList = self.settings.getModuleList()
+		self.listModules = self.settings.getModuleList()
 
 		# Load print process list from settings.
 		#self.printProcessList = self.settings.getPrintProcessList()
 		# Create table model from list.
-		self.model = printProcessTableModel(self.settings.getPrintProcessList(), 2)
+		self.modelPrintProcess = printProcessTableModel(self.settings.getPrintProcessList(), 2)
 
 		# Create the print process scrolled window.
 		self.tableView = QtGui.QTableView()
@@ -1665,9 +1670,16 @@ class printProcessTableView(QtGui.QWidget):
 		# Prevent the header font from being made bold if a row is selected.
 		self.tableView.horizontalHeader().setHighlightSections(False)
 		boxPrintProcess.addWidget(self.tableView)
-
+		# Stretch last column to fit width of view.
+		self.tableView.horizontalHeader().setStretchLastSection(True)
+		# Auto-adjust column widths to fit contents.
+		self.tableView.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
 		# Show print process module list.
-		self.tableView.setModel(self.model)
+		self.tableView.setModel(self.modelPrintProcess)
+		# Select first row.
+		self.tableView.selectRow(0)
+		# Connectio selection changed event.
+		self.tableView.selectionModel().selectionChanged.connect(self.callbackSelectionChanged)
 
 		# Create controls.
 		# Box.
@@ -1677,7 +1689,8 @@ class printProcessTableView(QtGui.QWidget):
 		boxPrintProcess.addLayout(boxButtons)
 		# Module drop down.
 		self.dropdownModules = QtGui.QComboBox(self)
-		self.updateDropdownModules()
+		for module in self.listModules:
+			self.dropdownModules.addItem(module[0])
 		boxButtons.addWidget(self.dropdownModules)
 		#self.dropdownModules.activated[str].connect(self.style_choice)
 		# Buttons.
@@ -1685,11 +1698,6 @@ class printProcessTableView(QtGui.QWidget):
 		self.buttonAdd = QtGui.QPushButton("Add")
 		self.buttonAdd.clicked.connect(self.callbackButtonAdd)
 		boxButtons.addWidget(self.buttonAdd)
-		# Edit.
-		self.buttonEdit = QtGui.QPushButton("Edit")
-		self.buttonEdit.clicked.connect(self.callbackButtonEdit)
-		self.buttonEdit.setEnabled(False)
-		boxButtons.addWidget(self.buttonEdit)
 		# Move up.
 		self.buttonUp = QtGui.QPushButton(u'\u2191')
 		self.buttonUp.setMaximumSize(QtCore.QSize(27,27))
@@ -1705,260 +1713,124 @@ class printProcessTableView(QtGui.QWidget):
 		# Remove.
 		self.buttonRemove = QtGui.QPushButton("Remove")
 		self.buttonRemove.clicked.connect(self.callbackButtonRemove)
-		self.buttonRemove.setEnabled(False)
+		self.buttonRemove.setEnabled(len(self.modelPrintProcess.tableData) > 0)
 		boxButtons.addWidget(self.buttonRemove)
-
-		'''
-		self.scrolledWindowPrintProcess = gtk.ScrolledWindow()
-		self.scrolledWindowPrintProcess.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_ALWAYS)
-		self.boxPrintProcess.pack_start(self.scrolledWindowPrintProcess, expand=True, fill=True, padding = 5)
-		self.scrolledWindowPrintProcess.show()
-
-		# Create view for model list.
-		self.viewPrintProcess = gtk.TreeView()
-		# Create model for print process view.
-		self.printProcessListModel = gtk.ListStore(str,str,str,str,bool)
-		self.updatePrintProcessListModel()
-		self.viewPrintProcess.show()
-	#	self.viewPrintProcess.set_headers_visible(False)	# Make column invisible.
-		self.viewPrintProcess.set_headers_clickable(False)
-		self.viewPrintProcess.set_reorderable(False)
-		self.scrolledWindowPrintProcess.add(self.viewPrintProcess)
-		# Add model name column and respective text cell renderer.
-		self.columnModelPrintProcess = gtk.TreeViewColumn('Module')
-		self.viewPrintProcess.append_column(self.columnModelPrintProcess)
-		self.cellModelPrintProcess = gtk.CellRendererText()
-	#	self.cellModelPrintProcess.set_property('editable', True)
-	#	self.cellModelPrintProcess.connect('edited', self.callbackPrintProcessNameEdited, self.printProcessListModel)
-		self.columnModelPrintProcess.pack_start(self.cellModelPrintProcess, True)
-		self.columnModelPrintProcess.add_attribute(self.cellModelPrintProcess, 'text', 0)
-	#	self.columnModelPrintProcess.set_sort_column_id(0)
-		# Add active? column and respective toggle cell renderer.
-		self.columnValuePrintProcess = gtk.TreeViewColumn('Value')
-		self.viewPrintProcess.append_column(self.columnValuePrintProcess)
-		self.cellValuePrintProcess = gtk.CellRendererText()
-	#	self.cellValuePrintProcess.set_property('editable', True)
-	#	self.cellValuePrintProcess.connect('edited', self.callbackPrintProcessValueEdited, self.printProcessListModel)
-		self.columnValuePrintProcess.pack_start(self.cellValuePrintProcess, False)
-		self.columnValuePrintProcess.add_attribute(self.cellValuePrintProcess, 'text', 1)
-	#	self.columnValuePrintProcess.set_sort_column_id(3)
+		# Set button sensitivities.
+		self.setButtonSensitivities()
 
 
 
-
-		# Create drop down menu with available modules list.
-		self.dropdownModulesSimple = gtk.combo_box_new_text()
-		self.boxButtons.pack_start(self.dropdownModulesSimple, True, True, padding=5)
-		self.dropdownModulesSimple.connect('changed',self.callbackModuleDropdownSelectionChanged)
-		# Create the list model for the dropdown combo box.
-		self.moduleListModel = gtk.ListStore(str,str,str,str,bool)
-		self.updateModuleListModel()
-		# Set first item active.
-		self.dropdownModulesSimple.set_active(0)
-		self.dropdownModulesSimple.show()
-
-		# Create buttons.
-		# Add button.
-		self.buttonAdd = gtk.Button("Add")
-		self.boxButtons.pack_start(self.buttonAdd, expand=True, fill=True, padding=5)
-		self.buttonAdd.show()
-		self.buttonAdd.connect("clicked", self.callbackPrintProcessAdd)
-		# Edit button.
-		self.buttonEdit = gtk.Button("Edit")
-		self.boxButtons.pack_start(self.buttonEdit)
-		self.buttonEdit.set_sensitive(False)
-		self.buttonEdit.show()
-		self.buttonEdit.connect("clicked", self.callbackPrintProcessEdit)
-		# Up button.
-		self.buttonUp = gtk.Button(u'\u2191')
-		self.boxButtons.pack_start(self.buttonUp, expand=True, fill=True, padding=5)
-		if len(self.printProcessListModel) == 0:
-			self.buttonUp.set_sensitive(False)
-		self.buttonUp.show()
-		self.buttonUp.connect("clicked", self.callbackPrintProcessUp)
-		# Down button.
-		self.buttonDown = gtk.Button(u'\u2193')
-		self.boxButtons.pack_start(self.buttonDown, expand=True, fill=True, padding=5)
-		if len(self.printProcessListModel) == 0:
-			self.buttonDown.set_sensitive(False)
-		self.buttonDown.show()
-		self.buttonDown.connect("clicked", self.callbackPrintProcessDown)
-		# Remove button.
-		self.buttonRemove = gtk.Button("Remove")
-		self.boxButtons.pack_start(self.buttonRemove, expand=True, fill=True, padding=5)
-		if len(self.printProcessListModel) == 0:
-			self.buttonRemove.set_sensitive(False)
-		self.buttonRemove.show()
-		self.buttonRemove.connect("clicked", self.callbackPrintProcessRemove)
-
-		# Create item selection.
-		self.printProcessModuleSelection = self.viewPrintProcess.get_selection()
-		# Avoid multiple selection.
-		self.printProcessModuleSelection.set_mode(gtk.SELECTION_SINGLE)
-		# Connect to selection change event function.
-		self.printProcessModuleSelection.connect('changed', self.onSelectionChangedPrintProcess)
-		# Select first item.
-		self.printProcessModuleSelection.select_iter(self.printProcessListModel.get_iter_first())
-		'''
-
-
-	# Update list model for dropdown.
-	def loadModules(self):
-		self.moduleList = self.settings.getModuleList()
-
-
-	def updateDropdownModules(self):
-		for module in self.moduleList:
-			self.dropdownModules.addItem(module[0])
-
-
-	# Update list model for print process list.
-	def updatePrintProcessListModel(self):
-		# Get module list from settings.
-		model = gtk.ListStore(str,str,str,str,bool)
-		moduleList = self.settings.getPrintProcessList()
-		for row in moduleList:
-			model.append(row)
-		self.printProcessListModel = model
-		self.viewPrintProcess.set_model(self.printProcessListModel)
-
-
+	# Return the raw print process list.
 	def getPrintProcessList(self):
-		moduleList = []
-		for row in self.printProcessListModel:
-			rowList = []
-			for item in row:
-				rowList.append(item)
-			moduleList.append(rowList)
-		return moduleList
+		return self.modelPrintProcess.tableData
 
 
 	# Insert the module selected in drop down into the print process list.
 	def callbackButtonAdd(self, widget, data=None):
 		# Get current selection from dropdown.
-		item = self.moduleList[self.dropdownModules.currentIndex()]
+		item = self.listModules[self.dropdownModules.currentIndex()]
+		# Get current selection from table view.
+		if len(self.tableView.selectionModel().selectedRows()) > 0:
+			rowCurrent = self.tableView.selectionModel().selectedRows()[0].row()
+		else:
+			rowCurrent = -1
+		# Add to table model.
+		self.modelPrintProcess.insertRows(item, position=rowCurrent + 1, rows=1)
+		# Set new row selected.
+		self.tableView.selectRow(rowCurrent + 1)
+		# Activate the remove button which was deactivated when there was no model.
+		self.setButtonSensitivities()
 
-		'''
-		# Get selected iter.
-		model, treeiter = self.printProcessModuleSelection.get_selected()
-		# Get item to add.
-		item = self.dropdownModulesSimple.get_active()
-		if item >= 0:
-			# If list is not empty...
-			if treeiter != None:
-				#... insert after selected iter.
-				path = self.printProcessListModel.get_path(treeiter)
-				newIter = self.printProcessListModel.insert(path[0]+1, self.moduleListModel[item])
-			# If list is empty...
-			else:
-				#... append item.
-				newIter = self.printProcessListModel.append(self.moduleListModel[item])
-			self.printProcessModuleSelection.select_iter(newIter)
-		'''
 
 	# Delete the selected module from the print process list.
 	def callbackButtonRemove(self, widget, data=None):
-		pass
-		'''
-		model, treeiter = self.printProcessModuleSelection.get_selected()
-		# Get the path of the current iter.
-		if len(self.printProcessListModel) > 0:
-			currentPath = self.printProcessListModel.get_path(treeiter)[0]
-			deletePath = currentPath
-			# Check what to select next.
-			# If current selection at end of list but not the last element remaining...
-			if currentPath == len(self.printProcessListModel) - 1 and len(self.printProcessListModel) > 1:
-				# ... select the previous item.
-				currentPath -= 1
-				self.printProcessModuleSelection.select_path(currentPath)
-			# If current selection is somewhere in the middle...
-			elif currentPath < len(self.printProcessListModel) - 1 and len(self.printProcessListModel) > 1:
-				# ... selected the next item.
-				currentPath += 1
-				self.printProcessModuleSelection.select_path(currentPath)
-		# Remove the item and check if there's a next item.
-		iterValid = self.printProcessListModel.remove(treeiter)
+		# Get selected row. We have single select mode, so only one (the first) will be selected.
+		removeIndex = self.tableView.selectionModel().selectedRows()[0]
+		# Find out which row to select after the current selection has been deleted.
+		currentIndex = removeIndex
+		# Select the next model in the list before deleting the current one.
+		# If current selection at end of list but not the last element...
+		if currentIndex == len(self.modelPrintProcess.tableData) - 1 and len(self.modelPrintProcess.tableData) > 1:
+			# ... select the previous item.
+			currentIndex -= 1
+			self.tableView.selectRow(currentIndex)
+		# If current selection is somewhere in the middle...
+		elif currentIndex < len(self.modelPrintProcess.tableData) - 1 and len(self.modelPrintProcess.tableData) > 1:
+			# ... selected the next item.
+			currentIndex += 1
+			self.tableView.selectRow(currentIndex)
+		# If current selection is the last element remaining...
+		elif len(self.modelPrintProcess.tableData) == 1:
+			pass
+
+		# Now, remove from QT table model.
+		# Turn into persistent indices which keep track of index shifts as
+		# items get removed from the model.
+		# This is only needed for removing multiple indices (which we don't do, but what the heck...)
+		persistentIndices = [QtCore.QPersistentModelIndex(index) for index in self.tableView.selectionModel().selectedRows()]
+		for index in persistentIndices:
+			self.modelPrintProcess.removeRow(index.row())
+
 		# Set button sensitivities.
 		self.setButtonSensitivities()
-		'''
 
 
-	def callbackButtonEdit(self, widget, data=None):
-		pass
-		'''
-		model, treeiter = self.printProcessModuleSelection.get_selected()
-		if treeiter != None:
-			editDialog = dialogEditPrintModule(parent=self.parent, modelItem=model[treeiter])
-			editedModelItem = editDialog.run()
-			editDialog.destroy()
-			model[treeiter] = editedModelItem
-		'''
-
-
+	# Swap the selected row with the one above.
 	def callbackButtonUp(self, widget, data=None):
-		'''
-		# Get iter of selected item and previous item.
-		model, treeiter = self.printProcessModuleSelection.get_selected()
-		path = model.get_path(treeiter)[0]
-		pathPrevious = path - 1
-		treeiterPrevious = model.get_iter(pathPrevious)
-		# Swap items.
-		model.swap(treeiter, treeiterPrevious)
-		# Reset sensitivities manually.
-		self.setButtonSensitivities()
-		'''
+		rowCurrent = self.tableView.selectionModel().selectedRows()[0].row()
+		if rowCurrent > 0:
+			self.modelPrintProcess.swapRows(rowCurrent, rowCurrent-1)
+		# Set selection to moved row.
+		self.tableView.selectRow(rowCurrent-1)
 
 
+	# Swap the selected row with the one below.
 	def callbackButtonDown(self, widget, data=None):
-		'''
-		# Get iter of selected item and next item.
-		model, treeiter = self.printProcessModuleSelection.get_selected()
-		path = model.get_path(treeiter)[0]
-		pathNext = path + 1
-		treeiterNext = model.get_iter(pathNext)
-		# Swap the items.
-		model.swap(treeiter, treeiterNext)
-		# Reset sensitivities manually.
-		self.setButtonSensitivities()
-		'''
+		rowCurrent = self.tableView.selectionModel().selectedRows()[0].row()
+		if rowCurrent <= len(self.modelPrintProcess.tableData):
+			self.modelPrintProcess.swapRows(rowCurrent, rowCurrent+1)
+		# Set selection to moved row.
+		self.tableView.selectRow(rowCurrent+1)
 
 
 	# Selection changed callback.
-	def onSelectionChangedPrintProcess(self, selection):
-		'''
-		# Get selected iter.
-		model, treeIter = selection.get_selected()
-		# If iter is valid...
-		if treeIter != None:
-			# Handle button sensitivities.
-			self.setButtonSensitivities()
-		# If iter is not valid (nothing selected) but list is not empty...
-		elif len(model) > 0:
-			# ... select first item.
-			self.printProcessModuleSelection.select_iter(model.get_iter(0)) # Does this invoke selection change event?
-		'''
+	def callbackSelectionChanged(self, selection):
+		self.setButtonSensitivities()
 
 
+	# Set button sensitivities according to selection and list length.
 	def setButtonSensitivities(self):
-		'''
-		model, treeiter = self.printProcessModuleSelection.get_selected()
-		if treeiter != None:
-			# Add button is always sensitive.
-			# Set edit button sensitivity.
-			self.buttonEdit.set_sensitive(len(model)>0 and model[treeiter][-1])
-			# Set remove button sensitivity.
+		# Check if the model is empty.
+		if len(self.modelPrintProcess.tableData) > 0 and len(self.tableView.selectionModel().selectedRows()) > 0:
+			rowCurrent = self.tableView.selectionModel().selectedRows()[0].row()
 			# Set up button sensitivity.
-			self.buttonUp.set_sensitive(model.get_path(treeiter)[0] != 0 and len(model) > 1)
+			self.buttonUp.setEnabled(rowCurrent > 0)
 			# Set down button sensitivity.
-			self.buttonDown.set_sensitive(model.get_path(treeiter)[0] != len(model)-1 and len(model) > 1)
+			self.buttonDown.setEnabled(rowCurrent != len(self.modelPrintProcess.tableData)-1)
 			# Set remove button sensitivity.
-			self.buttonRemove.set_sensitive(len(model)>0)
+			self.buttonRemove.setEnabled(True)
 		else:
-			self.buttonEdit.set_sensitive(False)
-			self.buttonUp.set_sensitive(False)
-			self.buttonDown.set_sensitive(False)
-			self.buttonRemove.set_sensitive(False)
-		'''
+			self.buttonUp.setEnabled(False)
+			self.buttonDown.setEnabled(False)
+			self.buttonRemove.setEnabled(False)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #*******************************************************************************
 # Create a table model for the print process including add and remove methods.
@@ -2007,79 +1879,18 @@ class printProcessTableModel(QtCore.QAbstractTableModel):
 
 		# Return the data.
 		if role == Qt.DisplayRole:
-			if column == 0:
-				return QtCore.QVariant(self.tableData[index.row()][index.column()])
-			elif column == 1:
-				return QtCore.QVariant(str(self.tableData[index.row()][index.column()]) + " %")
+			return QtCore.QVariant(self.tableData[index.row()][index.column()])
 
 		# If user starts editing the cell by double clicking it, also return the data.
 		# Otherwise cell will be empty once editing is started.
 		if role == Qt.EditRole:
 			return QtCore.QVariant(self.tableData[index.row()][index.column()])
 
-		# Return the picture for slicer status bar if the view asks for a
-		# decoration role.
-		elif role == Qt.DecorationRole:
-			if column == 1:
-				# Bar size.
-				barWidth = 50
-				barHeight =10
-				# Set the color depending on the slicer status.
-				# Small: red, medium: yellow, high: green.
-				if self.tableData[row][1] < barWidth * (100./barWidth) * 0.1:
-					color = 0xFF0000
-				elif self.tableData[row][1] > barWidth * (100./barWidth) * 0.95:
-					color = 0x64FF00
-				else:
-					color = 0xFFC800
-				# Create image.
-				img = QtGui.QImage(barWidth, barHeight, QtGui.QImage.Format_RGB888)
-				img.fill(0xFFFFFF)
-
-				for h in range(barHeight):
-					for w in range(barWidth):
-						if w*(100./barWidth) < self.tableData[row][1]:
-							img.setPixel(w,h,color)
-
-				'''
-				# DOES NOT WORK.
-				# That's because the bardata array
-				# will be deleted after the data() method has returned.
-				# The memory of the img will be overwritten and result in
-				# noise.
-				barWidth = 50
-				barHeight =6
-				# Create a numpy array of 100 x 1 pixels.
-				barData = numpy.ones((barHeight,barWidth,3), dtype = numpy.uint8)*255
-
-				# Set the color depending on the slicer status.
-				# Small: red, medium: yellow, high: green.
-				if self.tableData[row][1] < barWidth * (100./barWidth) * 0.1:
-					color = [255,255,0]#0xFFFF00
-				elif self.tableData[row][1] > barWidth * (100./barWidth) * 0.95:
-					color = [100,255,0]#0x80FF00
-				else:
-					color = [255,200,0]#0x00D0FF
-				# Loop through image columns and set pixel color.
-				barData = numpy.swapaxes(barData,0,1)
-				for i in range(barData.shape[0]):
-					if i*(100./barWidth) < self.tableData[row][1]:
-						barData[i] = color
-				barData = numpy.swapaxes(barData,0,1)
-
-				print barData
-
-				# Convert to image.
-				img = QtGui.QImage(barData.DeepCopy(), barData.shape[1], barData.shape[0], barData.strides[0], QtGui.QImage.Format_RGB888)
-				'''
-				return img
-
-		# Add a check box to all rows in column 1.
+		# Add a check box to all rows in column 0.
 		# Set the checkbox state depending on the data in column 3.
 		elif role == Qt.CheckStateRole:
 			if column == 0:
-				#print self.tableData[row][3]
-				if self.tableData[row][4]:
+				if self.tableData[row][5]:
 					return Qt.Checked
 				else:
 					return Qt.Unchecked
@@ -2087,24 +1898,14 @@ class printProcessTableModel(QtCore.QAbstractTableModel):
 		# Return tooltip.
 		elif role == Qt.ToolTipRole:
 			if column == 0:
-				return "Use the check box to enable or disable this model.\nDouble click to rename."
+				return "Use the check box to enable or disable this command.\nDouble click to rename."
 			else:
-				return "Current slicer status."
+				return "Double click to modify."
 
 		# Return alignment.
 		elif role == Qt.TextAlignmentRole:
-			#print column
-			if column == 1:
-				return Qt.AlignRight + Qt.AlignVCenter
-			else:
-				return Qt.AlignLeft + Qt.AlignVCenter
-		'''
-		# Return background color.
-		elif role == Qt.BackgroundRole:
-			if column == 1:
-				red = QtGui.QBrush(Qt.red);
-				return red;
-		'''
+			return Qt.AlignLeft + Qt.AlignVCenter
+
 		# If none of the conditions is met, return nothing.
 		return QtCore.QVariant()
 
@@ -2115,9 +1916,9 @@ class printProcessTableModel(QtCore.QAbstractTableModel):
 		if role == Qt.DisplayRole:
 			if orientation == Qt.Horizontal:
 				if section == 0:
-					return QtCore.QString("Model")
+					return QtCore.QString("Module")
 				elif section == 1:
-					return QtCore.QString("Slicer status")
+					return QtCore.QString("Commands")
 
 	# This is called once user editing of a cell has been completed.
 	# The value is the new data that has to be manually set to the
@@ -2126,13 +1927,14 @@ class printProcessTableModel(QtCore.QAbstractTableModel):
 		row = index.row()
 		column = index.column()
 		if role == Qt.EditRole:
-			self.tableData[row][column] = value
+			self.tableData[row][column] = value.toString()
 		elif role == Qt.CheckStateRole:
 			self.checkBoxChanged = True
 			if value == Qt.Checked:
-				self.tableData[row][4] = Qt.Checked
+				self.tableData[row][5] = Qt.Checked
 			elif value == Qt.Unchecked:
-				self.tableData[row][4] = Qt.Unchecked
+				self.tableData[row][5] = Qt.Unchecked
+
 		# Emit the data changed signal to let possible other views that
 		# didn't do the editing know about the changed data.
 		self.dataChanged.emit(index, index)
@@ -2145,10 +1947,19 @@ class printProcessTableModel(QtCore.QAbstractTableModel):
 		row = index.row()
 		column = index.column()
 
-		if column < 1:
-			return Qt.ItemIsSelectable |  Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsUserCheckable ;
-		else:
-			return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+		if column == 0:
+			# Allow modification of name for serial commands.
+			# Allow modification of value for serial commands and those with a true edit flag.
+			if self.tableData[row][3] == 'internal':
+				return Qt.ItemIsSelectable |  Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
+			else:
+				return Qt.ItemIsSelectable |  Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
+		elif column == 1:
+			if self.tableData[row][4] == True:
+				return Qt.ItemIsSelectable |  Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
+			else:
+				return Qt.ItemIsSelectable |  Qt.ItemIsEnabled | Qt.ItemIsUserCheckable ;
+
 
 	# This is called for inserting a row.
 	# Position: where to insert, rows: how many to insert,
@@ -2159,8 +1970,10 @@ class printProcessTableModel(QtCore.QAbstractTableModel):
 	def insertRows(self, data, position, rows, parent=QtCore.QModelIndex()):
 		self.beginInsertRows(parent, position, position+rows-1)
 		for i in range(rows):
-			if len(data) == 5:
+			if len(data) == 6:
 				self.tableData.insert(position, data)
+			else:
+				raise ValueError("Print process module has wrong length.")
 		self.endInsertRows()
 		return True
 
@@ -2170,14 +1983,20 @@ class printProcessTableModel(QtCore.QAbstractTableModel):
 	def removeRows(self, position, rows, parent=QtCore.QModelIndex()):
 		self.beginRemoveRows(parent, position, position+rows-1)
 		for i in range(rows):
-			# Remove method takes a value, not and index.
-			# So get the value first...
-			value = self.tableData[position]
-			#... and remove it.
-			self.tableData.remove(value)
+			del self.tableData[position]
 
 		self.endRemoveRows()
 		return True
+
+	def swapRows(self, position1, position2):
+		# Get row data.
+		row1 = self.tableData[position1]
+		row2 = self.tableData[position2]
+		# Set interchanged row data.
+		self.tableData[position1] = row2
+		self.tableData[position2] = row1
+
+
 
 	# Delete all the data.
 	#TODO: leave "default" model in table data upon clearing?
@@ -2189,18 +2008,25 @@ class printProcessTableModel(QtCore.QAbstractTableModel):
 
 
 
-	# Provide a new value for the slicer status of a given row.
-	# Slicer status is in column 1.
-	def updateSlicerProgress(self, slicerProgress):
-		# Set the data.
-		if len(self.tableData) == len(slicerProgress):
-			for row in range(len(self.tableData)):
-				self.tableData[row][1] = slicerProgress[row]
-				# Create index for the changed cell.
-				index = self.createIndex(row, 1)
-				# Emit data changed signal to update all views since we changed the data manually.
-				self.dataChanged.emit(index, index)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Print process table view. ##################################################################
 
 '''
 class avrdudeThread(threading.Thread):

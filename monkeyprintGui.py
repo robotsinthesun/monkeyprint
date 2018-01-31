@@ -513,12 +513,15 @@ class gui(QtGui.QApplication):
 		# Item load.
 		menuItemLoad = QtGui.QAction("Load project",self)
 		menuFile.addAction(menuItemLoad)
+		menuItemLoad.setEnabled(False)
 		# Item save.
 		menuItemSave = QtGui.QAction("Save project",self)
 		menuFile.addAction(menuItemSave)
+		menuItemSave.setEnabled(False)
 		# Item close.
 		menuItemClose = QtGui.QAction("Close project",self)
 		menuFile.addAction(menuItemClose)
+		menuItemClose.setEnabled(False)
 		# Item quit.
 		menuItemQuit = QtGui.QAction("Quit",self)
 		menuFile.addAction(menuItemQuit)
@@ -530,11 +533,12 @@ class gui(QtGui.QApplication):
 		menuOptions.addAction(menuItemSettings)
 		menuItemSettings.triggered.connect(self.callbackMenuSettings)
 		# Item firmware.
-		menuItemFirmware = QtGui.QAction("Flash firmware",self)
-		menuOptions.addAction(menuItemFirmware)
+		#menuItemFirmware = QtGui.QAction("Flash firmware",self)
+		#menuOptions.addAction(menuItemFirmware)
 		# Item manual control.
 		menuItemManualControl = QtGui.QAction("Manual control",self)
 		menuOptions.addAction(menuItemManualControl)
+		menuItemManualControl.setEnabled(False)
 		return bar
 
 
@@ -1578,7 +1582,7 @@ class dialogSettings(QtGui.QDialog):
 		'''
 
 		# Set print process modules to settings.
-	#	self.settings.setPrintProcessList(self.listViewModules.getPrintProcessList())
+		self.settings.setPrintProcessList(self.tabPrintProcessSettings.getPrintProcessList())
 
 		# Set print resolution.
 #		self.settings['pxPerMm'].value = self.settings['projectorSizeX'].value / self.settings['buildSizeX'].value
