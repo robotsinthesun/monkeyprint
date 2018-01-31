@@ -701,7 +701,14 @@ class modelCollection(dict):
 		# Data: create preview, number of prev slices, prev slice height,
 		# slice paths, number of model slices, model position, model size.
 		# Mode can be preview, full or slice number.
-		modelNamesAndHeights = [self.sliceStackPreviewLabels, [],[],[],[], mode, savePath]
+		if mode == "preview":
+			sliceNumbers = self.sliceStackPreviewLabels
+		elif mode == "full":
+			sliceNumbers = range(self.getNumberOfSlices())
+		elif mode.split(' ')[0] == "single":
+			sliceNumbers = int(mode.split(' ')[1])
+
+		modelNamesAndHeights = [sliceNumbers, [],[],[],[], mode, savePath]
 		# Update all models' slice stacks.
 		for model in self:
 			if model != 'default' and self[model].isActive():
@@ -747,9 +754,8 @@ class modelCollection(dict):
 		# timeout function to read slicer status from the slice
 		# combiner output queue.
 		self.sliceMode = "full"
-		# Get number of slices.
-		nSlices = self.getNumberOfSlices()
-		# Update preview slice stack. This will automatically
+
+		# Run the slice combiner. This will automatically
 		# save the images to the temp directory.
 		self.queueModelCollectionToCombiner.put(self.createSlicerInputInfo(mode="full", savePath=path))
 		# Update the status bar.
@@ -890,6 +896,8 @@ class modelCollection(dict):
 				else:
 					self.sliceStackPreview.setSlices(sliceCombinerOutput)
 					self.sliceCombinerFinished = True
+		elif self.sliceMode == "full":
+			pass
 
 
 	def slicerRunning(self):
