@@ -393,7 +393,6 @@ class modelCollection(dict):
 		heightPreview = int(widthPreview / aspect)
 		self.sliceStackPreview = sliceStack(self.programSettings, width=widthPreview, height=heightPreview, imgType='empty')
 		self.sliceStackPreviewLabels = [0]
-		self.sliceNumbers = [0]
 		self.sliceMode = "preview"	# Needed for slice combiner poll method.
 		self.currentSliceNumber = None
 		self.currentSlice = imageHandling.createImageGray(self.programSettings['projectorSizeX'].value, self.programSettings['projectorSizeY'].value,0)
@@ -889,7 +888,7 @@ class modelCollection(dict):
 				if type(sliceCombinerOutput) == str:
 					pass#self.console.addLine('All slices progress: ' + sliceCombinerOutput + '%.')
 				else:
-					self.sliceStackPreview.setSlices(sliceCombinerOutput)#, self.sliceNumbers = sliceCombinerOutput
+					self.sliceStackPreview.setSlices(sliceCombinerOutput)
 					self.sliceCombinerFinished = True
 
 
@@ -2303,19 +2302,6 @@ class modelData:
 		center[1] = bounds[2] + size[1] / 2.0
 		center[2] = bounds[4] + size[2] / 2.0
 		return center
-
-
-
-
-
-
-
-  ##### ##     ###### ####   #####    ##### ###### ####   ####  ##  ##
- ##     ##       ##  ##  ## ##       ##       ##  ##  ## ##  ## ## ##
-  ####  ##       ##  ##     ####      ####    ##  ##  ## ##     ####
-     ## ##       ##  ##     ##           ##   ##  ###### ##     ####
-     ## ##       ##  ##  ## ##           ##   ##  ##  ## ##  ## ## ##
- #####  ###### ###### ####   #####   #####    ##  ##  ##  ####  ##  ##
 
 
 

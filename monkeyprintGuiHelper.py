@@ -1088,19 +1088,28 @@ class imageSlider(QtGui.QVBoxLayout):
 	# Handle the scroll event by displaying the respective imageArray
 	# from the image stack.
 	def callbackScroll(self, widget=None, event=None):
-		sliderValue = self.slider.value()
-		# Call function to update the image.
-		img = numpy.copy(self.modelCollection.updateSliceImage(sliderValue-1))
-		# Get the image from the slice buffer and convert it to 3 channels.
-		# Important: make sure the image is of type uint8, otherwise pixmap will be black.
-		img = imageHandling.convertSingle2RGB(img)
-		# Write image to pixmap.
-		imgQt = QtGui.QImage(img, img.shape[1], img.shape[0], QtGui.QImage.Format_RGB888)
-		self.pixmap = QtGui.QPixmap.fromImage(imgQt)
-		# Set image to viewer.
-		self.imageView.setPixmap(self.pixmap)
-		# Set current page label.
-		self.currentLabel.setText(str(int(sliderValue)))
+		# Call function to update the image. Zero based indexing!
+		# Catch index out of bounds exception and display black image instead.
+		try:
+			sliderValue = self.slider.value()
+			# Call function to update the image.
+			img = numpy.copy(self.modelCollection.updateSliceImage(sliderValue-1))
+			# Get the image from the slice buffer and convert it to 3 channels.
+			# Important: make sure the image is of type uint8, otherwise pixmap will be black.
+			img = imageHandling.convertSingle2RGB(img)
+			# Write image to pixmap.
+			imgQt = QtGui.QImage(img, img.shape[1], img.shape[0], QtGui.QImage.Format_RGB888)
+			self.pixmap = QtGui.QPixmap.fromImage(imgQt)
+			# Set image to viewer.
+			self.imageView.setPixmap(self.pixmap)
+
+			# Get current slice number.
+			currentSliceNumber = int(self.modelCollection.sliceStackPreviewLabels[int(self.slider.value()-1)]) + 1
+			# Set current page label.
+			self.currentLabel.setText(str(currentSliceNumber))
+		except IndexError:
+			print "TRYING TO ACCESS WRONG INDEX IN SLICE STACK"
+
 		# Call custom functions if specified.
 		if self.customFunctions != None:
 			for function in self.customFunctions:
@@ -1116,16 +1125,21 @@ class imageSlider(QtGui.QVBoxLayout):
 
 	# Change the slider range according to input.
 	def updateSlider(self):
-		height = self.modelCollection.getPreviewStackHeight()
+		# Get number of preview slices. These might be fewer than actual slices.
+		numberOfPreviewSlices = self.modelCollection.getPreviewStackHeight()
+		# Get real number of slices.
+		numberOfSlices = self.modelCollection.getNumberOfSlices()
+
 		# Change slider value to fit inside new range.
-		if self.slider.value() > height:
-			self.slider.setValue(height)
+		if self.slider.value() > numberOfPreviewSlices:
+			self.slider.setValue(numberOfPreviewSlices)
 		# Resize slider.
-		if height > 0:
+		if numberOfPreviewSlices > 0:
 			self.slider.setMinimum(1)
-			self.slider.setMaximum(height)
-		self.maxLabel.setText(str(height))
-		self.currentLabel.setText(str(height))
+			self.slider.setMaximum(numberOfPreviewSlices)
+		# Set maximum label.
+		self.maxLabel.setText(str(numberOfSlices))
+
 
 
 
