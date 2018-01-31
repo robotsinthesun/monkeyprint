@@ -21,7 +21,7 @@
 
 #from matplotlib import pyplot as plot
 import numpy
-from scipy import ndimage
+#from scipy import ndimage
 from PIL import Image
 import math
 
@@ -181,8 +181,8 @@ def imgErodeSlow(img, radius=1):
 	# Return the eroded image as 0..255.
 	return eroded
 
-def imgErodeScipy(img, radius=1):
-	return ndimage.binary_erosion(img, structure=numpy.ones((radius,radius))).astype(img.dtype)
+#def imgErodeScipy(img, radius=1):
+#	return ndimage.binary_erosion(img, structure=numpy.ones((radius,radius))).astype(img.dtype)
 
 
 # Dilate. This will grow white areas in an image by a given radius.
