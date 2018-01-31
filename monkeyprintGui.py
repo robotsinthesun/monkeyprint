@@ -19,10 +19,6 @@
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import pygtk
-pygtk.require('2.0')
-import gtk, gobject
-#import gtkGLExtVTKRenderWindowInteractor
 import monkeyprintModelViewer
 import monkeyprintGuiHelper
 import monkeyprintSerial
@@ -45,7 +41,6 @@ import sys
 import PyQt4
 from PyQt4 import QtGui, QtCore, Qt
 from vtk.qt4.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
-
 
 ################################################################################
 # Define a class for standalone without main GUI. ##############################
@@ -815,38 +810,9 @@ class gui(QtGui.QApplication):
 		self.resinVolumeLabel = QtGui.QLabel("Volume: ")
 		boxResinVolume.addWidget(self.resinVolumeLabel, 0, QtCore.Qt.AlignHCenter)
 
-		'''
-		# Create camerra trigger frame.
-		self.frameCameraTrigger = gtk.Frame(label="Camera trigger")
-		self.printTab.pack_start(self.frameCameraTrigger, expand=False, fill=False, padding = 5)
-		self.frameCameraTrigger.show()
-		self.boxCameraTrigger = gtk.HBox()
-		self.frameCameraTrigger.add(self.boxCameraTrigger)
-		self.boxCameraTrigger.show()
-
-		# Camera trigger checkbuttons.
-#TODO		self.checkButtonCameraTrigger1 = monkeyprintGuiHelper.toggleButton(string="During exposure",)
-		self.labelCamTrigger1 = gtk.Label("During exposure")
-		self.boxCameraTrigger.pack_start(self.labelCamTrigger1, expand=False, fill=False, padding=5)
-		self.labelCamTrigger1.show()
-		self.checkboxCameraTrigger1 = gtk.CheckButton()
-		self.boxCameraTrigger.pack_start(self.checkboxCameraTrigger1, expand=False, fill=False, padding=5)
-		self.checkboxCameraTrigger1.set_active(self.programSettings['camTriggerWithExposure'].value)
-		self.checkboxCameraTrigger1.connect("toggled", self.callbackCheckButtonTrigger1)
-		self.checkboxCameraTrigger1.show()
-		self.labelCamTrigger2 = gtk.Label("After exposure")
-		self.boxCameraTrigger.pack_start(self.labelCamTrigger2, expand=False, fill=False, padding=5)
-		self.labelCamTrigger2.show()
-		self.checkboxCameraTrigger2 = gtk.CheckButton()
-		self.boxCameraTrigger.pack_start(self.checkboxCameraTrigger2, expand=False, fill=False, padding=5)
-		self.checkboxCameraTrigger2.set_active(self.programSettings['camTriggerAfterExposure'].value)
-		self.checkboxCameraTrigger2.connect("toggled", self.callbackCheckButtonTrigger2)
-		self.checkboxCameraTrigger2.show()
-		'''
 		# Create model volume frame.
 		framePrintControl = QtGui.QGroupBox("Print control")
 		boxSettingsPrint.addWidget(framePrintControl)
-
 
 		# Create print control box.
 		boxPrintControl = QtGui.QHBoxLayout()
@@ -1292,7 +1258,7 @@ class dialogSettings(QtGui.QDialog):
 		self.resetGui = False
 
 		# Tooltips object.
-		#self.tooltips = gtk.Tooltips()
+		#TODO
 
 		# Vertical box for settings and bottom buttons.
 		self.boxMain = QtGui.QVBoxLayout()

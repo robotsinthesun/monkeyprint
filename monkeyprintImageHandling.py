@@ -21,7 +21,6 @@
 
 #from matplotlib import pyplot as plot
 import numpy
-#from scipy import ndimage
 from PIL import Image
 import math
 

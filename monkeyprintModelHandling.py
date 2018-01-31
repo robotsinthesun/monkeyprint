@@ -31,7 +31,6 @@ import random
 from PIL import Image
 import Queue, threading
 import monkeyprintImageHandling as imageHandling
-import gtk
 import cPickle	# Save modelCollection to file.
 import gzip
 import tarfile
@@ -417,22 +416,10 @@ class modelCollection(dict):
 		# Set defaults. ***************************************
 		# Create current model id.
 		self.currentModelId = ""
-	#	# Load default model to fill settings for gui.
-	#	self.add("default", "")	# Don't provide file name.
-	# DO LATER
-
-		# Create model list.***********************************
-		# List will contain strings for dispayed name,
-		# internal name and file name and a bool for active state.
-	#	self.modelList = gtk.ListStore(str, str, str, bool)
-	# SUPERCEDED BY QT TABLE MODEL
-
 
 		# Load default model to fill settings for gui. ********
 		self.add("default", "")	# Don't provide file name.
 
-
- 		#
 		# Create job settings object. *************************
 		#self.jobSettings = monkeyprintSettings.jobSettings(self.programSettings)
 		# THIS WILL BE DONE LATER ON JOB PACKING
@@ -486,6 +473,7 @@ class modelCollection(dict):
 		return inputImage
 
 
+	# TODO
 	# Save model collection to compressed disk file. Works well with huge objects.
 	def saveProject(self, filename, protocol = -1, fileSearchFnc=None):
 		# Gather the relevant data.
@@ -540,10 +528,12 @@ class modelCollection(dict):
 					mkpFile.add(path, arcname=path.split('/')[-1])
 				except IOError, OSError:
 					print "Stl file not found..."
-# TODO: Handle file not found error in GUI.
-# TODO: Maybe copy stls into temporary dir upon load?
-# This would be consistent with loading an mkp file and saving stls to tmp dir.
+		# TODO: Handle file not found error in GUI.
+		# TODO: Maybe copy stls into temporary dir upon load?
+		# This would be consistent with loading an mkp file and saving stls to tmp dir.
 
+
+	# TODO
 	# Load a compressed model collection from disk.
 	def loadProject(self, filename):
 		# Create temporary working directory path.
@@ -771,8 +761,6 @@ class modelCollection(dict):
 			# Update progress bar.
 			if updateFunction != None:
 				updateFunction(int(status))
-				#while gtk.events_pending():
-				#	gtk.main_iteration(False)
 			if int(status) == 100:
 				break
 		# Reset slice mode to preview.

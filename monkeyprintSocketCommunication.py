@@ -26,17 +26,17 @@ import zmq
 
 
 class communicationSocket:
-	
+
 	def __init__(self, port, ip=None, queueCommands=None, queueStatus=None):
-		
+
 		# Internalise parameters.
 		self.queueCommands = queueCommands
 		self.queueStatus = queueStatus
-		
+
 		# Set up timeout variables.
 		self.rasPiConnected = True
 		self.rasPiConnectionTimeout  = 10
-		
+
 		# Create the context.
 		self.context = zmq.Context()
 		# Create socket.
@@ -48,24 +48,24 @@ class communicationSocket:
 		else:
 			self.socket.connect("tcp://"+str(ip)+":"+str(port))
 		print "Connected to communication socket on tcp://"+str(ip)+":"+str(port) + "."
-		# Get the sockets file descriptor for setting up a gtk IO watch.
+		# Get the sockets file descriptor for setting up an IO watch.
 		self.fileDescriptor = self.socket.getsockopt(zmq.FD)
-		
-		
-	
+
+
+
 	def reset(self, ip, port):
 		del self.socket
 		self.socket = self.context.socket(zmq.PAIR)
 		self.socket.connect("tcp://"+str(ip)+":"+str(port))
 		print "Connecting to communication socket on tcp://"+str(ip)+":"+str(port) + "."
-	
-	
+
+
 	# Send function.
 	def sendMulti(self, command, string):
-		self.socket.send_multipart([command, string])  
+		self.socket.send_multipart([command, string])
 		print "Sent " + command + ", " + string + "."
 
-	
+
 
 	# Register this as a gobject IO watch that fires on changes of the file descriptor.
 	def callbackIOActivity(self, fd, condition, socket):
@@ -75,10 +75,10 @@ class communicationSocket:
 
 			# Retrieve the message from the socket.
 			msg = self.socket.recv_multipart()
-			
+
 			# Extract message type and message data.
 			messageType, message = msg
-			
+
 			print "Received: " + messageType + ", " + message
 
 			# If message is status info...
@@ -98,14 +98,14 @@ class communicationSocket:
 				pass
 			# If message is a returning ping...
 			elif messageType == "ping":
-				# ... set connected flag and reset the ping counter. 
+				# ... set connected flag and reset the ping counter.
 				self.rasPiConnected = True
 				self.rasPiConnectionTimeout  = 10
 
-		# Return true, otherwise function will be removed from IO watch.		
+		# Return true, otherwise function will be removed from IO watch.
 		return True
-		
-	
+
+
 	# This should run every second as a gobject timeout function, but only from PC.
 	def countdownRasPiConnection(self):
 		if self.rasPiConnectionTimeout  > 0:
@@ -113,8 +113,8 @@ class communicationSocket:
 		if self.rasPiConnectionTimeout  < 1:
 			self.rasPiConnected = False
 		return True
-	
-	
+
+
 	# This should run ever 500 ms as gobject timeout function, but only from PC.
 	def pollRasPiConnection(self):
 	#	print "sending ping"
@@ -125,24 +125,24 @@ class communicationSocket:
 		# The receive function is running elsewhere and
 		# will reset the timeout counter on a returning ping.
 		return True
-		
+
 
 
 class fileSender(threading.Thread):
 
 	def __init__(self, ip, port, queueStatusIn, queueStatusOut):
-		
+
 		self.PIPELINE = 5 # Chunks.
 		self.chunksSent = 0
 		self.queueStatusIn = queueStatusIn
 		self.queueStatusOut = queueStatusOut
 		self.stopThread = threading.Event()
-		
+
 		# Create context.
 		context = zmq.Context()
 
 		# Create the router.
-		# Upon reception, a router prepends the the identity of the 
+		# Upon reception, a router prepends the the identity of the
 		# sender to the message.
 		# Overflowing packets will be dropped.
 		self.router = context.socket(zmq.ROUTER)
@@ -153,22 +153,22 @@ class fileSender(threading.Thread):
 			self.queueStatusOut.put("Connecting file transmission server to " + clientPath + ".")
 		print "Connecting file transmission server to " + clientPath + "."
 		self.router.connect(clientPath)
-		
+
 		# Set up poll on socket events.
 		# This is used to avoid the blocking receive function.
 		self.poller = zmq.Poller()
 		self.poller.register(self.router, zmq.POLLIN)
-		
-		
+
+
 		# Call super class init function.
 		super(fileSender, self).__init__()
 
-	
+
 	def reset(self, ip, port):
 		clientPath = "tcp://" + str(ip) + ":" + str(port)
 		print "Listening on tcp://" + str(ip) + ":" + str(port)
 		self.router.connect(clientPath)
-	
+
 	# This will run right after init function.
 	def run(self):
 		print "File transmission server running.\n"
@@ -208,12 +208,12 @@ class fileSender(threading.Thread):
 					fileSize = str(file.tell())
 					self.router.send_multipart([identity, fileSize])
 					print "bar"
-	
+
 				elif command[:4] == "done":
 					file.close()
 					self.chunksSent = 0
 					print "Transmission complete. Idling..."
-		
+
 				else:
 			#		print "Packet requested from ", offset_str
 					# Check if command is "fetch".
@@ -241,8 +241,8 @@ class fileSender(threading.Thread):
 						file.close()
 						print "Transmission complete. Idling..."
 						#break
-						
-		
+
+
 	# Copied from zhelpers.
 	# https://github.com/imatix/zguide/blob/master/examples/Python/zhelpers.py
 	def socket_set_hwm(self, socket, hwm=-1):
@@ -251,7 +251,7 @@ class fileSender(threading.Thread):
 		   socket.sndhwm = socket.rcvhwm = hwm
 	    except AttributeError:
 		   socket.hwm = hwm
-	
+
 	def join(self, timeout=None):
 		if not self.queueStatusOut.qsize():
 			self.queueStatusOut.put("Stopping file transfer server.")
@@ -260,17 +260,17 @@ class fileSender(threading.Thread):
 		self.stopThread.set()
 		# Stop thread the hard way after given timeout.
 		threading.Thread.join(self, timeout)
-	
-	
-		
+
+
+
 
 class fileReceiver(threading.Thread):
 
 	def __init__(self, ip, port, queueFileTransferIn, queueFileTransferOut, console=None):
-	
+
 		self.CHUNK_SIZE = 25000
 		self.PIPELINE = 5
-		
+
 		self.queueFileTransferIn = queueFileTransferIn
 		self.queueFileTransferOut = queueFileTransferOut
 		self.console = console
@@ -283,22 +283,22 @@ class fileReceiver(threading.Thread):
 		self.dealer = context.socket(zmq.DEALER)
 		self.socket_set_hwm(self.dealer, self.PIPELINE)
 		self.dealer.bind("tcp://"+ip+":"+port)
-		
+
 		# Thread stop event.
 		self.stopThread = threading.Event()
-		
+
 		self.receiving = False
-		
+
 		# Call super class init function.
 		super(fileReceiver, self).__init__()
-	
-	
+
+
 	# This will run right after init function.
 	def run(self):
 		# Go straight into idle mode.
 		print "File transmission thread started.\n"
 		self.idle()
-	
+
 	# Check for input models in the queue.
 	def newInputInQueue(self):
 		if self.queueFileTransferIn.qsize():
@@ -322,7 +322,7 @@ class fileReceiver(threading.Thread):
 				print "Saving to " + filenameTarget + "."
 				self.receiving = True
 				self.receiveFile(filenameSource, filenameTarget)
-	
+
 	'''
 	def runTransmission(self, file):
 		# Don't run if stop condition is set.
@@ -340,19 +340,19 @@ class fileReceiver(threading.Thread):
 			break
 		# Go back to idle mode.
 		self.idle()
-	'''	
+	'''
 
 	def receiveFile(self, filenameSource, filenameTarget):
 		print "Starting transmission."
 		# Set the file transfer credit.
 		# At the start we have full credit.
 		credit = self.PIPELINE   # Up to PIPELINE chunks in transit.
-		
-		# Define file chunk counters. 
+
+		# Define file chunk counters.
 		offsetReq = 0		# Requested file address.
 		total = 0			# Total bytes received
 		chunks = 0		# Total chunks received
-		fileSeek = 0		# Current position in file.	
+		fileSeek = 0		# Current position in file.
 		requestList = []	# List of addresses that are currently requested.
 		'''
 		# Create a file to write to.
@@ -365,7 +365,7 @@ class fileReceiver(threading.Thread):
 		'''
 		# Then, open the emptied file again with append tag.
 		with	open(filenameTarget, "wb") as file:	# CHANGED TO R+B
-		
+
 			# Send the name of the requested file to server.
 			self.dealer.send_multipart([
 						b"filename "+ filenameSource,
@@ -378,7 +378,7 @@ class fileReceiver(threading.Thread):
 			fileSize = int(fileSize)
 			print "File size: ", fileSize, "bytes."
 
-	
+
 			transmissionFinished = True
 			while not self.stopThread.isSet():
 				# Ask for file chunks as long as we have credits...
@@ -421,14 +421,14 @@ class fileReceiver(threading.Thread):
 					# Write chunk to file at offset.
 					file.seek(address, os.SEEK_SET)	# Set the offset.
 					file.write(chunk)				# Write chunk at offset.
-		
+
 
 					# Keep track of received chunks.
 					chunks += 1
 					credit += 1
 					size = len(chunk)
 					total += size
-		
+
 					# If all packets requested, send end command.
 					if len (requestList) == 0:
 						transmissionFinished = True
@@ -439,8 +439,8 @@ class fileReceiver(threading.Thread):
 							])
 					#	print "foo"
 						break
-					
-					
+
+
 					# Check the queue for commands.
 					if self.newInputInQueue():
 						msg = self.queueFileTransferIn.get()
@@ -458,31 +458,31 @@ class fileReceiver(threading.Thread):
 			else:
 				print "Transmission cancelled."
 				self.queueFileTransferOut.put("fail")
-			
+
 			time.sleep(1) # Give main thread a chance to empty queue.
 			self.receiving = False
 			self.idle()
 			#dealer.close()
-			
 
-	
+
+
 	def stopTransmission(self):
 		self.stopTrans.set()
-		
-	
+
+
 	def stop(self):
 		if self.console != None:
 			self.console.addLine("Stopping slicer thread")
 		self.stopThread.set()
-	
+
 	def join(self, timeout=None):
 		if self.console != None:
 			self.console.addLine("Stopping file receiver thread")
 		self.stopThread.set()
 		threading.Thread.join(self, timeout)
 
-	
-	
+
+
 	# Copied from zhelpers.
 	# https://github.com/imatix/zguide/blob/master/examples/Python/zhelpers.py
 	def socket_set_hwm(self, socket, hwm=-1):
@@ -499,14 +499,14 @@ class fileSender:
 
 
 	def sendFile(self, filenameTarget, filenameSource):
-	
-	
+
+
 	def stopTransmission(self):
-	
-	
+
+
 	def closeSocket(self):
-	
-	
+
+
 	# Copied from zhelpers.
 	# https://github.com/imatix/zguide/blob/master/examples/Python/zhelpers.py
 	def socket_set_hwm(socket, hwm=-1):

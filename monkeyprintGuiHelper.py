@@ -1326,10 +1326,6 @@ class imageView(QtGui.QLabel):
 			# Write image to pixmap.
 			imageQt = QtGui.QImage(image, image.shape[1], image.shape[0], QtGui.QImage.Format_RGB888)
 			self.pixmap = QtGui.QPixmap.fromImage(imageQt)
-			# Resize the image if it doesn't fit.
-			#if self.settings['debug'].value:
-			#if self.resizeFlag and image.shape[1] != self.settings['previewSliceWidth'].value:
-			#	self.pixbuf = self.pixbuf.scale_simple(self.width, self.height, gtk.gdk.INTERP_BILINEAR)
 		else:
 			image = self.imageBlack
 			image = imageHandling.convertSingle2RGB(image)
@@ -1587,9 +1583,8 @@ class splashScreen(QtGui.QMainWindow):
 		if infoString != None:
 			self.info = QtGui.QLabel(infoString)
 			splashBox.addWidget(self.info)
-			#self.info.set_justify(gtk.JUSTIFY_LEFT)
 
-		# Register a gtk timeout function that terminates the splash screen.
+		# Register a timeout function that terminates the splash screen.
 		splashWindowTimer = QtCore.QTimer()
 		splashWindowTimer.timeout.connect(self.destroy)
 		splashWindowTimer.start(duration*1000)
