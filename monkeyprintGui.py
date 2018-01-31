@@ -172,10 +172,12 @@ class gui(QtGui.QApplication):
 		super(gui, self).__init__(sys.argv)
 
 		# Show splash.
-		versionString = "Monkeyprint version " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue())
-		splash = monkeyprintGuiHelper.splashScreen('./logo.png', duration=2, infoString=versionString)
-		self.processEvents()
-		time.sleep(0.1)
+		if not programSettings['debug'].getValue():
+			t = 3
+			versionString = "Monkeyprint version " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue())
+			splash = monkeyprintGuiHelper.splashScreen('./logo.png', duration=t, infoString=versionString)
+			self.processEvents()
+			time.sleep(t)
 
 
 		# Internalise parameters.

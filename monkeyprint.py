@@ -113,7 +113,6 @@ def runGui(filename=None, debug=False):
 	# Create splash screen for given interval.
 	# Get version string first.
 	versionString = "Monkeyprint version " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue())
-#	splash = monkeyprintGuiHelper.splashWindow(imageFile='./logo.png', duration=1, infoString = versionString)
 
 	# Create gui.
 	gui = monkeyprintGui.gui(modelCollection, programSettings, console, filename)

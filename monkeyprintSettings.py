@@ -205,7 +205,7 @@ class programSettings(dict):
 		self['tmpDir'] = 					setting(value=os.getcwd()+'/tmp', 	valType=str,	isConstant=True, output=self.output)
 		self['installDir'] = 				setting(value=os.getcwd(),			valType=str,	isConstant=True, output=self.output)
 		self['versionMajor'] =				setting(value=0, 					valType=int, output=self.output)
-		self['versionMinor'] =				setting(value=11, 					valType=int, output=self.output)
+		self['versionMinor'] =				setting(value=13, 					valType=int, output=self.output)
 		self['revision'] =					setting(value=0, 					valType=int, output=self.output)
 		self['projectorSizeX'] =			setting(value=1024, 				valType=int,	default=1024,	name='Projector size X', output=self.output)
 		self['projectorSizeY'] =			setting(value=768, 					valType=int,	default=768,	name='Projector size Y', output=self.output)
