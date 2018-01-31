@@ -294,17 +294,16 @@ class gui(QtGui.QApplication):
 
 		# Get all threads.
 		runningThreads = threading.enumerate()
-		# End kill threads. Main gui thread is the first...
+		# End threads except for main gui thread.
 		for i in range(len(runningThreads)):
-			if i != 0:
-				runningThreads[-1].stop()
+			if runningThreads[i].getName() != "MainThread":
+				runningThreads[i].stop()
 				try:
-					runningThreads[-1].join(timeout=10000)	# Timeout in ms.
+					runningThreads[i].join(timeout=1000)	# Timeout in ms.
 				except RuntimeError:
 					print "Failed to join background thread."
 				else:
 					print "Background thread " + str(i) + " finished."
-				del runningThreads[-1]
 
 		# Clean up files.
 		if os.path.isfile(self.programSettings['localMkpPath'].value):
