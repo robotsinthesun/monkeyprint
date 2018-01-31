@@ -361,7 +361,6 @@ class gui(QtGui.QApplication):
 					self.renderView.render()
 					self.progressBar.updateValue(0)
 					self.printRunning = False
-					print "foo"
 					del self.printProcess
 					self.projectorDisplay.destroy()
 					del self.projectorDisplay
@@ -1085,11 +1084,12 @@ class gui(QtGui.QApplication):
 				self.console.addLine("Saving slice images to \"" + filepath.split('/')[-1] + "\".")
 			# Save path without project name for next use.
 			self.programSettings['currentFolder'].value = filepath[:-len(filepath.split('/')[-1])]
-			# Create info window with progress bar
+			# Create info window with progress bar.
+			# This will call the save slice stack method internally.
 			infoWindow = monkeyprintGuiHelper.messageWindowSaveSlices(self.mainWindow, self.modelCollection, filepath)
 			#
 			self.console.addLine("Slice stack saved.")
-			infoWindow.destroy()
+			infoWindow.close()
 
 
 

@@ -463,6 +463,7 @@ class modelTableView(QtGui.QWidget):
 		fileChooser.setWindowTitle("Select model file")
 		fileChooser.setDirectory(self.settings['currentFolder'].getValue())
 		filenames = QtCore.QStringList()
+		# exec_ returns true if OK, false if Cancel was clicked.
 		if fileChooser.exec_():
 			filepath = str(fileChooser.selectedFiles()[0])
 			# Check if file is an stl. If yes, load.
@@ -1402,7 +1403,7 @@ class messageWindowSaveSlices(QtGui.QDialog):
 		# Set title.
 		self.setWindowTitle("Saving slice images...")
 		# Set modal.
-		self.setModal(True)
+		self.setWindowModality(QtCore.Qt.ApplicationModal)
 
 		# Main layout.
 		box = QtGui.QVBoxLayout()
@@ -1414,12 +1415,13 @@ class messageWindowSaveSlices(QtGui.QDialog):
 		box.addWidget(self.bar)
 
 		# Show dialog.
-		self.show()
+		self.open()
 
 		# Save the model collection to the given location.
 		modelCollection.saveSliceStack(path=path, updateFunction=self.updateBar)
 
 	def updateBar(self, value):
+		QtGui.QApplication.processEvents()
 		self.bar.setValue(value)
 
 
@@ -1474,7 +1476,6 @@ class imageFromFile(QtGui.QWidget):
 		if (self.programSettings['calibrationImage'].getValue() == True):
 			# Load image from file.
 			if (os.path.isfile('./calibrationImage.jpg')):
-				print "foo"
 				# Write image to pixmap.
 				self.pixmap.load('./calibrationImage.jpg')
 				# Resize the image.
