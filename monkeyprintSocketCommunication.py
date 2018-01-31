@@ -207,7 +207,6 @@ class fileSender(threading.Thread):
 					file.seek(0,2)
 					fileSize = str(file.tell())
 					self.router.send_multipart([identity, fileSize])
-					print "bar"
 
 				elif command[:4] == "done":
 					file.close()

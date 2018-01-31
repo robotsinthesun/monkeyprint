@@ -38,8 +38,8 @@ class printer(threading.Thread):
 		self.settings = settings
 		self.queue = queue
 		self.queueCommands = queueCommands
-		
-		
+
+
 		# Get serial parameters from settings.
 		if self.settings['printOnRaspberry'].value:
 			self.port=self.settings['Port RasPi'].value
@@ -47,11 +47,11 @@ class printer(threading.Thread):
 		else:
 			self.port=self.settings['Port'].value
 			self.baudrate=self.settings['Baud rate'].value
-			
-		
+
+
 		# Stop event.
 		self.stopThread = threading.Event()
-		
+
 		# Configure and open serial.
 		try:
 			self.serial = serial.Serial(
@@ -135,8 +135,8 @@ class printer(threading.Thread):
 						# Place giving up message in queue if necessary.
 						if count == 5:
 							self.queue.put("Printer not responding. Giving up...")
-				
-					# Wait for response from printer that signals end of action.		
+
+					# Wait for response from printer that signals end of action.
 					# If wait value is provided...
 					if wait != 0:
 						# ... set timeout to one second...
@@ -165,24 +165,24 @@ class printer(threading.Thread):
 					self.queue.put('done')
 			else:
 				time.sleep(.1)
-	
-						
+
+
 	# Send a command string with optional value.
 	# Method allows to retry sending until ack is received as well
 	# as waiting for printer to process the command.
 #	def sendCommand(self, string, value=None, retry=False, wait=None):
 #		self.run(string, value, retry, wait)
-	
+
 	def stop(self):
 		self.close()
 		self.queue.put("Stopping serial.")
 		self.stopThread.set()
-	
+
 	def join(self, timeout=None):
-		self.close()	
+		self.close()
 		self.stopThread.set()
 		threading.Thread.join(self, timeout)
-		
+
 	def close(self):
 		if self.serial != None:
 			self.serial.close()
@@ -196,25 +196,19 @@ class printerStandalone:
 
 		# Internalise parameters.
 		self.settings = settings
-		
+
 		self.debug = self.settings['debug'].value
-		
+
 		# Get serial parameters from settings.
 		if self.settings['printOnRaspberry'].value:
 			self.port=self.settings['portRaspi'].value
 			self.baudrate=self.settings['baudrateRaspi'].value
-		elif not self.settings['monkeyprintBoard'].value:
-			self.port=self.settings['port'].value
-			self.baudrate=self.settings['baudrateGCode'].value
 		else:
 			self.port=self.settings['port'].value
 			self.baudrate=self.settings['baudrate'].value
-		
-		if self.settings['monkeyprintBoard'].value:
-			self.terminator = ""
-		else:
-			self.terminator = "\n"
-		
+
+		self.terminator = "\n"
+
 		if not self.debug:
 			print "Opening serial on port " + self.port + " at " + str(self.baudrate) + " baud."
 			# Configure and open serial.
@@ -247,7 +241,7 @@ class printerStandalone:
 			print string
 		self.serial.timeout = oldTimeout
 		return string
-	
+
 	def waitForOk(self,timeout=.5):
 		oldTimeout = self.serial.timeout
 		self.serial.timeout = timeout
@@ -261,8 +255,8 @@ class printerStandalone:
 				print "Processing..."
 		self.serial.timeout = oldTimeout
 		return printerResponse
-	
-	
+
+
 	# Divide command in parts beginning with G or M.
 	def splitGCode(self, command):
 		return filter(None,re.split("([M][^MG]*|[G][^MG]*)",command))
@@ -274,7 +268,7 @@ class printerStandalone:
 		wait = command[3]
 		for commandString in commandList:
 			self.send((commandString, value, retry, wait))
-		
+
 
 	def send(self, command):
 		if self.settings['debug'].value:
@@ -310,8 +304,7 @@ class printerStandalone:
 					# If retry flag is set...
 					# In case fo GCode, flush input until ok is received.
 					printerResponse = ""
-					if not self.settings['monkeyprintBoard'].value:
-						printerResponse = self.waitForOk()
+					printerResponse = self.waitForOk()
 					print "Printer response: " + printerResponse
 					if retry:
 						# ... listen for ack until timeout.
@@ -338,7 +331,7 @@ class printerStandalone:
 					# Place giving up message in queue if necessary.
 				#	if count == 5:
 				#		self.queue.put("Printer not responding. Giving up...")
-									# Wait for response from printer that signals end of action.		
+									# Wait for response from printer that signals end of action.
 				# If wait value is provided...
 				if wait != None:
 					# If wait value is 0...
@@ -432,8 +425,8 @@ class printerStandalone:
 						# Place giving up message in queue if necessary.
 						if count == 5:
 							self.queue.put("Printer not responding. Giving up...")
-				
-					# Wait for response from printer that signals end of action.		
+
+					# Wait for response from printer that signals end of action.
 					# If wait value is provided...
 					if wait != 0:
 						# ... set timeout to one second...
@@ -462,12 +455,12 @@ class printerStandalone:
 					self.queue.put('done')
 			else:
 				time.sleep(.1)
-	
+
 	'''
-			
+
 	def close(self):
 		if self.serial != None:
-			self.serial.close()			
+			self.serial.close()
 
 
 
@@ -477,7 +470,7 @@ class printerStandalone:
 	def buildHome(self):
 		self.serial.write("buildHome")
 		self.waitForAckInfinite()
-		
+
 	def buildBaseUp(self):
 		while 1:
 			self.serial.timeout = 5
@@ -492,7 +485,7 @@ class printerStandalone:
 		self.serial.timeout = None
 
 
-		
+
 	def buildUp(self):
 		while 1:
 			self.serial.write("buildUp")
@@ -505,46 +498,46 @@ class printerStandalone:
 			else:
 				print "      No response from printer. Resending command..."
 		self.serial.timeout = None
-		
+
 	def buildTop(self):
 		self.serial.write("buildTop")
 		self.waitForAckInfinite()
-		
+
 	def tilt(self):
 		self.serial.write("tilt")
 		self.waitForAckInfinite()
-		
+
 	def setStart(self):
 		self.serial.write("printingFlag 1")
-		
+
 	def setStop(self):
 		self.serial.write("printingFlag 0")
-		
+
 	# Settings.
 	def setLayerHeight(self):
 		self.serial.write("buildLayer " + str(self.settings.getLayerHeight() * self.settings.getStepsPerMm()))
-		
+
 	def setBaseLayerHeight(self):
 		self.serial.write("buildBaseLayer " + str(self.settings.getBaseLayerHeight() * self.settings.getStepsPerMm()))
-		
+
 	def setBuildSpeed(self):
 		self.serial.write("buildSpeed " + str(self.settings.getBuildSpeed))
-			
+
 	def setTiltSpeedSlow(self):
 		self.serial.write("tiltSpeed " + str(self.settings.getTiltSpeedSlow))
 
 	def setTiltSpeedFast(self):
 		self.serial.write("tiltSpeed " + str(self.settings.getTiltSpeedFast))
-		
+
 	def setTiltAngle(self):
 		self.serial.write("tiltAngle " + str(self.settings.getTiltAngle))
-		
+
 	def setNumberOfSlices(self, numberOfSlices):
 		self.serial.write("nSlices " + str(numberOfSlices))
-		
+
 	def setCurrentSlice(self, currentSlice):
 		self.serial.write("slice " + str(currentSlice))
-	
+
 #	def setTimeout(self, timeout):
 #		self.serial.timeout = timeout	# Timeout for readline command. 0 is infinity, other values are seconds.
 
@@ -576,7 +569,7 @@ class printerStandalone:
 		else:
 			return None
 
-	
+
 	def ping(self):
 		self.serial.write("ping")
 		self.serial.timeout = 10
@@ -586,24 +579,24 @@ class printerStandalone:
 			return 0
 		else:
 			return 1
-			
+
 	def close(self):
 		if self.serial != None:
 			self.serial.close()
 #		print "printer serial closed"
 
 
-#dontNeedThis = serialPrinter.flushInput()		
+#dontNeedThis = serialPrinter.flushInput()
 	'''
 class projector:
 
 	def __init__(self, settings):
-		
+
 		# Internalise settings.
 		self.settings = settings
-		
+
 		self.debug = self.settings['debug'].value
-	
+
 		# Configure and open serial.
 		if not self.debug:
 			try:
@@ -621,8 +614,8 @@ class projector:
 		else:
 			print "Projector serial in debug mode: not sending."
 			self.serial = None
-		
-	
+
+
 	def activate(self):
 		command = self.settings['projectorOnCommand'].value
 		if self.serial != None:

@@ -180,8 +180,6 @@ def imgErodeSlow(img, radius=1):
 	# Return the eroded image as 0..255.
 	return eroded
 
-#def imgErodeScipy(img, radius=1):
-#	return ndimage.binary_erosion(img, structure=numpy.ones((radius,radius))).astype(img.dtype)
 
 
 # Dilate. This will grow white areas in an image by a given radius.
@@ -209,17 +207,3 @@ def convertSingle2RGB(img):
 def convertRGB2Single(img):
 	return numpy.uint8(numpy.squeeze(numpy.average(img, axis=2)))
 
-'''
-imageInsert = createImageGray(4,2,50)
-imageRing= createImageRing()
-
-print imageRing
-image = createImageNoisy(20,10)
-imageGrayscale1Ch = convertGrayscaleSingle(image)
-imageInserted = insert(imageGrayscale1Ch, imageInsert, [3,1])
-imageMultiplied = imgMultiply(imageInserted, imageRing, [12,3])
-imageSubtracted = imgSubtract(imageInserted, imageRing, [12,3])
-print imageSubtracted
-imageGrayscale = convertSingle2RGB(imageSubtracted)
-showImage(imageGrayscale)
-'''

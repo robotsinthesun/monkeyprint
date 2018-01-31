@@ -371,7 +371,6 @@ class gui(QtGui.QApplication):
 					del self.printProcess
 					self.projectorDisplay.destroy()
 					del self.projectorDisplay
-					print "bar"
 			else:
 				# If running on Raspberry forward the message to the socket connection.
 
@@ -1048,11 +1047,7 @@ class gui(QtGui.QApplication):
 			for model in self.modelCollection:
 				self.modelCollection[model].updateAllActors(self.notebookSettings.getCurrentPage())
 			self.renderView.render()
-		# Hide camera trigger box when using G-Code.
-	#	if self.programSettings['monkeyprintBoard'].value:
-	#		self.frameCameraTrigger.show()
-	#	else:
-	#		self.frameCameraTrigger.hide()
+
 
 
 
