@@ -1282,8 +1282,8 @@ class dialogSettings(QtGui.QDialog):
 		self.updateSlicerMemoryUsage()
 
 		# Communication settings.
-		self.tabCommunicationSettings = self.createCommunicationTab()
-		self.notebookSettings.addTab(self.tabCommunicationSettings, 'Communication')
+		self.tabCommunicationSettings = self.createProjectorTab()
+		self.notebookSettings.addTab(self.tabCommunicationSettings, 'Projector')
 
 		# Print process settings.
 		self.tabPrintProcessSettings = self.createPrintProcessTab()
@@ -1336,20 +1336,17 @@ class dialogSettings(QtGui.QDialog):
 		self.entryBuildSizeZ= monkeyprintGuiHelper.entry('buildSizeZ', self.settings, customFunctions=[self.setResetGuiFlag])
 		boxBuildVolume.addWidget(self.entryBuildSizeZ)
 
-		# Frame for projector resolution.
-		frameProjector = QtGui.QGroupBox("Projector")
-		boxSettingsMain.addWidget(frameProjector)
-		boxProjector = QtGui.QVBoxLayout()
-		frameProjector.setLayout(boxProjector)
-
-		self.entryProjectorSizeX = monkeyprintGuiHelper.entry('projectorSizeX', self.settings, customFunctions=[self.setResliceFlag])#, displayString="Projector size X")
-		boxProjector.addWidget(self.entryProjectorSizeX)
-		self.entryProjectorSizeY = monkeyprintGuiHelper.entry('projectorSizeY', self.settings, customFunctions=[self.setResliceFlag])#, displayString="Projector size Y")
-		boxProjector.addWidget(self.entryProjectorSizeY)
-		self.entryProjectorPositionX = monkeyprintGuiHelper.entry('projectorPositionX', self.settings)
-		boxProjector.addWidget(self.entryProjectorPositionX)
-		self.entryProjectorPositionY = monkeyprintGuiHelper.entry('projectorPositionY', self.settings)
-		boxProjector.addWidget(self.entryProjectorPositionY)
+		# Frame for build space.
+		frameSerial = QtGui.QGroupBox("Serial connection")
+		frameSerial.setFlat(False)
+		boxSettingsMain.addWidget(frameSerial)
+		boxSerial= QtGui.QVBoxLayout()
+		frameSerial.setLayout(boxSerial)
+		# Add entries.
+		self.entryPort = monkeyprintGuiHelper.entry('port', self.settings)
+		boxSerial.addWidget(self.entryPort)
+		self.entryBaud = monkeyprintGuiHelper.entry('baudrate', self.settings)
+		boxSerial.addWidget(self.entryBaud)
 
 		# Frame for slicer settings.
 		frameSlicer = QtGui.QGroupBox("Slicer")
@@ -1380,31 +1377,35 @@ class dialogSettings(QtGui.QDialog):
 
 
 	# Communication tab.
-	def createCommunicationTab(self):
+	def createProjectorTab(self):
 
 		# Create widget.
-		tabSettingsCommunication = QtGui.QWidget()
+		tabSettingsProjector = QtGui.QWidget()
 		# Create main tab box.
-		boxSettingsCommunication = QtGui.QVBoxLayout()
-		tabSettingsCommunication.setLayout(boxSettingsCommunication)
+		boxSettingsProjector = QtGui.QVBoxLayout()
+		tabSettingsProjector.setLayout(boxSettingsProjector)
+
+		# Frame for projector resolution.
+		frameProjector = QtGui.QGroupBox("Projector")
+		boxSettingsProjector.addWidget(frameProjector)
+		boxProjector = QtGui.QVBoxLayout()
+		frameProjector.setLayout(boxProjector)
+
+		self.entryProjectorSizeX = monkeyprintGuiHelper.entry('projectorSizeX', self.settings, customFunctions=[self.setResliceFlag])#, displayString="Projector size X")
+		boxProjector.addWidget(self.entryProjectorSizeX)
+		self.entryProjectorSizeY = monkeyprintGuiHelper.entry('projectorSizeY', self.settings, customFunctions=[self.setResliceFlag])#, displayString="Projector size Y")
+		boxProjector.addWidget(self.entryProjectorSizeY)
+		self.entryProjectorPositionX = monkeyprintGuiHelper.entry('projectorPositionX', self.settings)
+		boxProjector.addWidget(self.entryProjectorPositionX)
+		self.entryProjectorPositionY = monkeyprintGuiHelper.entry('projectorPositionY', self.settings)
+		boxProjector.addWidget(self.entryProjectorPositionY)
 
 
-		# Frame for build space.
-		frameSerial = QtGui.QGroupBox("Printer serial connection")
-		frameSerial.setFlat(False)
-		boxSettingsCommunication.addWidget(frameSerial)
-		boxSerial= QtGui.QVBoxLayout()
-		frameSerial.setLayout(boxSerial)
-		# Add entries.
-		self.entryPort = monkeyprintGuiHelper.entry('port', self.settings)
-		boxSerial.addWidget(self.entryPort)
-		self.entryBaud = monkeyprintGuiHelper.entry('baudrateGCode', self.settings)
-		boxSerial.addWidget(self.entryBaud)
 
 		# Frame for build space.
 		frameProjectorControl = QtGui.QGroupBox("Projector control")
 		frameProjectorControl.setFlat(False)
-		boxSettingsCommunication.addWidget(frameProjectorControl)
+		boxSettingsProjector.addWidget(frameProjectorControl)
 		boxProjectorControl= QtGui.QVBoxLayout()
 		frameProjectorControl.setLayout(boxProjectorControl)
 		# Add entries.
@@ -1420,7 +1421,7 @@ class dialogSettings(QtGui.QDialog):
 		# Frame for calibration image.
 		frameCalibrationImage = QtGui.QGroupBox("Calibration image")
 		frameCalibrationImage.setFlat(False)
-		boxSettingsCommunication.addWidget(frameCalibrationImage)
+		boxSettingsProjector.addWidget(frameCalibrationImage)
 		boxCalibrationImage= QtGui.QVBoxLayout()
 		frameCalibrationImage.setLayout(boxCalibrationImage)
 
@@ -1428,7 +1429,7 @@ class dialogSettings(QtGui.QDialog):
 		self.imageContainer = monkeyprintGuiHelper.imageFromFile(self.settings, 200, customFunctions=[self.setResliceFlag])
 		boxCalibrationImage.addWidget(self.imageContainer)
 
-		return tabSettingsCommunication
+		return tabSettingsProjector
 
 
 	# Print process tab.

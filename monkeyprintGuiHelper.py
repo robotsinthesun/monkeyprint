@@ -1818,7 +1818,8 @@ class printProcessTableView(QtGui.QWidget):
 			# Set down button sensitivity.
 			self.buttonDown.setEnabled(rowCurrent != len(self.modelPrintProcess.tableData)-1)
 			# Set remove button sensitivity.
-			self.buttonRemove.setEnabled(True)
+			# Disable remove button for loop start and loop end commands.
+			self.buttonRemove.setEnabled("loop" not in self.modelPrintProcess.tableData[rowCurrent][0])
 		else:
 			self.buttonUp.setEnabled(False)
 			self.buttonDown.setEnabled(False)
