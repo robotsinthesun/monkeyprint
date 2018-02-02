@@ -92,12 +92,16 @@ def runGui(filename=None, debug=False):
 	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue()))
 
 	# Get current working directory and set paths.
+	# Is this still relevant?
 	cwd = os.getcwd()
 	programSettings['localMkpPath'].setValue(cwd + "/currentPrint.mkp")
 
 	# Update settings from file.
 	programSettings.readFile(cwd)
 
+	# Get cwd for exe
+	programSettings['installDir'].setValue(getInstallDir())
+	print "Running from " + programSettings['installDir'].getValue()
 	# Set debug mode if specified.
 	if debug:
 		print "Debug mode active."
@@ -195,5 +199,14 @@ def usage():
 	print "-d:                              Run in debug mode without stepper motion"
 	print "                                 and shutter servo. This will overwrite"
 	print "                                 the debug option in the settings menu."
+
+# https://stackoverflow.com/questions/7674790/bundling-data-files-with-pyinstaller-onefile
+def getInstallDir():
+	try:
+		# PyInstaller creates a temp folder and stores path in _MEIPASS
+		base_path = sys._MEIPASS
+	except AttributeError:
+		base_path = os.path.abspath(".")
+	return base_path
 
 main(sys.argv[1:])
