@@ -19,6 +19,7 @@
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import sys
 import threading
 
 class setting:
@@ -202,8 +203,8 @@ class programSettings(dict):
 		self.console = console
 		# Create objects for all the settings and put them into dictionary.
 		self['currentFolder'] =				setting(value='./models',			valType=str, 	output=self.output)
-		self['tmpDir'] = 					setting(value=os.getcwd()+'/tmp', 	valType=str,	isConstant=True, output=self.output)
-		self['installDir'] = 				setting(value=os.getcwd(),			valType=str,	isConstant=True, output=self.output)
+		self['tmpDir'] = 					setting(value=self.getInstallDir()+'/tmp', 	valType=str,	isConstant=True, output=self.output)
+		self['installDir'] = 				setting(value=self.getInstallDir(),			valType=str,	isConstant=True, output=self.output)
 		self['versionMajor'] =				setting(value=0, 					valType=int, 	output=self.output)
 		self['versionMinor'] =				setting(value=13, 					valType=int, 	output=self.output)
 		self['revision'] =					setting(value=0, 					valType=int, 	output=self.output)
@@ -399,3 +400,14 @@ class programSettings(dict):
 			self['printProcessMonkeyprint'].value = settingString
 		else:
 			self['printProcessGCode'].value = settingString
+
+			
+	# Get install dir for running from packaged exe or script.		
+	# https://stackoverflow.com/questions/7674790/bundling-data-files-with-pyinstaller-onefile
+	def getInstallDir(self):
+		try:
+			# PyInstaller creates a temp folder and stores path in _MEIPASS
+			base_path = sys._MEIPASS
+		except AttributeError:
+			base_path = os.path.abspath(".")
+		return base_path
