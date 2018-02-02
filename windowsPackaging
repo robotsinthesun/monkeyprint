@@ -1,0 +1,32 @@
+These are the steps for creating a packaged version for Windows.
+
+Build OS: Windows 7 64 bit
+
+* Download and install Python-2.7 (64 bit version)
+	* Download from [here](python.org/downloads)
+	* Make sure to set the "Add to path"-option during install
+* Download and install PyWin32 (64 bit version)
+	* Download from [here](github.com/mhammond/pywin32/releases)
+* Download Microsoft C++ Redistributables
+	* vcredist_x86.exe (why not x64_86?)
+	* Install
+* Install dependencies from Christoph Gohlkes archive
+	* Download packages from [here](https://www.lfd.uci.edu/~gohlke/pythonlibs/)
+	* Numpy
+	* OpenCV 2.4
+	* zmq
+	* VTK 5.10
+	* PyQt4
+	* Pillow
+	* pyserial
+	* Install each of them using pip install <package-name>
+* Install pyInstaller using pip -install pyinstaller
+* Add paths to C:\Python27\Libs\site-packages\vtk / Qt4 etc to PATH
+* Better (????): Add path to C:\Python27\Libs\site-packages to PATH
+
+* Modify C:\Python27\Libs\PyInstaller\hooks\hook-pythonvtk.py to C:\Python27\Libs\site-packages\PyInstaller\hooks\hook-vtk.py and comment last two lines of C:\Python27\Libs\site-packages\vtk\__helper.py
+according to [this](https://stackoverflow.com/questions/21835851/python-executable-with-vtk-pyinstaller-py2exe-cx-freeze-etc) Otherwise vtk will not be imported correctly during packaging
+
+* Finally, run pyinstaller --onefile monkeyprint.py from monkeyprint directory
+* Copy monkeyprint.exe from the dists/monkeyprint folder to the base dir and delete dists and build folders
+* monkeyprint.exe is ready to ship

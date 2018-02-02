@@ -46,9 +46,7 @@ This will create a monkeyprint folder in your current location. You can then sta
 
 #### Windows installation
 
-First, we need to install Python 2.7. Go to the [Python download page](www.python.org/downloads) and choose the Windows installer. On completion of the download, run the installer.
-Next, add Python to your path.
-On Windows we first download the relevant packages manually.
+Windows users simply download the latest release [here](https://github.com/robotsinthesun/monkeyprint/releases). It's an exe that contains Python and all the necessary libraries. No need to install anything. Yep.
 
 
 #### Hardware
