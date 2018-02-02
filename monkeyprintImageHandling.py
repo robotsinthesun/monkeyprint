@@ -21,7 +21,6 @@
 
 #from matplotlib import pyplot as plot
 import numpy
-from scipy import ndimage
 from PIL import Image
 import math
 
@@ -181,8 +180,6 @@ def imgErodeSlow(img, radius=1):
 	# Return the eroded image as 0..255.
 	return eroded
 
-def imgErodeScipy(img, radius=1):
-	return ndimage.binary_erosion(img, structure=numpy.ones((radius,radius))).astype(img.dtype)
 
 
 # Dilate. This will grow white areas in an image by a given radius.
@@ -205,19 +202,8 @@ def convertSingle2RGB(img):
 	# Expand in 3d dimension.
 	img = numpy.expand_dims(img, axis=2)
 	img = numpy.repeat(img, 3, axis=2)
-	return img
+	return numpy.uint8(img)
 
-'''
-imageInsert = createImageGray(4,2,50)
-imageRing= createImageRing()
+def convertRGB2Single(img):
+	return numpy.uint8(numpy.squeeze(numpy.average(img, axis=2)))
 
-print imageRing
-image = createImageNoisy(20,10)
-imageGrayscale1Ch = convertGrayscaleSingle(image)
-imageInserted = insert(imageGrayscale1Ch, imageInsert, [3,1])
-imageMultiplied = imgMultiply(imageInserted, imageRing, [12,3])
-imageSubtracted = imgSubtract(imageInserted, imageRing, [12,3])
-print imageSubtracted
-imageGrayscale = convertSingle2RGB(imageSubtracted)
-showImage(imageGrayscale)
-'''

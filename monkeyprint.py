@@ -20,15 +20,12 @@
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import sys, getopt # Needed to parse command line arguments.
+import sys, os, getopt # Needed to parse command line arguments.
 import time
 import monkeyprintModelHandling
 import monkeyprintSettings
 import monkeyprintGui
 import monkeyprintGuiHelper
-import monkeyprintPiServer
-
-
 
 
 def main(argv):
@@ -86,22 +83,31 @@ def runGui(filename=None, debug=False):
 	print "Starting Monkeyprint with GUI."
 	# Create a debug console text buffer.
 	console = monkeyprintGuiHelper.consoleText()
+#	console = None
 
 	# Create settings dictionary object for machine and program settings.
 	programSettings = monkeyprintSettings.programSettings(console)
 
 	# Create version message.
-	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value))
+	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue()))
+
+	# Get current working directory and set paths.
+	# Is this still relevant?
+	cwd = os.getcwd()
+	programSettings['localMkpPath'].setValue(cwd + "/currentPrint.mkp")
 
 	# Update settings from file.
-	programSettings.readFile()
+	programSettings.readFile(cwd)
 
+	# Get cwd for exe
+	programSettings['installDir'].setValue(getInstallDir())
+	print "Running from " + programSettings['installDir'].getValue()
 	# Set debug mode if specified.
 	if debug:
 		print "Debug mode active."
-		programSettings['debug'].value = True
+		programSettings['debug'].setValue(True)
 	else:
-		programSettings['debug'].value = False
+		programSettings['debug'].setValue(False)
 
 	# Create model collection object.
 	# This object contains model data and settings data for each model.
@@ -110,9 +116,7 @@ def runGui(filename=None, debug=False):
 
 	# Create splash screen for given interval.
 	# Get version string first.
-	versionString = "Monkeyprint version " + str(programSettings['versionMajor'].value) + "." + str(programSettings['versionMinor'].value) + "." + str(programSettings['revision'].value)
-	print versionString
-	splash = monkeyprintGuiHelper.splashWindow(imageFile='./logo.png', duration=1, infoString = versionString)
+	versionString = "Monkeyprint version " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue())
 
 	# Create gui.
 	gui = monkeyprintGui.gui(modelCollection, programSettings, console, filename)
@@ -195,5 +199,14 @@ def usage():
 	print "-d:                              Run in debug mode without stepper motion"
 	print "                                 and shutter servo. This will overwrite"
 	print "                                 the debug option in the settings menu."
+
+# https://stackoverflow.com/questions/7674790/bundling-data-files-with-pyinstaller-onefile
+def getInstallDir():
+	try:
+		# PyInstaller creates a temp folder and stores path in _MEIPASS
+		base_path = sys._MEIPASS
+	except AttributeError:
+		base_path = os.path.abspath(".")
+	return base_path
 
 main(sys.argv[1:])

@@ -31,7 +31,6 @@ import random
 from PIL import Image
 import Queue, threading
 import monkeyprintImageHandling as imageHandling
-import gtk
 import cPickle	# Save modelCollection to file.
 import gzip
 import tarfile
@@ -113,6 +112,9 @@ class modelContainer:
 	def updateSliceStack(self, force=False):
 		return self.model.updateSliceStack()
 
+	def getSlicerProgress(self):
+		return self.model.slicerProgress
+
 	def sliceThreadListener(self):
 		self.model.checkBackgroundSlicer()
 
@@ -133,7 +135,6 @@ class modelContainer:
 				self.getSlicesActor()
 				)
 	def hideAllActors(self):
-#		print "bar"
 		self.hideModel(),
 		self.hideBox(),
 		self.hideOverhang(),
@@ -142,8 +143,21 @@ class modelContainer:
 		self.hideClipModel(),
 		self.hideSlices()
 
+	def updateAllActors(self, state):
+		if self.isActive():
+			if state == 0:
+				self.showActorsDefault()
+			elif state == 1:
+				self.showActorsSupports()
+			elif state == 2:
+				self.showActorsSlices()
+			elif state == 3:
+				self.showActorsPrint()
+		else:
+			self.ghostAllActors()
+
 	def showAllActors(self, state):
-	#	if self.isactive():
+	#	if self.isActive():
 			if state == 0:
 				self.showActorsDefault()
 			elif state == 1:
@@ -185,12 +199,12 @@ class modelContainer:
 		self.hideClipModel()
 	# Adjust view for slicing.
 	def showActorsSlices(self):
-#		self.transparentModel()
+		#self.transparentModel()
 		self.hideModel()
 		self.hideOverhang()
-#		self.transparentBottomPlate()
+		#self.transparentBottomPlate()
 		self.hideBottomPlate()
-#		self.transparentSupports()
+		#self.transparentSupports()
 		self.hideSupports()
 		self.opaqueSlices()
 		self.showSlices()
@@ -199,20 +213,20 @@ class modelContainer:
 	def showActorsPrint(self):
 		self.opaqueClipModel()
 		self.showClipModel()
-#		self.opaqueModel()
+		#self.opaqueModel()
 		self.hideModel()
 		self.hideOverhang()
-#		self.opaqueBottomPlate()
+		#self.opaqueBottomPlate()
 		self.hideBottomPlate()
-#		self.opaqueSupports()
+		#self.opaqueSupports()
 		self.hideSupports()
 		self.hideSlices()
 
-	def setactive(self, active):
+	def setActive(self, active):
 		self.flagactive = active
-		self.model.setactive(active)
+		self.model.setActive(active)
 
-	def isactive(self):
+	def isActive(self):
 		return self.flagactive
 
 	def getActor(self):
@@ -242,7 +256,7 @@ class modelContainer:
 		return self.model.getActorSlices()
 
 	def showBox(self):
-	#	if self.flagactive:
+		#if self.flagactive:
 			self.model.showBoundingBox()
 			self.model.showBoundingBoxText()
 
@@ -370,17 +384,20 @@ class modelCollection(dict):
 		self.console = console
 
 		# Create slice image. *********************************
-		#self.sliceImage = imageHandling.createImageGray(self.programSettings['projectorSizeX'].value, self.programSettings['projectorSizeY'].value, 0)
-		#self.sliceImageBlack = numpy.empty_like(self.sliceImage)
+		self.sliceImage = imageHandling.createImageGray(self.programSettings['projectorSizeX'].getValue(), self.programSettings['projectorSizeY'].getValue(), 0)
+		self.sliceImageBlack = numpy.empty_like(self.sliceImage)
 
 		# Preview slice stack. ********************************
-		self.sliceStackPreview = sliceStack()
-		self.sliceNumbers = [0]
-		self.sliceMode = "preview"
+		widthPreview = self.programSettings['previewSliceWidth'].getValue()
+		aspect = self.programSettings['projectorSizeX'].getValue() / float(self.programSettings['projectorSizeY'].getValue())
+		heightPreview = int(widthPreview / aspect)
+		self.sliceStackPreview = sliceStack(self.programSettings, width=widthPreview, height=heightPreview, imgType='empty')
+		self.sliceStackPreviewLabels = [0]
+		self.sliceMode = "preview"	# Needed for slice combiner poll method.
 		self.currentSliceNumber = None
 		self.currentSlice = imageHandling.createImageGray(self.programSettings['projectorSizeX'].value, self.programSettings['projectorSizeY'].value,0)
 		self.sliceCombinerFinished = False
-		#self.numberOfPreviewSlices = self.getMaxNumberOfPreviewSlices()
+		#self.numberOfPreviewSlices = self.programSettings['previewSlicesMax'].getValue()
 		#print "Maximum number of preview slices: " + str(self.numberOfPreviewSlices) + "."
 		#self.stackHeightOld = self.sliceStackPreview.getStackHeight()
 		# Queue for transferring slice images from model slicer threads
@@ -398,16 +415,13 @@ class modelCollection(dict):
 		# Set defaults. ***************************************
 		# Create current model id.
 		self.currentModelId = ""
-		# Load default model to fill settings for gui.
-		self.add("default", "")	# Don't provide file name.
 
-		# Create model list.***********************************
-		# List will contain strings for dispayed name,
-		# internal name and file name and a bool for active state.
-		self.modelList = gtk.ListStore(str, str, str, bool)
+		# Load default model to fill settings for gui. ********
+		self.add("default", "")	# Don't provide file name.
 
 		# Create job settings object. *************************
 		#self.jobSettings = monkeyprintSettings.jobSettings(self.programSettings)
+		# THIS WILL BE DONE LATER ON JOB PACKING
 
 
 	# Reload calibration image.
@@ -458,6 +472,7 @@ class modelCollection(dict):
 		return inputImage
 
 
+	# TODO
 	# Save model collection to compressed disk file. Works well with huge objects.
 	def saveProject(self, filename, protocol = -1, fileSearchFnc=None):
 		# Gather the relevant data.
@@ -512,10 +527,12 @@ class modelCollection(dict):
 					mkpFile.add(path, arcname=path.split('/')[-1])
 				except IOError, OSError:
 					print "Stl file not found..."
-# TODO: Handle file not found error in GUI.
-# TODO: Maybe copy stls into temporary dir upon load?
-# This would be consistent with loading an mkp file and saving stls to tmp dir.
+		# TODO: Handle file not found error in GUI.
+		# TODO: Maybe copy stls into temporary dir upon load?
+		# This would be consistent with loading an mkp file and saving stls to tmp dir.
 
+
+	# TODO
 	# Load a compressed model collection from disk.
 	def loadProject(self, filename):
 		# Create temporary working directory path.
@@ -554,7 +571,7 @@ class modelCollection(dict):
 			if row[0] != "default":
 				self.modelList.append(row)
 		# Delete the tmp directory.
-	#	shutil.rmtree(tmpPath)
+		#shutil.rmtree(tmpPath)
 
 
 	# Function to retrieve id of the current model.
@@ -577,21 +594,43 @@ class modelCollection(dict):
 		return self[modelId]
 
 
+
+
 	# Add a model to the collection.
-	def add(self, modelId, filenameOrSettings):
-		self[modelId] = modelContainer(filenameOrSettings, modelId, self.programSettings, self.console)
+	def add(self, newModelId, filenameOrSettings):
+		# Prepare newModelId if this is not the default model.
+		# Also, add to modelListQt.
+		if not newModelId == "default":
+			# Check if there is a file with the same name loaded already.
+			# Use the permanent file id in second row for this.
+			copyNumber = 0
+			for modelId in self:
+				# Check if filename already loaded.
+				if newModelId == modelId[:len(newModelId)]:
+					# If so, set the copy number to 1.
+					copyNumber = 1
+					# Check if this is a copy already.
+					if len(modelId) > len(newModelId):
+						if int(modelId[len(newModelId)+2:len(modelId)-1]) >= copyNumber:
+							copyNumber = int(modelId[len(newModelId)+2:len(modelId)-1]) + 1
+			if copyNumber > 0:
+				newModelId = newModelId + " (" + str(copyNumber) + ")"
+		# Add model to collection.
+		self[newModelId] = modelContainer(filenameOrSettings=filenameOrSettings, modelId=newModelId, programSettings=self.programSettings, console=self.console)
 		# Set new model as current model.
-		self.currentModelId = modelId
+		self.currentModelId = newModelId
+
+		return newModelId
 
 
 	# Function to remove a model from the model collection
 	def remove(self, modelId):
-		if self[modelId]:
-			self[modelId].model.killBackgroundSlicer()
-			self[modelId].cleanUp()
-			# Explicitly delete model data to free memory from slice images.
-			del self[modelId].model
-			del self[modelId]
+		# Kill slicer.
+		self[modelId].model.killBackgroundSlicer()
+		self[modelId].cleanUp()
+		# Explicitly delete model data to free memory from slice images.
+		del self[modelId].model
+		del self[modelId]
 
 
 	def removeAll(self):
@@ -614,49 +653,45 @@ class modelCollection(dict):
 				self.modelList.remove(i)
 
 
+	def getNumberOfActiveModels(self):
+		nActive = 0
+		for model in self:
+			nActive += (model != "default" and self[model].isActive())
+		return nActive
+
+
 	# Function to retrieve the highest model. This dictates the slice stack height.
 	def getNumberOfSlices(self):
 		modelHeights = []
 		for model in self:
-			if model != "default":
+			if model != "default" and self[model].isActive():
 				modelHeights.append(self[model].model.getNumberOfSlices())
 		if modelHeights != []:
 			return sorted(modelHeights)[-1]
 		# Return 0 if no model has been loaded yet.
 		else:
-			return 0
-
-
-	def getMaxNumberOfPreviewSlices(self):
-		return self.programSettings['previewSlicesMax'].value
+			return 1
 
 
 	# Return the calculated preview stack height.
 	def getPreviewStackHeight(self):
-		if self.getMaxNumberOfPreviewSlices() >= self.getNumberOfSlices():
-			if self.getNumberOfSlices() > 0:
-				return self.getNumberOfSlices()
-			else:
-				return 0
-		else:
-			return self.getMaxNumberOfPreviewSlices()
+		stackHeight = min(self.programSettings['previewSlicesMax'].getValue(), self.getNumberOfSlices())
+		return stackHeight
 
 
 	# Return the current preview stack height.
 	# This might be 1 if slicer is still running.
-	def getPreviewStackHeightCurrent(self):
-		print len(self.sliceStackPreview)
-		return len(self.sliceStackPreview)
+	#def getPreviewStackHeightCurrent(self):
+	#	return len(self.sliceStackPreview)
 
 
-	def getPreviewSliceHeight(self):
-		# Calc number of preview slices from settings.
-		# Get slice multiplier.
-		if self.getMaxNumberOfPreviewSlices() >= self.getNumberOfSlices():
-			sliceMultiplier = 1
-		else:
-			sliceMultiplier = (self.getNumberOfSlices()) / float(self.getMaxNumberOfPreviewSlices())
-		return sliceMultiplier
+	def calcSliceStackPreviewSubset(self):
+		# Get slice multiplier. If there are more slices than preview slices, the multiplier must be > 1.
+		sliceMultiplier = max(1, self.getNumberOfSlices() / float(self.programSettings['previewSlicesMax'].getValue()))
+		# First and last index are fixed, all in between are approximated.
+		self.sliceStackPreviewLabels = [0]
+		self.sliceStackPreviewLabels += [int(round((previewSlice)*sliceMultiplier)) for previewSlice in range(1, self.getPreviewStackHeight()-1)]
+		self.sliceStackPreviewLabels += [self.getNumberOfSlices()-1]
 
 
 	# Gather slicer input info.
@@ -666,14 +701,21 @@ class modelCollection(dict):
 		# Data: create preview, number of prev slices, prev slice height,
 		# slice paths, number of model slices, model position, model size.
 		# Mode can be preview, full or slice number.
-		modelNamesAndHeights = [self.getPreviewStackHeight(), self.getPreviewSliceHeight(), [],[],[],[], mode, savePath]
+		if mode == "preview":
+			sliceNumbers = self.sliceStackPreviewLabels
+		elif mode == "full":
+			sliceNumbers = range(self.getNumberOfSlices())
+		elif mode.split(' ')[0] == "single":
+			sliceNumbers = int(mode.split(' ')[1])
+
+		modelNamesAndHeights = [sliceNumbers, [],[],[],[], mode, savePath]
 		# Update all models' slice stacks.
 		for model in self:
-			if model != 'default':
-				modelNamesAndHeights[2].append(self[model].slicePath)
-				modelNamesAndHeights[3].append(self[model].model.getNumberOfSlices())
-				modelNamesAndHeights[4].append(self[model].model.getSlicePositionPx(border=False))
-				modelNamesAndHeights[5].append(self[model].model.getSliceSizePx(border=True))
+			if model != 'default' and self[model].isActive():
+				modelNamesAndHeights[1].append(self[model].slicePath)
+				modelNamesAndHeights[2].append(self[model].model.getNumberOfSlices())
+				modelNamesAndHeights[3].append(self[model].model.getSlicePositionPx(border=False))
+				modelNamesAndHeights[4].append(self[model].model.getSliceSizePx(border=True))
 		return modelNamesAndHeights
 
 
@@ -685,15 +727,24 @@ class modelCollection(dict):
 	# This method also starts the slice combiner.
 	def updateSliceStack(self, force=False):
 		# Update model slice stacks.
+		# Also, check if there are any active models at all.
+		empty = True
 		for model in self:
 			self[model].updateSliceStack(force)
-		# Reset preview slice stack.
-		self.sliceStackPreview.update(1)
-		self.sliceNumbers = [0]
-		# Update preview slice stack.
-		if self.getNumberOfSlices() > 0:
+			if model != 'default' and self[model].isActive():
+				empty = False
+		if not empty:
+			# Set the preview subset indices.
+			self.calcSliceStackPreviewSubset()
+			# Reset preview slice stack.
+			self.sliceStackPreview.reset(imgType='update')
+			# Update preview slice stack.
 			self.queueModelCollectionToCombiner.put(self.createSlicerInputInfo(mode="preview"))
 			self.sliceCombinerFinished = False
+		else:
+			self.sliceStackPreviewLabels = [0]
+			self.sliceStackPreview.reset( imgType='empty')
+
 
 
 	# Save slice stack.
@@ -703,9 +754,8 @@ class modelCollection(dict):
 		# timeout function to read slicer status from the slice
 		# combiner output queue.
 		self.sliceMode = "full"
-		# Get number of slices.
-		nSlices = self.getNumberOfSlices()
-		# Update preview slice stack. This will automatically
+
+		# Run the slice combiner. This will automatically
 		# save the images to the temp directory.
 		self.queueModelCollectionToCombiner.put(self.createSlicerInputInfo(mode="full", savePath=path))
 		# Update the status bar.
@@ -716,8 +766,6 @@ class modelCollection(dict):
 			# Update progress bar.
 			if updateFunction != None:
 				updateFunction(int(status))
-				while gtk.events_pending():
-					gtk.main_iteration(False)
 			if int(status) == 100:
 				break
 		# Reset slice mode to preview.
@@ -730,8 +778,17 @@ class modelCollection(dict):
 		# Make sure index is an integer.
 		i = int(i)
 		if mode == 'preview':
+			#print "Requested slice {n:g}".format(n=i)
+			#print "Number of slices: {n:g}".format(n=len(self.sliceStackPreview))
 			# Return preview image.
-			return self.sliceStackPreview[i]
+			#print "Returning image size: " + str(self.sliceStackPreview.getSlice(i).shape)
+			return self.sliceStackPreview.getSlice(i)
+			'''
+			if i < len(self.sliceStackPreview) and i >= 0:
+				return self.sliceStackPreview[i]
+			else:
+				return None
+			'''
 		elif mode == 'full':
 			# Check if the current slice is requested again.
 			if self.currentSliceNumber != None and i == self.currentSliceNumber:
@@ -820,24 +877,28 @@ class modelCollection(dict):
 		for model in self:
 			self[model].model.updateSlice3d(sliceNumber)
 
-	# Function that is called every n milliseconds from gtk main loop to
-	# check the slicer queue.
-	def checkSlicerThreads(self):
+	# Function that is called every n milliseconds from GUI main loop to
+	# check the slicers.
+	def checkSlicer(self):
+		# Check the individual model slicer threads.
 		for model in self:
 			self[model].sliceThreadListener()
-		 # Return true, otherwise the function will not run again.
-		return True
+		# Also, check the slice combiner thread.
+		self.checkSliceCombinerThread()
+
 
 	def checkSliceCombinerThread(self):
 		if self.sliceMode == "preview":
 			if self.queueCombinerToModelCollection.qsize():
 				sliceCombinerOutput = self.queueCombinerToModelCollection.get()
 				if type(sliceCombinerOutput) == str:
-					self.console.addLine('Slicer progress: ' + sliceCombinerOutput + '%.')
+					pass#self.console.addLine('All slices progress: ' + sliceCombinerOutput + '%.')
 				else:
-					self.sliceStackPreview, self.sliceNumbers = sliceCombinerOutput
+					self.sliceStackPreview.setSlices(sliceCombinerOutput)
 					self.sliceCombinerFinished = True
-		return True
+		elif self.sliceMode == "full":
+			pass
+
 
 	def slicerRunning(self):
 		# Return True if one of the slicers is still running.
@@ -863,7 +924,7 @@ class modelCollection(dict):
 	def getTotalVolume(self):
 		volume = 0
 		for model in self:
-			if self[model].isactive():
+			if self[model].isActive():
 				volume += self[model].model.getVolume()
 		return volume
 
@@ -1021,50 +1082,52 @@ class modelData:
 		self.flagUpdateSupports = False
 		self.flagUpdateSlices = False
 
+		self.slicerProgress = 0
+
 		# Get settings.
 		# Model settings.
-		self.active = self.settings['active'].value
-		self.scaling = self.settings['scaling'].value
-		self.rotationX = self.settings['rotationX'].value
-		self.rotationY = self.settings['rotationY'].value
-		self.rotationZ = self.settings['rotationZ'].value
-		self.positionX = self.settings['positionX'].value
-		self.positionY = self.settings['positionY'].value
-		self.bottomClearance = self.settings['bottomClearance'].value
-		self.modelSafetyDistance = self.programSettings['modelSafetyDistance'].value
-		self.buildSizeX = self.programSettings['buildSizeX'].value
-		self.buildSizeY = self.programSettings['buildSizeY'].value
-		self.buildSizeZ = self.programSettings['buildSizeZ'].value
+		self.active = self.settings['active'].getValue()
+		self.scaling = self.settings['scaling'].getValue()
+		self.rotationX = self.settings['rotationX'].getValue()
+		self.rotationY = self.settings['rotationY'].getValue()
+		self.rotationZ = self.settings['rotationZ'].getValue()
+		self.positionX = self.settings['positionX'].getValue()
+		self.positionY = self.settings['positionY'].getValue()
+		self.bottomClearance = self.settings['bottomClearance'].getValue()
+		self.modelSafetyDistance = self.programSettings['modelSafetyDistance'].getValue()
+		self.buildSizeX = self.programSettings['buildSizeX'].getValue()
+		self.buildSizeY = self.programSettings['buildSizeY'].getValue()
+		self.buildSizeZ = self.programSettings['buildSizeZ'].getValue()
 
 		# Support settings.
-		self.createBottomPlate = self.settings['createBottomPlate'].value
-		self.createSupports = self.settings['createSupports'].value
-		self.bottomPlateThickness = self.settings['bottomPlateThickness'].value
-		self.overhangAngle = self.settings['overhangAngle'].value
-		self.spacingX = self.settings['spacingX'].value
-		self.spacingY = self.settings['spacingY'].value
-		self.maximumHeight = self.settings['maximumHeight'].value
-		self.baseDiameter = self.settings['baseDiameter'].value
-		self.tipDiameter = self.settings['tipDiameter'].value
-		self.coneHeight = self.settings['coneHeight'].value
+		self.createBottomPlate = self.settings['createBottomPlate'].getValue()
+		self.createSupports = self.settings['createSupports'].getValue()
+		self.bottomPlateThickness = self.settings['bottomPlateThickness'].getValue()
+		self.overhangAngle = self.settings['overhangAngle'].getValue()
+		self.spacingX = self.settings['spacingX'].getValue()
+		self.spacingY = self.settings['spacingY'].getValue()
+		self.maximumHeight = self.settings['maximumHeight'].getValue()
+		self.baseDiameter = self.settings['baseDiameter'].getValue()
+		self.tipDiameter = self.settings['tipDiameter'].getValue()
+		self.coneHeight = self.settings['coneHeight'].getValue()
 		# Slicer settings.
-		self.projectorSizeX = self.programSettings['projectorSizeX'].value
-		self.projectorSizeY = self.programSettings['projectorSizeY'].value
-		self.previewSliceWidth = self.programSettings['previewSliceWidth'].value
-		self.layerHeight = self.programSettings['layerHeight'].value
-		self.printHollow = self.settings['printHollow'].value
-		self.fill = self.settings['fill'].value
-		self.fillShellWallThickness = self.settings['fillShellWallThickness'].value
-		self.fillSpacing = self.settings['fillSpacing'].value
-		self.fillPatternWallThickness = self.settings['fillPatternWallThickness'].value
-		self.multiBodySlicing = self.programSettings['multiBodySlicing'].value
+		self.projectorSizeX = self.programSettings['projectorSizeX'].getValue()
+		self.projectorSizeY = self.programSettings['projectorSizeY'].getValue()
+		self.previewSliceWidth = self.programSettings['previewSliceWidth'].getValue()
+		self.layerHeight = self.programSettings['layerHeight'].getValue()
+		self.printHollow = self.settings['printHollow'].getValue()
+		self.fill = self.settings['fill'].getValue()
+		self.fillShellWallThickness = self.settings['fillShellWallThickness'].getValue()
+		self.fillSpacing = self.settings['fillSpacing'].getValue()
+		self.fillPatternWallThickness = self.settings['fillPatternWallThickness'].getValue()
+		self.multiBodySlicing = self.programSettings['multiBodySlicing'].getValue()
 
 
 		self.flagSlicerRunning = False
 		self.flagSlicerFinished = False
 
 		# Set up the slice stack. Has one slice only at first...
-		self.sliceStack = sliceStack()
+		self.sliceStack = sliceStack(self.programSettings)
 		self.slicePosition = (0,0)
 
 
@@ -1449,11 +1512,11 @@ class modelData:
 	# #########################################################################
 
 	# Change active flag.
-	def setactive(self, active):
+	def setActive(self, active):
 		self.flagactive = active
 
 	# Check active flag.
-	def isactive(self):
+	def isActive(self):
 		return self.flagactive
 
 	# Analyse normal Z component.
@@ -1488,8 +1551,8 @@ class modelData:
 				self.volumeSupports.Update()
 				if self.programSettings['showVtkErrors'].value and self.errorObserver.WarningOccurred():
 					print "VTK Warning: " + self.errorObserver.WarningMessage()
-#				elif self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
-#					print "VTK Error: " + self.errorObserver.ErrorMessage()
+				#elif self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
+				#	print "VTK Error: " + self.errorObserver.ErrorMessage()
 			self.volumeBottomPlate.Update()
 			if self.programSettings['showVtkErrors'].value and self.errorObserver.ErrorOccurred():
 				print "VTK Error: " + self.errorObserver.ErrorMessage()
@@ -1556,7 +1619,7 @@ class modelData:
 	###########################################################################
 	def updateModel(self):
 		if self.filename != "":
-			if self.isactive() and self.settingsChangedModel():
+			if self.isActive() and self.settingsChangedModel():
 				# Reset slicer.
 				self.flagSlicerFinished = False
 
@@ -1638,7 +1701,7 @@ class modelData:
 
 
 	def updateBottomPlate(self):
-		if self.filename != "" and self.isactive() and self.flagUpdateSupports:
+		if self.filename != "" and self.isActive() and self.flagUpdateSupports:
 			self.flagSlicerFinished = False
 			modelBounds = self.getBounds()
 			self.bottomPlate.SetXLength(modelBounds[1] - modelBounds[0])
@@ -1652,7 +1715,7 @@ class modelData:
 
 
 	def updateOverhang(self):
-		if self.filename != "" and self.isactive():
+		if self.filename != "" and self.isActive():
 			self.flagSlicerFinished = False
 			# Calculate clipping threshold based on Z component..
 			# Z normals are 1 if pointing upwards, -1 if downwards and 0 if pointing sideways.
@@ -1669,7 +1732,7 @@ class modelData:
 		# - Model is active.
 		# - Model has been updated or support settings have been changed.
 		if self.filename != "":
-			if self.isactive() and (self.flagUpdateSupports or self.settingsChangedSupports()):
+			if self.isActive() and (self.flagUpdateSupports or self.settingsChangedSupports()):
 				self.flagSlicerFinished = False
 
 				self.updateBottomPlate()
@@ -1870,7 +1933,7 @@ class modelData:
 			# Only update if this is not default flag and the
 			# model or supports have been changed before.
 			# Also update in preview mode if forced.
-			if self.isactive() and (self.flagUpdateSlices or self.settingsChangedSlicer()):
+			if self.isActive() and (self.flagUpdateSlices or self.settingsChangedSlicer()):
 				if self.console != None:
 					self.console.addLine('Slicer started.')
 
@@ -1879,7 +1942,7 @@ class modelData:
 				slicerInputInfo['pxPerMmX'] = self.programSettings['pxPerMmX'].value
 				slicerInputInfo['pxPerMmY'] = self.programSettings['pxPerMmY'].value
 				slicerInputInfo['layerHeight'] = self.programSettings['layerHeight'].value
-				slicerInputInfo['numberOfSlices'] = self.getNumberOfSlices()#int(math.floor(self.bounds[5] / self.layerHeight))
+				slicerInputInfo['numberOfSlices'] = self.getNumberOfSlices()
 				slicerInputInfo['position'] = self.getSlicePositionPx(border=True)
 				slicerInputInfo['size'] = self.getSliceSizePx(border=True)
 				slicerInputInfo['wallThickness'] = self.settings['fillShellWallThickness'].value
@@ -1895,6 +1958,7 @@ class modelData:
 				slicerInputInfo['showVtkErrors'] = self.programSettings['showVtkErrors'].value
 				slicerInputInfo['polylineClosingThreshold'] = self.programSettings['polylineClosingThreshold'].value
 				slicerInputInfo['multiBodySlicing'] = self.programSettings['multiBodySlicing'].value
+
 				# If there's nothing in the queue...
 				if self.queueSlicerIn.empty():
 					# ... write the slicer info to the queue.
@@ -1903,7 +1967,7 @@ class modelData:
 				self.flagSlicerRunning = True
 				self.flagSlicerFinished = False
 			# Set finished flag if model was not resliced.
-			elif self.isactive():
+			elif self.isActive():
 				self.flagSlicerFinished = True
 
 
@@ -1912,11 +1976,17 @@ class modelData:
 		# If a slice stack is in the output queue...
 		if self.queueSlicerOut.qsize():
 			# ... get it.
-			warningSlices = self.queueSlicerOut.get()
-			if len(warningSlices) > 0:
-					self.console.addLine("Warning: Possible errors in slices " + str(warningSlices))
-			self.flagSlicerRunning = False
-			self.flagSlicerFinished = True
+			slicerOutput = self.queueSlicerOut.get()
+
+			# Check if this is the slicer progress or the finished slice stack.
+			if type(slicerOutput) == int:
+				self.slicerProgress = slicerOutput
+			else:
+				warningSlices = slicerOutput
+				if len(warningSlices) > 0:
+						self.console.addLine("Warning: Possible errors in slices " + str(warningSlices))
+				self.flagSlicerRunning = False
+				self.flagSlicerFinished = True
 
 
 	def killBackgroundSlicer(self):
@@ -1988,27 +2058,27 @@ class modelData:
 	def settingsChangedSlicer(self):
 		# Check for changes.
 		settingsChanged = []
-		settingsChanged.append(self.projectorSizeX != self.programSettings['projectorSizeX'].value)
-		settingsChanged.append(self.projectorSizeY != self.programSettings['projectorSizeY'].value)
-		settingsChanged.append(self.previewSliceWidth != self.programSettings['previewSliceWidth'].value)
-		settingsChanged.append(self.layerHeight != self.programSettings['layerHeight'].value)
-		settingsChanged.append(self.printHollow != self.settings['printHollow'].value)
-		settingsChanged.append(self.fill != self.settings['fill'].value)
-		settingsChanged.append(self.fillShellWallThickness != self.settings['fillShellWallThickness'].value)
-		settingsChanged.append(self.fillSpacing != self.settings['fillSpacing'].value)
-		settingsChanged.append(self.fillPatternWallThickness != self.settings['fillPatternWallThickness'].value)
-		settingsChanged.append(self.multiBodySlicing != self.programSettings['multiBodySlicing'].value)
+		settingsChanged.append(self.projectorSizeX != self.programSettings['projectorSizeX'].getValue())
+		settingsChanged.append(self.projectorSizeY != self.programSettings['projectorSizeY'].getValue())
+		settingsChanged.append(self.previewSliceWidth != self.programSettings['previewSliceWidth'].getValue())
+		settingsChanged.append(self.layerHeight != self.programSettings['layerHeight'].getValue())
+		settingsChanged.append(self.printHollow != self.settings['printHollow'].getValue())
+		settingsChanged.append(self.fill != self.settings['fill'].getValue())
+		settingsChanged.append(self.fillShellWallThickness != self.settings['fillShellWallThickness'].getValue())
+		settingsChanged.append(self.fillSpacing != self.settings['fillSpacing'].getValue())
+		settingsChanged.append(self.fillPatternWallThickness != self.settings['fillPatternWallThickness'].getValue())
+		settingsChanged.append(self.multiBodySlicing != self.programSettings['multiBodySlicing'].getValue())
 		# Update.
-		self.projectorSizeX = self.programSettings['projectorSizeX'].value
-		self.projectorSizeY = self.programSettings['projectorSizeY'].value
-		self.previewSliceWidth = self.programSettings['previewSliceWidth'].value
-		self.layerHeight = self.programSettings['layerHeight'].value
-		self.printHollow = self.settings['printHollow'].value
-		self.fill = self.settings['fill'].value
-		self.fillShellWallThickness = self.settings['fillShellWallThickness'].value
-		self.fillSpacing = self.settings['fillSpacing'].value
-		self.fillPatternWallThickness = self.settings['fillPatternWallThickness'].value
-		self.multiBodySlicing = self.programSettings['multiBodySlicing'].value
+		self.projectorSizeX = self.programSettings['projectorSizeX'].getValue()
+		self.projectorSizeY = self.programSettings['projectorSizeY'].getValue()
+		self.previewSliceWidth = self.programSettings['previewSliceWidth'].getValue()
+		self.layerHeight = self.programSettings['layerHeight'].getValue()
+		self.printHollow = self.settings['printHollow'].getValue()
+		self.fill = self.settings['fill'].getValue()
+		self.fillShellWallThickness = self.settings['fillShellWallThickness'].getValue()
+		self.fillSpacing = self.settings['fillSpacing'].getValue()
+		self.fillPatternWallThickness = self.settings['fillPatternWallThickness'].getValue()
+		self.multiBodySlicing = self.programSettings['multiBodySlicing'].getValue()
 		# Return change status.
 		return any(settingsChanged)
 
@@ -2016,7 +2086,7 @@ class modelData:
 
 	# Update slice actor.
 	def updateSlice3d(self, sliceNumber):
-		if self.filename != "" and self.isactive():
+		if self.filename != "" and self.isActive():
 			# Switch to non zero based indexing.
 			sliceNumber += 1
 			# Update pipeline with slice position given by layerHeight and slice number.
@@ -2256,6 +2326,8 @@ class modelData:
 
 
 
+
+
 ################################################################################
 # A list to hold all the slice images.	########################################
 ################################################################################
@@ -2264,53 +2336,75 @@ class sliceStack(list):
 	in a background thread.
 	"""
 
-	def __init__(self, programSettings=None, empty=False):
+	def __init__(self, programSettings=None, width=None, height=None, empty=False, imgType='empty'):
 		# Call super class init function.
 		list.__init__(self)
+		self.imgType = imgType
 		self.programSettings = programSettings
 		# Set width and height.
-		# If program settings are supplied...
-		if programSettings != None:
-			# use projector width and height.
-			self.width = self.programSettings['projectorSizeX'].value
-			self.height = self.programSettings['projectorSizeY'].value
+		if width != None and height != None:
+			self.width = width
+			self.height = height
+		elif programSettings != None:
+				# use projector width and height.
+				self.width = self.programSettings['projectorSizeX'].value
+				self.height = self.programSettings['projectorSizeY'].value
 		else:
 			# use dummy width and height until setSize function is called.
 			self.width = 100
 			self.height = 100
 		# Load initial images.
 		self.createDummyImages()
-		# Create the slice array with a first black image.
+		#self.sliceLabels = []
+		# Create the slice array with a first image.
 		if not empty:
-			self.append(self.imagesNoisy[0])
+			img = self.imageEmpty
+			self.append(numpy.copy(img))
 
 	# Set size function.
 	def setSize(self, width, height):
 		self.width = width
 		self.height = height
 
+	def setSlices(self, slices):
+		self.reset(empty=True)
+		for s in slices:
+			if s.shape[0] != self.width or s.shape[1] != self.height:
+				s = cv2.resize(s, (self.width, self.height), interpolation = cv2.INTER_AREA)
+			self.append(numpy.copy(s))
 
-	def reset(self, width, height, numberOfSlices, imgType="noisy"):
+
+
+	def reset(self, imgType='empty', empty=False):
 		# Set size of dummy image.
-		self.setSize(width, height)
-		self.createDummyImages()
+		#if width != None and height != None:
+		#	self.setSize(width, height)
 		# Remove all slices.
 		self[:] = []
+		if not empty:
+			# Load static images.
+			if imgType == 'black':
+				img = self.imageBlack
+			elif imgType == 'update':
+				img = self.imageUpdate
+			elif imgType == 'empty':
+				img = self.imageEmpty
+			self.append(numpy.copy(img))
+		'''
 		# Add new noisy slices.
 		noisyImageIndex = 0
 		for i in range(numberOfSlices):
 			# Get image.
 			if imgType == 'noisy':
 				img = self.imagesNoisy[noisyImageIndex]
-			elif imgType == 'black':
-				img = (self.imageBlack)
 			# Set image.
 			self.append(numpy.copy(img))
 			# Set next noisy image index.
 			if noisyImageIndex < self.numberOfNoisyImages-1:
 				noisyImageIndex = noisyImageIndex +1
 			else:
-				noisyImageIndex = 0
+				noisyImageIndex = 0-based
+		'''
 
 	# Create dummy images.
 	def createDummyImages(self):
@@ -2323,9 +2417,19 @@ class sliceStack(list):
 		self.imageBlack = imageHandling.createImageGray(self.width, self.height,0)
 		# Create error image. TODO make this a monkey skull...
 		self.imageError = imageHandling.createImageNoisy(self.width, self.height)
+		# Slicing image.
+		img = cv2.imread(self.programSettings['installDir'].getValue() + '/slicePreviewSlicing.png')
+		img = cv2.resize(img, (self.width, self.height), interpolation = cv2.INTER_AREA)
+		self.imageUpdate = imageHandling.convertRGB2Single(img)
+		# Empty image.
+		img = cv2.imread(self.programSettings['installDir'].getValue() + '/slicePreviewEmpty.png')
+		img = cv2.resize(img, (self.width, self.height), interpolation = cv2.INTER_AREA)
+		self.imageEmpty = imageHandling.convertRGB2Single(img)
+
 
 
 	# Set stack with "uniform" image. Type may be 'black' or 'noisy'
+	'''
 	def update(self, end, start=0, imgType='black'):
 		# Last random number.
 		noisyImageIndex = 0
@@ -2348,6 +2452,7 @@ class sliceStack(list):
 				noisyImageIndex = noisyImageIndex +1
 			else:
 				noisyImageIndex = 0
+	'''
 
 
 	def updateHeight(self, height):
@@ -2368,13 +2473,13 @@ class sliceStack(list):
 
 
 	# Function to return an image.
-	def getImage(self,index):
+	def getSlice(self,index):
 		# If index in bounds...
 		if int(index) < len(self):
 			# ... return the image.
 			return self[int(index)]
 		else:
-			return self.imageError
+			return self[0]
 
 
 
@@ -2432,7 +2537,7 @@ class sliceCombiner(threading.Thread):
 		while not self.stopThread.isSet():
 			# Do nothing as long as nothing is in the queue.
 			while not self.newInputInQueue() and not self.stopThread.isSet():
-				time.sleep(0.01)
+				time.sleep(0.05)
 			# If input has arrived get the input run slicer function.
 			if not self.stopThread.isSet():
 				newInput = self.queueIn.get()
@@ -2446,184 +2551,200 @@ class sliceCombiner(threading.Thread):
 
 		interval = time.time()
 
-		# Create slicer output directory.
-		self.sliceOutputPath = self.programSettings['tmpDir'].value + '/slicerOutput'
-
-		# Delete slicer temp directory if it exists.
-		if os.path.isdir(self.sliceOutputPath):
-			shutil.rmtree(self.sliceOutputPath, ignore_errors=True)
-		os.makedirs(self.sliceOutputPath)
-
+		# Get slice stack parameters.
 		# Check if preview stack or full stack.
-		mode = modelNamesAndHeights[6].split(' ')[0]
-
-		# Get path for saving slices in full mode.
-		savePath = modelNamesAndHeights[7]
-
-		# Get number of preview slices.
-		numberOfPreviewSlices = modelNamesAndHeights[0]
-
-		# Get preview slice multiplier.
-		sliceMultiplier = modelNamesAndHeights[1]
-
-		# Get highest model.
-		stackHeight = sorted(modelNamesAndHeights[3])[-1]
-
-		# Get model slice paths.
-		modelSlicePaths = modelNamesAndHeights[2]
-
-		# Get model heights.
-		modelHeights = modelNamesAndHeights[3]
+		mode = modelNamesAndHeights[5].split(' ')[0]
 
 		# Slice size.
-		sliceHeight = self.programSettings['projectorSizeY'].value
-		sliceWidth = self.programSettings['projectorSizeX'].value
-		sliceBorderWidth = self.programSettings['sliceBorderWidth'].value
-
+		sliceHeight = self.programSettings['projectorSizeY'].getValue()
+		sliceWidth = self.programSettings['projectorSizeX'].getValue()
+		sliceBorderWidth = self.programSettings['sliceBorderWidth'].getValue()
+		# Preview size.
 		aspectRatio = float(sliceHeight) / float(sliceWidth)
-		previewHeight = self.programSettings['previewSliceWidth'].value * aspectRatio
-		previewDimensions = (int(self.programSettings['previewSliceWidth'].value), int(previewHeight))
+		previewDimensions = (int(self.programSettings['previewSliceWidth'].getValue()), int(self.programSettings['previewSliceWidth'].getValue() * aspectRatio))
+		# Adjust for border.
+		sliceHeight += 2 * self.programSettings['sliceBorderWidth'].getValue()
+		sliceWidth +=  2 * self.programSettings['sliceBorderWidth'].getValue()
 
-		sliceHeight += 2 * self.programSettings['sliceBorderWidth'].value
-		sliceWidth +=  2 * self.programSettings['sliceBorderWidth'].value
-
-		# Get model slice positions and sizes.
-		modelSlicePositions = modelNamesAndHeights[4]
-		modelSliceSizes = modelNamesAndHeights[5]
-
-		# Get calibration image.
-		self.calibrationImage = None
-		if self.programSettings['calibrationImage'].value:# and os.path.isfile(self.programSettings['calibrationImagePath'].value):
-			# Load image.
-			if os.path.isfile(self.programSettings['calibrationImagePath'].value + ".png"):
-				self.calibrationImage = cv2.imread(self.programSettings['calibrationImagePath'].value + ".png")
-			elif os.path.isfile(self.programSettings['calibrationImagePath'].value + ".jpg"):
-				self.calibrationImage = cv2.imread(self.programSettings['calibrationImagePath'].value + ".jpg")
-			# Convert to grayscale.
-			self.calibrationImage = cv2.cvtColor(self.calibrationImage, cv2.COLOR_BGR2GRAY)
-			# ... scale the image according to projector size.
-			if self.calibrationImage.shape[0] != self.programSettings['projectorSizeY'].value or self.calibrationImage.shape[1] != self.programSettings['projectorSizeX'].value:
-				self.calibrationImage = cv2.resize(self.calibrationImage, (self.programSettings['projectorSizeX'].value, self.programSettings['projectorSizeY'].value))
-			# Blur the image to reduce the influence of noise.
-			self.calibrationImage = cv2.GaussianBlur(self.calibrationImage, (21, 21), 0)
-			# Turn into numpy array.
-			self.calibrationImage = numpy.asarray(self.calibrationImage, dtype=numpy.uint8)
-			# Find the lowest pixel value.
-			minVal = numpy.amin(self.calibrationImage)
-			# Shift pixel values down.
-			# Darkest pixel should be black now.
-			self.calibrationImage -= minVal
-
-		# Create slice number list that reduces number of slices so the max
-		# number is not surpassed.
-		if mode == "preview":
-			# First and last index are fixed, all in between are approximated.
+		# Check if we need to return a stack with an empty slice.
+		# This is if there's no model or only inactive models.
+		if modelNamesAndHeights[1] == []:
 			sliceNumbers = [0]
-			sliceNumbers += [int(round((previewSlice)*sliceMultiplier)) for previewSlice in range(1, numberOfPreviewSlices-1)]
-			sliceNumbers += [stackHeight-1]
-		elif mode == "full":
-			sliceNumbers = range(stackHeight)
-		elif mode == "single":#type(eval(mode)) == int or type(eval(mode)) == float:
-			sliceNumbers = [int(modelNamesAndHeights[6].split(' ')[1])]
-
-		# Create slice stack.
-		sliceStackPreview = sliceStack(self.programSettings, empty=True)
-
-		# Set progress percentage.
-		readyPercentage = 0
-
-		# Create base image.
-		imageBlack = imageHandling.createImageGray(sliceWidth, sliceHeight,0)
-
-		# Then, walk through slices and check if they are complete.
-		for i in sliceNumbers:
-
-			if not self.stopThread.isSet() and not self.newInputInQueue():
-				# Prepare image.
-				imageSlice = imageBlack
-
-				# Get models that reach up to current slice.
-				currentPaths = []
-				currentPositions = []
-				currentSizes = []
-				for modelIndex in range(len(modelHeights)):
-					if modelHeights[modelIndex]-1 >= i:
-						currentPaths.append(modelSlicePaths[modelIndex] + '/slice' + str(int(i)).zfill(6) + '.png')
-						currentPositions.append(modelSlicePositions[modelIndex])
-						currentSizes.append(modelSliceSizes[modelIndex])
-				if currentPaths == []:
-					break
-
-				# Wait until all models needed for the current slice are available.
-				allModelsAvailable = False
-				while not allModelsAvailable and not self.stopThread.isSet() and not self.newInputInQueue():
-					currentSliceModelPathsFound = [os.path.exists(path) for path in currentPaths]
-					allModelsAvailable = all(currentSliceModelPathsFound)
-					if not allModelsAvailable:
-						time.sleep(0.01)
-
-				# Once all slice model images are available, combine them.
-				while len(currentPaths) > 0 and not self.stopThread.isSet() and not self.newInputInQueue():
-						if os.path.exists(currentPaths[0]):
-							retry = True
-							while retry:
-								try:
-									# Load the model slice image from file.
-									imageSliceModel = Image.open(currentPaths[0])
-									retry = False
-									try:
-										imageSliceModel = numpy.array(imageSliceModel.getdata())
-										retry = False
-									except SyntaxError:
-										retry = True
-								except IOError:
-									retry = True
-							imageSliceModel = imageSliceModel.reshape(currentSizes[0][1], currentSizes[0][0],-1).squeeze()
-							imageSliceModel = numpy.flipud(imageSliceModel)
-							imageSlice = self.addModelSliceImage(imageSlice, imageSliceModel, currentPositions[0])
-							# In case of success, clear the model slice path.
-							del currentPaths[0]
-							del currentPositions[0]
-							del currentSizes[0]
-				imageSlice = numpy.flipud(imageSlice)
-				# Clip border.
-				imageSlice = imageSlice[sliceBorderWidth:sliceHeight-sliceBorderWidth, sliceBorderWidth:sliceWidth-sliceBorderWidth]
-
-				# Once the slice image is complete, subtract the calibration image.
-				if self.calibrationImage != None:
-					imageSlice = cv2.subtract(imageSlice, self.calibrationImage)
-				# Then, add the image to the stack or write it to disk.
-				if mode == "preview":#i in sliceNumbers:
-					# ... resize according to preview width and
-					# send it to the preview stack if this is a preview slice.
-					sliceStackPreview.append(cv2.resize(imageSlice, previewDimensions, interpolation = cv2.INTER_AREA))
-					# TODO: scale down according to settings.
-				elif mode == "full":
-					# ... or, write it to file.
-					self.writeSliceToDisk(imageSlice, i, savePath)
-				elif mode == 'single' and self.queueOutSingle != None:
-					# Check if queue is empty.
-					while self.queueOutSingle.qsize():
-						time.sleep(0.1)
-					self.queueOutSingle.put(imageSlice)
-
-				# Send progress string.
-				if int((i/float(stackHeight))*100) > readyPercentage:
-					readyPercentage = int((i/float(stackHeight))*100)
-					if not self.queueOut.qsize() and mode != "single":
-						self.queueOut.put(str(readyPercentage))
-
-		# Shrink slice number array to stack height if necessary.
-		if mode != "single":
-			sliceNumbers = sliceNumbers[:len(sliceStackPreview)]
-			self.queueOut.put(str(100))
-
-		if self.newInputInQueue():
-			return None
-		else:
-			print "Slicer run time: " + str(time.time() - interval) + " s."
 			if mode == "preview":
+				sliceStackPreview = sliceStack(self.programSettings, previewDimensions[0], previewDimensions[1], empty=True)
+				sliceStackPreview.append(cv2.resize(imageHandling.createImageGray(sliceWidth, sliceHeight,0), previewDimensions, interpolation = cv2.INTER_AREA))
 				return [sliceStackPreview, sliceNumbers]
+			if mode == "full":
+				self.queueOut.put(str(100))
+				return sliceStack(self.programSettings, empty=True)
+
+		# If the stack is not empty, go on.
+		else:
+			# Create slicer output directory.
+			self.sliceOutputPath = self.programSettings['tmpDir'].getValue() + '/slicerOutput'
+
+			# Delete slicer temp directory if it exists.
+			if os.path.isdir(self.sliceOutputPath):
+				shutil.rmtree(self.sliceOutputPath, ignore_errors=True)
+			os.makedirs(self.sliceOutputPath)
+
+			# Get path for saving slices in full mode.
+			savePath = modelNamesAndHeights[6]
+
+			# Get full list of slice numbers.
+			sliceNumbers = modelNamesAndHeights[0]
+
+			# Get single slice number if in single mode.
+			if mode == "single":#type(eval(mode)) == int or type(eval(mode)) == float:
+				sliceNumbers = [int(modelNamesAndHeights[5].split(' ')[1])]
+
+			# Get number of preview slices.
+			#numberOfPreviewSlices = len(sliceNumbers)
+
+			# Get highest model.
+			stackHeight = sorted(modelNamesAndHeights[2])[-1]
+
+			# Get model slice paths.
+			modelSlicePaths = modelNamesAndHeights[1]
+
+			# Get model heights.
+			modelHeights = modelNamesAndHeights[2]
+
+			# Get model slice positions and sizes.
+			modelSlicePositions = modelNamesAndHeights[3]
+			modelSliceSizes = modelNamesAndHeights[4]
+
+			# Get calibration image.
+			self.calibrationImage = None
+			if self.programSettings['calibrationImage'].getValue():# and os.path.isfile(self.programSettings['calibrationImagePath'].getValue()):
+				# Load image.
+				if os.path.isfile(self.programSettings['calibrationImagePath'].getValue() + ".png"):
+					self.calibrationImage = cv2.imread(self.programSettings['calibrationImagePath'].getValue() + ".png")
+				elif os.path.isfile(self.programSettings['calibrationImagePath'].getValue() + ".jpg"):
+					self.calibrationImage = cv2.imread(self.programSettings['calibrationImagePath'].getValue() + ".jpg")
+				# Convert to grayscale.
+				self.calibrationImage = cv2.cvtColor(self.calibrationImage, cv2.COLOR_BGR2GRAY)
+				# ... scale the image according to projector size.
+				if self.calibrationImage.shape[0] != self.programSettings['projectorSizeY'].getValue() or self.calibrationImage.shape[1] != self.programSettings['projectorSizeX'].getValue():
+					self.calibrationImage = cv2.resize(self.calibrationImage, (self.programSettings['projectorSizeX'].getValue(), self.programSettings['projectorSizeY'].getValue()))
+				# Blur the image to reduce the influence of noise.
+				self.calibrationImage = cv2.GaussianBlur(self.calibrationImage, (21, 21), 0)
+				# Turn into numpy array.
+				self.calibrationImage = numpy.asarray(self.calibrationImage, dtype=numpy.uint8)
+				# Find the lowest pixel value.
+				minVal = numpy.amin(self.calibrationImage)
+				# Shift pixel values down.
+				# Darkest pixel should be black now.
+				self.calibrationImage -= minVal
+
+			# Create slice number list that reduces number of slices so the max
+			# number is not surpassed.
+			#if mode == "preview":
+			#	# First and last index are fixed, all in between are approximated.
+			#	sliceNumbers = [0]
+			#	sliceNumbers += [int(round((previewSlice)*sliceMultiplier)) for previewSlice in range(1, numberOfPreviewSlices-1)]
+			#	sliceNumbers += [stackHeight-1]
+
+
+			# Create slice stack.
+			sliceStackPreview = sliceStack(self.programSettings, empty=True)
+
+			# Set progress percentage.
+			readyPercentage = 0
+
+			# Create base image.
+			imageBlack = imageHandling.createImageGray(sliceWidth, sliceHeight,0)
+
+
+			# Then, walk through slices and check if they are complete.
+			for i in sliceNumbers:
+				if not self.stopThread.isSet() and not self.newInputInQueue():
+					# Prepare image.
+					imageSlice = imageBlack
+
+					# Get models that reach up to current slice.
+					currentPaths = []
+					currentPositions = []
+					currentSizes = []
+					for modelIndex in range(len(modelHeights)):
+						if modelHeights[modelIndex]-1 >= i:
+							currentPaths.append(modelSlicePaths[modelIndex] + '/slice' + str(int(i)).zfill(6) + '.png')
+							currentPositions.append(modelSlicePositions[modelIndex])
+							currentSizes.append(modelSliceSizes[modelIndex])
+					if currentPaths == []:
+						break
+
+					# Wait until all models needed for the current slice are available.
+					allModelsAvailable = False
+					while not allModelsAvailable and not self.stopThread.isSet() and not self.newInputInQueue():
+						currentSliceModelPathsFound = [os.path.exists(path) for path in currentPaths]
+						allModelsAvailable = all(currentSliceModelPathsFound)
+						if not allModelsAvailable:
+							time.sleep(0.01)
+
+					# Once all slice model images are available, combine them.
+					while len(currentPaths) > 0 and not self.stopThread.isSet() and not self.newInputInQueue():
+							if os.path.exists(currentPaths[0]):
+								retry = True
+								while retry:
+									try:
+										# Load the model slice image from file.
+										imageSliceModel = Image.open(currentPaths[0])
+										retry = False
+										try:
+											imageSliceModel = numpy.array(imageSliceModel.getdata())
+											retry = False
+										except SyntaxError:
+											retry = True
+									except IOError:
+										retry = True
+								imageSliceModel = imageSliceModel.reshape(currentSizes[0][1], currentSizes[0][0],-1).squeeze()
+								imageSliceModel = numpy.flipud(imageSliceModel)
+								imageSlice = self.addModelSliceImage(imageSlice, imageSliceModel, currentPositions[0])
+								# In case of success, clear the model slice path.
+								del currentPaths[0]
+								del currentPositions[0]
+								del currentSizes[0]
+					imageSlice = numpy.flipud(imageSlice)
+					# Clip border.
+					imageSlice = imageSlice[sliceBorderWidth:sliceHeight-sliceBorderWidth, sliceBorderWidth:sliceWidth-sliceBorderWidth]
+
+
+					# Once the slice image is complete, subtract the calibration image.
+					if self.programSettings['calibrationImage'].getValue():
+						imageSlice = cv2.subtract(imageSlice, self.calibrationImage)
+					# Then, add the image to the stack or write it to disk.
+					if mode == "preview":#i in sliceNumbers:
+						# ... resize according to preview width and
+						# send it to the preview stack if this is a preview slice.
+						sliceStackPreview.append(cv2.resize(imageSlice, previewDimensions, interpolation = cv2.INTER_AREA))
+						# TODO: scale down according to settings.
+					elif mode == "full":
+						# ... or, write it to file.
+						self.writeSliceToDisk(imageSlice, i, savePath)
+					elif mode == 'single' and self.queueOutSingle != None:
+						# Check if queue is empty.
+						while self.queueOutSingle.qsize():
+							time.sleep(0.1)
+						self.queueOutSingle.put(imageSlice)
+
+					# Send progress string.
+					if int((i/float(stackHeight))*100) > readyPercentage:
+						readyPercentage = int((i/float(stackHeight))*100)
+						if not self.queueOut.qsize() and mode != "single":
+							self.queueOut.put(str(readyPercentage))
+
+			# Shrink slice number array to stack height if necessary.
+			if mode != "single":
+				sliceNumbers = sliceNumbers[:len(sliceStackPreview)]
+				self.queueOut.put(str(100))
+
+			if self.newInputInQueue():
+				return None
+			else:
+				print "Slicer run time: " + str(time.time() - interval) + " s."
+				if mode == "preview":
+					return sliceStackPreview
 
 
 	def addModelSliceImage(self, imageSlice, imageSliceModel, position):
@@ -2646,17 +2767,21 @@ class sliceCombiner(threading.Thread):
 
 	# Stop thread.
 	def stop(self):
+		'''
 		if self.console != None:
 			self.console.addLine("Stopping combiner thread")
+		'''
 		self.stopThread.set()
 
 
 	# Stop thread and wait for it to finish.
-	def join(self, timeout=None):
-		if self.console != None:
-			self.console.addLine("Stopping combiner thread")
-		self.stopThread.set()
-		threading.Thread.join(self, timeout)
+	#def join(self, timeout=None):
+	#	'''
+	#	if self.console != None:
+	#		self.console.addLine("Stopping combiner thread")
+	#	'''
+	#	self.stopThread.set()
+	#	threading.Thread.join(self, timeout)
 
 
 
@@ -2683,6 +2808,7 @@ class backgroundSlicer(threading.Thread):
 		# Internalise inputs. ******************************
 		self.queueSlicerIn = queueSlicerIn
 		self.queueSlicerOut = queueSlicerOut
+		self.slicerProgress = 0
 		self.console = console
 		self.slicePath = slicePath
 		self.polyDataModel = polyDataModel
@@ -2772,8 +2898,10 @@ class backgroundSlicer(threading.Thread):
 	# This will automatically run once the init function is done.
 	# Jumps straight into idle mode.
 	def run(self):
+		'''
 		if self.console:
 			self.console.addLine("Slicer thread initialised")
+		'''
 		# Go straight into idle mode.
 		self.idle()
 
@@ -2828,11 +2956,11 @@ class backgroundSlicer(threading.Thread):
 
 
 	# Stop thread and wait for it to finish.
-	def join(self, timeout=None):
-		if self.console != None:
-			self.console.addLine("Stopping slicer thread")
-		self.stopThread.set()
-		threading.Thread.join(self, timeout)
+	#def join(self, timeout=None):
+	#	#if self.console != None:
+	#	#	self.console.addLine("Stopping slicer thread")
+	#	self.stopThread.set()
+	#	threading.Thread.join(self, timeout)
 
 
 	# Update the slice stack. This will run on any new input in the
@@ -2868,7 +2996,7 @@ class backgroundSlicer(threading.Thread):
 			# Get support height.
 			self.supportHeight = slicerInputInfo['supportHeight']
 			# Get wall thickness for hollowing.
-			self.wallThicknessLayers = slicerInputInfo['wallThickness'] / float(self.layerHeight)
+			self.wallThicknessLayers = int(math.ceil(slicerInputInfo['wallThickness'] / self.layerHeight))
 			self.wallThicknessPxX = slicerInputInfo['wallThickness'] * self.pxPerMmX
 			self.wallThicknessPxY = slicerInputInfo['wallThickness'] * self.pxPerMmY
 			self.fillPatternSpacingPxX = slicerInputInfo['fillPatternSpacingPxX'] * self.pxPerMmX
@@ -2902,6 +3030,12 @@ class backgroundSlicer(threading.Thread):
 
 			# Loop through slices.
 			for sliceNumber in range(int(self.numberOfSlices + self.wallThicknessLayers)):
+				progress = int(numpy.min(numpy.array([numpy.ceil(sliceNumber / float(self.numberOfSlices + self.wallThicknessLayers) * 100),100])))
+				if progress != self.slicerProgress:
+					# Write progress to queue if empty...
+					if not self.queueSlicerOut.qsize():
+						self.queueSlicerOut.put(progress)
+					self.slicerProgress = progress
 				# Make breakable by new input or termination request.
 				if not self.newInputInQueue() and not self.stopThread.isSet():
 					# Sleep for a very short period to allow GUI thread some CPU usage.
@@ -2950,10 +3084,14 @@ class backgroundSlicer(threading.Thread):
 							print "Filling slice buffer."
 				# Break if new input is in slice stack queue.
 				else:
+					self.slicerProgress = 0
+					'''
 					if self.console:
 						self.console.addLine("Restarting slicer.")
+					'''
 					break
 
+			self.queueSlicerOut.put(self.slicerProgress)
 			return (warningSlices)
 
 
