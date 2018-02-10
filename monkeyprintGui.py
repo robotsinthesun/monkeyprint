@@ -175,6 +175,7 @@ class gui(QtGui.QApplication):
 		if not programSettings['debug'].getValue():
 			t = 3
 			versionString = "Monkeyprint version " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue())
+			print programSettings['versionMinor'].getValue()
 			splash = monkeyprintGuiHelper.splashScreen(programSettings['installDir'].getValue() + '/logo.png', duration=t, infoString=versionString)
 			self.processEvents()
 			time.sleep(t)
