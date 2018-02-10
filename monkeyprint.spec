@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['monkeyprint.py'],
-             pathex=['C:\\Users\\paul\\Downloads\\monkeyprint-develop'],
+             pathex=['.'],
              binaries=[],
              datas=[('logo.png', '.'),('slicePreviewEmpty.png', '.'),('slicePreviewSlicing.png', '.')],
              hiddenimports=[],

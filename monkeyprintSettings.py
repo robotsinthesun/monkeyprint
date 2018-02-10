@@ -207,7 +207,7 @@ class programSettings(dict):
 		self['installDir'] = 				setting(value=self.getInstallDir(),			valType=str,	isConstant=True, output=self.output)
 		self['versionMajor'] =				setting(value=0, 					valType=int, 	noRead=True,	isConstant=True,	output=self.output)
 		self['versionMinor'] =				setting(value=14, 					valType=int, 	noRead=True,	isConstant=True,	output=self.output)
-		self['revision'] =					setting(value=0, 					valType=int, 	noRead=True,	isConstant=True,	output=self.output)
+		self['revision'] =					setting(value=1, 					valType=int, 	noRead=True,	isConstant=True,	output=self.output)
 		self['projectorSizeX'] =			setting(value=1024, 				valType=int,	default=1024,	name='Projector size X', output=self.output)
 		self['projectorSizeY'] =			setting(value=768, 					valType=int,	default=768,	name='Projector size Y', output=self.output)
 		self['projectorPositionX'] =		setting(value=1920, 				valType=int,	default=1920,	name='Projector position X', output=self.output)
