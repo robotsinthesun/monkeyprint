@@ -3,6 +3,9 @@ import math
 import struct
 import time
 
+#cimport cython
+#@cython.boundscheck(False) # turn off bounds-checking for entire function
+#@cython.wraparound(False)  # turn off negative index wrapping for entire function
 
 # Mesh class.
 cdef class mesh:
@@ -21,12 +24,17 @@ cdef class mesh:
 		self.normals = np.empty((0,3), dtype=np.float64)
 		self.axes = np.array([[1,0,0], [0,1,0], [0,0,1]], dtype=np.float64)
 
-	cpdef readStl(self, filepath):
+	cpdef readStl(self, filepath, int decimals):
+		print "Loading " + filepath + "."
 		tStart = time.time()
 		cdef unsigned int i = 0
 		cdef unsigned int j = 0
+		cdef unsigned int k = 0
 		cdef unsigned int counterPoint = 0
 		cdef unsigned int nFaces
+		cdef double[3] pointNew
+		cdef double dist
+		cdef double [:] dists
 		# Check if ascii or binary file.
 		with open(filepath) as f:
 			start = f.read(6)
@@ -46,27 +54,69 @@ cdef class mesh:
 				facesTmp = []
 				# Read faces.
 				for i in range(nFaces):
+					#print str(i) + "****"
 					# Read normal.
 					self.normals[i][0] = struct.unpack('<f4', f.read(4))[0]
 					self.normals[i][1] = struct.unpack('<f4', f.read(4))[0]
 					self.normals[i][2] = struct.unpack('<f4', f.read(4))[0]
 					# Read points.
 					for j in range(3):
-						# Add point.
-						#print struct.unpack('<i', f.read(4))[0]
+						#print "----"
+						# Read point.
+						'''
+						pointNew[0] = struct.unpack('<f4', f.read(4))[0]
+						pointNew[1] = struct.unpack('<f4', f.read(4))[0]
+						pointNew[2] = struct.unpack('<f4', f.read(4))[0]
+						for k in range(counterPoint-1, -1, -1):
+							dist = pointNew[2] - self.points[k][2]
+							if dist > sweepTolerance:
+								if pointNew[1] - self.points[k][1] < sweepTolerance:
+									if pointNew[0] - self.points[k][0] < sweepTolerance:
+										self.faces[i][j] = k
+										break
+							if dist > 0:
+								break
+							#print dist
+						'''
 						self.points[counterPoint][0] = struct.unpack('<f4', f.read(4))[0]
 						self.points[counterPoint][1] = struct.unpack('<f4', f.read(4))[0]
 						self.points[counterPoint][2] = struct.unpack('<f4', f.read(4))[0]
-						# Extend bounds.
 						self.faces[i][j] = counterPoint
 						counterPoint += 1
 					# Read the face attribute. Discard...
 					f.read(2)
-			# Move model bottom to build platform.
-			self.bounds = np.vstack((np.min(self.points, axis=0), np.max(self.points, axis=0)))
-			self.translate(-np.asarray(self.bounds)[0,2])
-		print "Read stl in " + str(time.time()-tStart) + " seconds."
-		print "   Bounds: " + str(np.asarray(self.bounds))
+
+		# Calculate bounds.
+		self.bounds = np.vstack((np.min(self.points, axis=0), np.max(self.points, axis=0)))
+
+		# Remove douplicate points.
+		# This is a combination of this: http://www.ryanhmckenna.com/2017/01/efficiently-remove-duplicate-rows-from.html
+		# and this: https://stackoverflow.com/questions/5426908/find-unique-elements-of-floating-point-array-in-numpy-with-comparison-using-a-d
+		# (see answer by JoshAdel)
+		tStartCull = time.time()
+		print "   Removing duplicate vertices with tolerance 10e" + str(-decimals) + "."
+		points = np.asarray(self.points)
+		faces = np.asarray(self.faces)
+		print "     Initial vertex count: " + str(points.shape[0]) + "."
+		y = points.dot(np.random.rand(points.shape[1]))
+		unique, indices, indicesInverse = np.unique(y.round(decimals=decimals), return_index=True, return_inverse=True, axis=0)
+		# Map the face references of missing points to the remaining points.
+		# For this, use the inverse index returned by np.unique using "return_inverse=True"
+		for i in range(faces.shape[0]):
+			faces[i] = [indicesInverse[p] for p in faces[i]]
+		self.points = points[indices]
+		self.faces = faces
+		print "     Remaining vertices: " + str(unique.shape[0]) + "."
+		print "     VTK result: 45506."
+		print "     Duration: " + str(time.time() - tStartCull) + " s."
+
+		#for k in range(counterPoint-1, -1, -1):
+		#	zDist = pointNew[0] - self.points[k][2]
+
+		# Move model bottom to build platform.
+		self.translate(np.array([0, 0, -np.asarray(self.bounds)[0,2]]))
+		print "   Read stl in " + str(time.time()-tStart) + " seconds."
+		print "   Bounds: " + str(np.asarray(self.bounds)[0]) + " - " + str(np.asarray(self.bounds)[1])
 
 
 
@@ -92,6 +142,7 @@ cdef class mesh:
 
 	# Caution: point Z values must be all positive.
 	cpdef createSliceContours(self, double layerHeight):
+		print "Slicing with layer height " + str(layerHeight) + "."
 		#timePrepSum = 0
 		#timeSliceSum = 0
 		timeStart = time.time()
@@ -274,7 +325,7 @@ cdef class mesh:
 					self.intersectLineZ(pointsSorted[1], pointsSorted[2], segment[1], z)
 					intersectionFound = True
 				else:
-					print "CAUTION: Slice plane does not intersect face."
+					print "   CAUTION: Slice plane does not intersect face."
 
 				# Append to slice contours.
 				#TODO: OPTIMIZE
@@ -288,8 +339,7 @@ cdef class mesh:
 						sliceContours[j] = [segment]
 
 
-		print(len(sliceContours))
-		print("Sliced in " + str(time.time() - timeStart) + " seconds.")
+		print("   Sliced into " + str(len(sliceContours)) + " slices in " + str(time.time() - timeStart) + " seconds.")
 
 		'''
 		# Now we have an array that contains slice contour segments
