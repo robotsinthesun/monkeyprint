@@ -2,6 +2,7 @@ These are the steps for creating a packaged version for Windows.
 
 Build OS: Windows 7 64 bit
 
+Build for 64 bit:
 * Download and install Python-2.7 (64 bit version)
 	* Download from [here](python.org/downloads)
 	* Make sure to set the "Add to path"-option during install
@@ -27,6 +28,24 @@ Build OS: Windows 7 64 bit
 * Modify C:\Python27\Libs\PyInstaller\hooks\hook-pythonvtk.py to C:\Python27\Libs\site-packages\PyInstaller\hooks\hook-vtk.py and comment last two lines of C:\Python27\Libs\site-packages\vtk\__helper.py
 according to [this](https://stackoverflow.com/questions/21835851/python-executable-with-vtk-pyinstaller-py2exe-cx-freeze-etc) Otherwise vtk will not be imported correctly during packaging
 
-* Finally, run pyinstaller --onefile monkeyprint.py from monkeyprint directory
+* Copy C:\Python27\Libs\site-packages\zmq\libzmq.pyd to C:\Python27\Libs\site-packages\zmq\backend\cython according to [this issue](https://github.com/zeromq/pyzmq/issues/999)
+* Finally, run pyinstaller --onefile monkeyprint.spec from monkeyprint directory
 * Copy monkeyprint.exe from the dists/monkeyprint folder to the base dir and delete dists and build folders
 * monkeyprint.exe is ready to ship
+
+
+
+Build for 32 bit:
+* Run all of the steps as above with the following exceptions:
+	* During Python install
+		* Set install directory to C:\Python27x86
+		* Make sure that "Install extensions" is not checked
+		* Make sure that "Add to path" is not checked
+		&rarr; This will install Python 32 bit to it's own directory without interfering with the 64 bit installation
+	* Download the 32-bit version of PyWin32
+	* Download the 32-bit libraries fomr Christoph Gohlkes archive
+	* Install them using C:\Python27x86\Scripts\pip.exe install <package-name> so they end up in the 32 bit python directory
+	* Install pyInstaller with C:\Python27x86\Scripts\pip.exe install pyinstaller
+	* *Replace* the package locations in PATH to point to C:\Python27x86 instead of C:\Python27. This seems kind of hacky, dependencies should probably be included in the spec file in the future...
+
+

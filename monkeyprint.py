@@ -80,7 +80,7 @@ def main(argv):
 
 def runGui(filename=None, debug=False):
 
-	print "Starting Monkeyprint with GUI."
+
 	# Create a debug console text buffer.
 	console = monkeyprintGuiHelper.consoleText()
 #	console = None
@@ -89,6 +89,7 @@ def runGui(filename=None, debug=False):
 	programSettings = monkeyprintSettings.programSettings(console)
 
 	# Create version message.
+	print "Starting Monkeyprint " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue()) + " with GUI."
 	console.addLine("You are using Monkeyprint " + str(programSettings['versionMajor'].getValue()) + "." + str(programSettings['versionMinor'].getValue()) + "." + str(programSettings['revision'].getValue()))
 
 	# Get current working directory and set paths.

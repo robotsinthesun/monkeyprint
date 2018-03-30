@@ -205,9 +205,9 @@ class programSettings(dict):
 		self['currentFolder'] =				setting(value='./models',			valType=str, 	output=self.output)
 		self['tmpDir'] = 					setting(value=self.getInstallDir()+'/tmp', 	valType=str,	isConstant=True, output=self.output)
 		self['installDir'] = 				setting(value=self.getInstallDir(),			valType=str,	isConstant=True, output=self.output)
-		self['versionMajor'] =				setting(value=0, 					valType=int, 	output=self.output)
-		self['versionMinor'] =				setting(value=13, 					valType=int, 	output=self.output)
-		self['revision'] =					setting(value=0, 					valType=int, 	output=self.output)
+		self['versionMajor'] =				setting(value=0, 					valType=int, 	noRead=True,	isConstant=True,	output=self.output)
+		self['versionMinor'] =				setting(value=14, 					valType=int, 	noRead=True,	isConstant=True,	output=self.output)
+		self['revision'] =					setting(value=1, 					valType=int, 	noRead=True,	isConstant=True,	output=self.output)
 		self['projectorSizeX'] =			setting(value=1024, 				valType=int,	default=1024,	name='Projector size X', output=self.output)
 		self['projectorSizeY'] =			setting(value=768, 					valType=int,	default=768,	name='Projector size Y', output=self.output)
 		self['projectorPositionX'] =		setting(value=1920, 				valType=int,	default=1920,	name='Projector position X', output=self.output)
@@ -401,8 +401,8 @@ class programSettings(dict):
 		else:
 			self['printProcessGCode'].value = settingString
 
-			
-	# Get install dir for running from packaged exe or script.		
+
+	# Get install dir for running from packaged exe or script.
 	# https://stackoverflow.com/questions/7674790/bundling-data-files-with-pyinstaller-onefile
 	def getInstallDir(self):
 		try:
