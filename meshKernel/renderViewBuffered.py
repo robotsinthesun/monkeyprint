@@ -8,10 +8,32 @@ from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4 import QtOpenGL
 from OpenGL import GLU
+import OpenGL
+import OpenGL.GL.shaders
+from OpenGL import GL
 from OpenGL.GL import *
+from OpenGL.arrays import vbo
+
+from OpenGL.GLUT import *
+
 import numpy as np
 
 import monkeyprintMesh
+
+# Define shaders.
+vertex_shader = """
+#version 120
+void main() {
+gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+}
+"""
+
+fragment_shader = """
+#version 120
+void main() {
+gl_FragColor = vec4( 0.8, 0.8, 0.8, 1 );
+}
+"""
 
 
 class GLWidget(QtOpenGL.QGLWidget):
@@ -22,7 +44,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         # Define initial camera position.
         self.cameraRotationX = 35.0
         self.cameraRotationZ = 45.0
-        self.cameraDistanceInitial = 5.
+        self.cameraDistanceInitial = 20.
         self.cameraDistance = self.cameraDistanceInitial
 
         self.setMouseTracking(True)
@@ -33,6 +55,7 @@ class GLWidget(QtOpenGL.QGLWidget):
 
         self.rot1 = 0.0
         self.rot2 = 0.0
+
 
     def mousePressEvent(self, event):
 
@@ -77,10 +100,18 @@ class GLWidget(QtOpenGL.QGLWidget):
         elif self.mousePan:
             pass
 
-    # Override the widgets GL init method.
+
+
     def initializeGL(self):
         self.initGeometry()
+        # Enable depth testing for overlapping objects.
         glEnable(GL_DEPTH_TEST)
+        #glShadeModel(GL_SMOOTH);
+        #glEnable(GL_MULTISAMPLE);
+        # Set background color.
+        glClearColor(self.backgroundColor[0], self.backgroundColor[1], self.backgroundColor[2], 0)
+        self.shader = OpenGL.GL.shaders.compileProgram(OpenGL.GL.shaders.compileShader(vertex_shader, GL.GL_VERTEX_SHADER), OpenGL.GL.shaders.compileShader(fragment_shader, GL.GL_FRAGMENT_SHADER))
+
 
     def resizeGL(self, width, height):
         if height == 0: height = 1
@@ -110,9 +141,6 @@ class GLWidget(QtOpenGL.QGLWidget):
     def paintGL(self):
         # Clear buffers.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        # Set background color.
-        glClearColor(self.backgroundColor[0], self.backgroundColor[1], self.backgroundColor[2], 0)
-
         # Set up the view and model matrices.
         # Basically, we're setting up a stack of transformation matrices.
         # In GL_MODELVIEW mode we have at least 32 matrices in that stack that we
@@ -142,6 +170,22 @@ class GLWidget(QtOpenGL.QGLWidget):
         # This means that our world-to-view transform will stay the same.
         glPushMatrix()
 
+        shaders.glUseProgram(self.shader)
+
+        try:
+            self.vbo.bind()
+            try:
+                glEnableClientState(GL_VERTEX_ARRAY)
+                glVertexPointerf( self.vbo )
+                glDrawArrays(GL_TRIANGLES, 0, self.vertices.shape[0]-1)
+            finally:
+                self.vbo.unbind()
+                glDisableClientState(GL_VERTEX_ARRAY)
+        finally:
+            shaders.glUseProgram( 0 )
+
+
+        '''
         # Transform according to the object data.
         glTranslate(0.5, 0.5, 0.5)
         glRotate(self.rot1, 0,0,1)
@@ -170,7 +214,8 @@ class GLWidget(QtOpenGL.QGLWidget):
         glVertexPointerf(self.cubeVtxArray)
         glColorPointerf(self.cubeClrArray)
         glDrawElementsui(GL_QUADS, self.cubeIdxArray)
-
+        '''
+        '''
         glPopMatrix()
         glPushMatrix()
 
@@ -181,7 +226,7 @@ class GLWidget(QtOpenGL.QGLWidget):
             glVertex3f(self.stlVertices[face[1]][0], self.stlVertices[face[1]][1], self.stlVertices[face[1]][2])
             glVertex3f(self.stlVertices[face[2]][0], self.stlVertices[face[2]][1], self.stlVertices[face[2]][2])
         glEnd()
-
+        '''
         glPopMatrix()
         glPushMatrix()
 
@@ -190,17 +235,17 @@ class GLWidget(QtOpenGL.QGLWidget):
         glColor(1.0, 0.0, 0.0, 0.0)
         glBegin(GL_LINES)
         glVertex3f(0, 0, 0)
-        glVertex3f(1, 0, 0)
+        glVertex3f(15, 0, 0)
         glEnd()
         glColor(0.0, 1.0, 0.0, 0.0)
         glBegin(GL_LINES)
         glVertex3f(0, 0, 0)
-        glVertex3f(0, 1, 0)
+        glVertex3f(0, 15, 0)
         glEnd()
         glColor(0.0, 0.0, 1.0, 0.0)
         glBegin(GL_LINES)
         glVertex3f(0, 0, 0)
-        glVertex3f(0, 0, 1)
+        glVertex3f(0, 0, 15)
         glEnd()
 
         # Once again, go back to world-to-view matrix.
@@ -211,12 +256,15 @@ class GLWidget(QtOpenGL.QGLWidget):
 
         mesh = monkeyprintMesh.mesh()
         mesh.readStl("../models/monkey.stl", 10)
-        mesh.scale(0.2)
-        self.stlVertices = np.asarray(mesh.points).astype(np.float32)
-        self.stlFaces = np.asarray(mesh.indicesFaceToPoint).tolist()
-        self.stlColors = [[1,1,1] for i in range(len(self.stlFaces))]
+        vertices = np.asarray(mesh.points).astype(np.float32)
+        faces = np.asarray(mesh.indicesFaceToPoint)
+        #self.stlColors = [[1,1,1] for i in range(len(self.stlFaces))]
 
+        self.vertices = vertices[faces].reshape(-1, 3)
+        self.vbo = vbo.VBO(self.vertices)
 
+        #self.vbo = vbo.VBO( np.array( [ [ 0, 1, 0 ], [ -1,-1, 0 ], [ 1,-1, 0 ], [ 2,-1, 0 ], [ 4,-1, 0 ], [ 4, 1, 0 ], [ 2,-1, 0 ], [ 4, 1, 0 ], [ 2, 1, 0 ], ],'f') )
+        '''
         self.cubeVtxArray = np.array(
                 [[-0.5, -0.5, -0.5],
                  [0.5, -0.5, -0.5],
@@ -242,7 +290,7 @@ class GLWidget(QtOpenGL.QGLWidget):
                 [1.0, 0.0, 1.0],
                 [1.0, 1.0, 1.0],
                 [0.0, 1.0, 1.0 ]]
-
+        '''
 
     # Process x and y mouse movements from the screen.
     # x maps to rotation around the VIEW's x coordinate.
