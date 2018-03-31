@@ -18,6 +18,8 @@ cdef class mesh:
 	cdef public double[:,:] axes
 	cdef public dict indicesPointToFace
 	cdef public list indicesPointToPoint
+	cdef public list overhangRegions
+	cdef public list indicesIslands
 
 	def __init__(self):
 		# Set bounds min to double maxvalue, bounds max to double minvalue.
@@ -28,6 +30,8 @@ cdef class mesh:
 		self.axes = np.array([[1,0,0], [0,1,0], [0,0,1]], dtype=np.float64)
 		self.indicesPointToFace = {}
 		self.indicesPointToPoint = []
+		self.overhangRegions = []
+		self.indicesIslands = []
 
 	cpdef readStl(self, filepath, int decimals):
 		print "Loading " + filepath + "."
@@ -132,7 +136,8 @@ cdef class mesh:
 		self.indicesPointToPoint = []
 		i = 0
 		for i in range(points.shape[0]):
-			self.indicesPointToPoint.append(set(list(faces[self.indicesPointToFace[i]].flatten())).remove(i))
+			self.indicesPointToPoint.append(list(set(faces[self.indicesPointToFace[i]].flatten())))
+			self.indicesPointToPoint[i].remove(i)
 		print "   Computed point to point connectivity in " + str(time.time() - tStartNormals) + " s."
 
 		# Move model bottom to build platform.
@@ -148,18 +153,72 @@ cdef class mesh:
 
 
 
+  ####  ##  ##  ##### #####  ##  ##  ####  ##  ##  ##### #####
+ ##  ## ##  ## ##     ##  ## ##  ## ##  ## ### ## ##    ##
+ ##  ## ##  ## ####   ##  ## ###### ##  ## ###### ##     ####
+ ##  ## ##  ## ##     #####  ##  ## ###### ## ### ## ###    ##
+ ##  ##  ####  ##     ## ##  ##  ## ##  ## ##  ## ##  ##    ##
+  ####    ##    ##### ##  ## ##  ## ##  ## ##  ##  #### #####
+
+
+	cpdef detectOverhangs(self, double overhangAngle):
+		print "Detecting overhang regions."
+		self.overhangRegions = []
+		self.indicesIslands = []
+
+		# Detect island points.
+		# Criteria for these:
+		# * local Z minimum --> all adjacent points have higher Z
+		# * all adjacent face normals point downwards (negative Z component)
+		tStartIslands = time.time()
+		cdef int i
+		i = 0
+		points = np.asarray(self.points)
+		normals = np.asarray(self.normals)
+		for i in range(points.shape[0]):
+			if (points[self.indicesPointToPoint[i], 2] > points[i,2]).all() and (normals[self.indicesPointToFace[i] ,2] < 0).all():
+				self.indicesIslands.append(i)
+				#print "Island: " + str(points[self.indicesIslands[-1]])
+		print "   Detected " + str(len(self.indicesIslands)) + " islands points in " + str(time.time() - tStartIslands) + " s."
+
+		# Detect overhang edges.
+
+		# Detect overhang regions.
+		# Criteria:
+		# * The angle between face normal and (0,0,-1) vector must be smaller than overhang angle.
+		# * As the angle between vectors is ambiguous (will always be smaller 180), face normal Z must also be negative
+		tStartOverhangFaces = time.time()
+		i = 0
+		# Only walk through negative Z normals.
+		cdef int count
+		count = 0
+		indicesFacesOverhang = []
+		#cdef double[3] buildVector
+		#cdef double[3] normalVector
+		#buildVector[0] = 0
+		#buildVector[1] = 0
+		#buildVector[2] = -1
+		for i in np.where(normals[:,2]<0)[0]:
+			#normalVector[0] = self.normals[i,0]
+			#normalVector[1] = self.normals[i,1]
+			#normalVector[2] = self.normals[i,2]
+			if self.angle(normals[i], np.array((0,0,-1))) <= overhangAngle:
+				indicesFacesOverhang.append(i)
+		print "   Detected " + str(len(indicesFacesOverhang)) + " overhang faces in " + str(time.time() - tStartOverhangFaces) + " s."
+
+
+	def angle(self, vec1, vec2):
+		return 180 * np.arccos(np.dot(vec1,vec2)/(np.linalg.norm(vec1)*np.linalg.norm(vec2))) / np.pi
 
 
 
-	  ##### ##     ###### ####   #####    ####   ####  ##  ## ###### ####  ##  ## #####
-	 ##     ##       ##  ##  ## ##       ##  ## ##  ## ### ##   ##  ##  ## ##  ## ##  ##
-	  ####  ##       ##  ##     ####     ##     ##  ## ######   ##  ##  ## ##  ## ##  ##
-	     ## ##       ##  ##     ##       ##     ##  ## ## ###   ##  ##  ## ##  ## #####
-	     ## ##       ##  ##  ## ##       ##  ## ##  ## ##  ##   ##  ##  ## ##  ## ## ##
-	 #####  ###### ###### ####   #####    ####   ####  ##  ##   ##   ####   ####  ##  ##
 
-
-
+  ##### ##     ###### #### ###### ##  ##  #####
+ ##     ##       ##  ##  ##  ##   ### ## ##
+  ####  ##       ##  ##      ##   ###### ##
+     ## ##       ##  ##      ##   ## ### ## ###
+     ## ##       ##  ##  ##  ##   ##  ## ##  ##
+ #####  ###### ###### #### ###### ##  ##  ####
 
 
 	# Caution: point Z values must be all positive.
@@ -624,6 +683,8 @@ cdef class mesh:
 		self.translate(-center)
 		self.points = np.dot(self.points, self.rotation_matrix(axis, theta).T)
 		self.translate(center)
+		# Rotate normals.
+		self.normals = np.dot(self.normals, self.rotation_matrix(axis, theta).T)
 		# Recompute bounds.
 		self.bounds = np.vstack((np.min(self.points, axis=0), np.max(self.points, axis=0)))
 		#print "Rotated in " + str(time.time()-tStart) + " seconds."
