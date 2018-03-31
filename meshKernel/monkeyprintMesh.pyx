@@ -12,7 +12,8 @@ cdef class mesh:
 
 	cdef public double[:,:] bounds
 	cdef public double[:,:] points
-	cdef public unsigned int[:,:] faces
+	cdef public unsigned int[:,:] indicesFaceToPoint
+	cdef public unsigned int[:,:] indicesPointToFace
 	cdef public double[:,:] normals
 	cdef public double[:,:] axes
 
@@ -20,7 +21,7 @@ cdef class mesh:
 		# Set bounds min to double maxvalue, bounds max to double minvalue.
 		self.bounds = np.vstack((np.repeat(np.finfo(np.float64).max,3),np.repeat(np.finfo(np.float64).min,3)))
 		self.points = np.empty((0,3), dtype=np.float64)
-		self.faces = np.empty((0,3), dtype=np.uint32)
+		self.indicesFaceToPoint = np.empty((0,3), dtype=np.uint32)
 		self.normals = np.empty((0,3), dtype=np.float64)
 		self.axes = np.array([[1,0,0], [0,1,0], [0,0,1]], dtype=np.float64)
 
@@ -48,40 +49,24 @@ cdef class mesh:
 				nFaces = struct.unpack('<i', f.read(4))[0]
 				# Pre-assign arrays.
 				self.points = np.empty((nFaces*3,3), dtype=np.float64)
-				self.faces = np.empty((nFaces,3), dtype=np.uint32)
+				self.indicesFaceToPoint = np.empty((nFaces,3), dtype=np.uint32)
 				self.normals = np.empty((nFaces,3), dtype=np.float64)
 				pointsTmp = []
 				facesTmp = []
 				# Read faces.
 				for i in range(nFaces):
-					#print str(i) + "****"
 					# Read normal.
 					self.normals[i][0] = struct.unpack('<f4', f.read(4))[0]
 					self.normals[i][1] = struct.unpack('<f4', f.read(4))[0]
 					self.normals[i][2] = struct.unpack('<f4', f.read(4))[0]
-					# Read points.
+					# Read 3 points.
 					for j in range(3):
-						#print "----"
 						# Read point.
-						'''
-						pointNew[0] = struct.unpack('<f4', f.read(4))[0]
-						pointNew[1] = struct.unpack('<f4', f.read(4))[0]
-						pointNew[2] = struct.unpack('<f4', f.read(4))[0]
-						for k in range(counterPoint-1, -1, -1):
-							dist = pointNew[2] - self.points[k][2]
-							if dist > sweepTolerance:
-								if pointNew[1] - self.points[k][1] < sweepTolerance:
-									if pointNew[0] - self.points[k][0] < sweepTolerance:
-										self.faces[i][j] = k
-										break
-							if dist > 0:
-								break
-							#print dist
-						'''
 						self.points[counterPoint][0] = struct.unpack('<f4', f.read(4))[0]
 						self.points[counterPoint][1] = struct.unpack('<f4', f.read(4))[0]
 						self.points[counterPoint][2] = struct.unpack('<f4', f.read(4))[0]
-						self.faces[i][j] = counterPoint
+						# Set point indices for current face.
+						self.indicesFaceToPoint[i][j] = counterPoint
 						counterPoint += 1
 					# Read the face attribute. Discard...
 					f.read(2)
@@ -89,14 +74,14 @@ cdef class mesh:
 		# Calculate bounds.
 		self.bounds = np.vstack((np.min(self.points, axis=0), np.max(self.points, axis=0)))
 
-		# Remove douplicate points.
+		# Remove duplicate points.
 		# This is a combination of this: http://www.ryanhmckenna.com/2017/01/efficiently-remove-duplicate-rows-from.html
 		# and this: https://stackoverflow.com/questions/5426908/find-unique-elements-of-floating-point-array-in-numpy-with-comparison-using-a-d
 		# (see answer by JoshAdel)
 		tStartCull = time.time()
 		print "   Removing duplicate vertices with tolerance 10e" + str(-decimals) + "."
 		points = np.asarray(self.points)
-		faces = np.asarray(self.faces)
+		faces = np.asarray(self.indicesFaceToPoint)
 		print "     Initial vertex count: " + str(points.shape[0]) + "."
 		y = points.dot(np.random.rand(points.shape[1]))
 		unique, indices, indicesInverse = np.unique(y.round(decimals=decimals), return_index=True, return_inverse=True, axis=0)
@@ -105,13 +90,20 @@ cdef class mesh:
 		for i in range(faces.shape[0]):
 			faces[i] = [indicesInverse[p] for p in faces[i]]
 		self.points = points[indices]
-		self.faces = faces
+		self.indicesFaceToPoint = faces
 		print "     Remaining vertices: " + str(unique.shape[0]) + "."
 		print "     VTK result: 45506."
 		print "     Duration: " + str(time.time() - tStartCull) + " s."
 
-		#for k in range(counterPoint-1, -1, -1):
-		#	zDist = pointNew[0] - self.points[k][2]
+		# Recalculate normals.
+		# This is the cross product of the vectors from
+		# first to third and first to second point.
+		points = np.asarray(self.points)
+		self.normals = np.cross(points[faces[:,2]]-points[faces[:,0]], points[faces[:,1]]-points[faces[:,0]])
+
+		# Get point connectivity.
+		# For each point, get the adjacent faces and their points.
+
 
 		# Move model bottom to build platform.
 		self.translate(np.array([0, 0, -np.asarray(self.bounds)[0,2]]))
@@ -159,21 +151,21 @@ cdef class mesh:
 		cdef double z
 		#cdef unsigned int[:] slicePositionsZ
 		cdef bint intersectionFound
-		for i in range(self.faces.shape[0]):
+		for i in range(self.indicesFaceToPoint.shape[0]):
 
 
 			# Get points.
 			# Can't get the slicing to work properly so we'll get each
 			# coordinate individually.
-			points[0][0] = self.points[self.faces[i,0],0]
-			points[0][1] = self.points[self.faces[i,0],1]
-			points[0][2] = self.points[self.faces[i,0],2]
-			points[1][0] = self.points[self.faces[i,1],0]
-			points[1][1] = self.points[self.faces[i,1],1]
-			points[1][2] = self.points[self.faces[i,1],2]
-			points[2][0] = self.points[self.faces[i,2],0]
-			points[2][1] = self.points[self.faces[i,2],1]
-			points[2][2] = self.points[self.faces[i,2],2]
+			points[0][0] = self.points[self.indicesFaceToPoint[i,0],0]
+			points[0][1] = self.points[self.indicesFaceToPoint[i,0],1]
+			points[0][2] = self.points[self.indicesFaceToPoint[i,0],2]
+			points[1][0] = self.points[self.indicesFaceToPoint[i,1],0]
+			points[1][1] = self.points[self.indicesFaceToPoint[i,1],1]
+			points[1][2] = self.points[self.indicesFaceToPoint[i,1],2]
+			points[2][0] = self.points[self.indicesFaceToPoint[i,2],0]
+			points[2][1] = self.points[self.indicesFaceToPoint[i,2],1]
+			points[2][2] = self.points[self.indicesFaceToPoint[i,2],2]
 
 			# Sort points.
 			#print "--------------------------------------------------------------------"
