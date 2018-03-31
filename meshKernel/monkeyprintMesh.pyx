@@ -13,9 +13,11 @@ cdef class mesh:
 	cdef public double[:,:] bounds
 	cdef public double[:,:] points
 	cdef public unsigned int[:,:] indicesFaceToPoint
-	cdef public unsigned int[:,:] indicesPointToFace
+	#cdef public unsigned int[:,:] indicesPointToFace
 	cdef public double[:,:] normals
 	cdef public double[:,:] axes
+	cdef public dict indicesPointToFace
+	cdef public list indicesPointToPoint
 
 	def __init__(self):
 		# Set bounds min to double maxvalue, bounds max to double minvalue.
@@ -24,6 +26,8 @@ cdef class mesh:
 		self.indicesFaceToPoint = np.empty((0,3), dtype=np.uint32)
 		self.normals = np.empty((0,3), dtype=np.float64)
 		self.axes = np.array([[1,0,0], [0,1,0], [0,0,1]], dtype=np.float64)
+		self.indicesPointToFace = {}
+		self.indicesPointToPoint = []
 
 	cpdef readStl(self, filepath, int decimals):
 		print "Loading " + filepath + "."
@@ -98,12 +102,38 @@ cdef class mesh:
 		# Recalculate normals.
 		# This is the cross product of the vectors from
 		# first to third and first to second point.
+		tStartNormals = time.time()
 		points = np.asarray(self.points)
 		self.normals = np.cross(points[faces[:,2]]-points[faces[:,0]], points[faces[:,1]]-points[faces[:,0]])
+		print "   Recalculated normals in " + str(time.time() - tStartNormals) + " s."
 
 		# Get point connectivity.
-		# For each point, get the adjacent faces and their points.
-
+		# First, get the adjacent faces.
+		tStartConnectivity = time.time()
+		self.indicesPointToFace = {}
+		i = 0
+		j = 0
+		for i in range(faces.shape[0]):
+			for j in range(3):
+				# Point to face connectivity.
+				try:
+					self.indicesPointToFace[faces[i,j]].append(i)
+				except KeyError:
+					self.indicesPointToFace[faces[i,j]] = [i]
+				# Point to point connectivity.
+				# For each point in the face, append the remaining two point indices of the current face.
+				#try:
+				#	self.indicesPointToPoint[faces[i,j]].update(list(faces[i]))
+				#except KeyError:
+				#	self.indicesPointToPoint[faces[i,j]] = set(faces[i])
+		print "   Computed point to face connectivity in " + str(time.time() - tStartNormals) + " s."
+		# Then, get the points of the adjacent faces.
+		tStartConnectivity = time.time()
+		self.indicesPointToPoint = []
+		i = 0
+		for i in range(points.shape[0]):
+			self.indicesPointToPoint.append(set(list(faces[self.indicesPointToFace[i]].flatten())).remove(i))
+		print "   Computed point to point connectivity in " + str(time.time() - tStartNormals) + " s."
 
 		# Move model bottom to build platform.
 		self.translate(np.array([0, 0, -np.asarray(self.bounds)[0,2]]))
