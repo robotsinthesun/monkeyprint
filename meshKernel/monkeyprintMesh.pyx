@@ -665,17 +665,27 @@ cdef class mesh:
 
 
 	def translate(self, vector):
-		tStart = time.time()
+		#tStart = time.time()
 		self.points += vector
 		#self.bounds = np.vstack((np.min(self.points, axis=0), np.max(self.points, axis=0)))
 		self.bounds += vector
 		#print "Translated in " + str(time.time()-tStart) + " seconds."
 		#print "   Bounds: " + str(np.asarray(self.bounds))
 
+	def scale(self, factor, center=None):
+		if center is None:
+			center = (np.asarray(self.bounds)[0,:] + np.asarray(self.bounds)[1,:]) / 2.0
+		self.translate(-center)
+		self.points = np.asarray(self.points) * factor
+		self.bounds = np.asarray(self.bounds) * factor
+		self.translate(center)
+		#print "Translated in " + str(time.time()-tStart) + " seconds."
+		#print "   Bounds: " + str(np.asarray(self.bounds))
+
 
 	def rotate(self, axis, theta, center=None):
-		tStart = time.time()
-		if center == None:
+		#tStart = time.time()
+		if center is None:
 			center = (np.asarray(self.bounds)[0,:] + np.asarray(self.bounds)[1,:]) / 2.0
 		# Rotate axes to keep track of orientation.
 		self.axes = np.dot(self.axes, self.rotation_matrix(axis, theta).T)
