@@ -3203,7 +3203,7 @@ class backgroundSlicer(threading.Thread):
 		for i in range(len(sliceContours)):
 			sliceContours[i] = [ numpy.array(numpy.multiply(polyline, pow(2, fractionalBits)), dtype=numpy.int32) for polyline in sliceContours[i]]
 
-			cv2.fillPoly(imageSlice, sliceContours[i], color=255, shift=fractionalBits, lineType=cv2.CV_AA) # Shift is the number of digits behind the point coordinate comma --> subpixel accuracy.
+			cv2.fillPoly(imageSlice, sliceContours[i], color=255, shift=fractionalBits, lineType=cv2.LINE_AA) # Shift is the number of digits behind the point coordinate comma --> subpixel accuracy.
 
 		# Add corrupted polygonds to extra image.
 		if len(sliceContoursCorrupted) > 0:

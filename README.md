@@ -33,6 +33,32 @@ In order for *monkeyprint* to work you need a 3d DLP printer that can receive G-
 
 #### Linux installation
 
+\* **Using a virtualenv**
+
+
+Create a virtual env with python2.7 as the interpreter and activate it.
+
+For installing PyQt4, execute the following commands (assigning your virtualenv 
+path to the $virtual_env_path variable)
+
+```bash
+$  sudo apt-get install python-qt4
+
+$  $virtual_env_path="your/virtualenv/path"
+$  cp -R  /usr/lib/python2.7/dist-packages/sip* $virtual_env_path/lib/python2.7/site-packages
+$  mkdir $virtual_env_path/lib/python2.7/site-packages/PyQt4/
+$  cp -R  /usr/lib/python2.7/dist-packages/PyQt4/* $virtual_env_path/lib/python2.7/site-packages/PyQt4/
+
+```
+
+```bash
+$  pip install -r /monkeyprint_repo_path/requirements.txt
+```
+
+
+\* **Installing globally**
+
+
 First, install the dependencies.
 On Debian-based distros like Ubuntu, you can install the relevant packages using the following command:
 
@@ -118,3 +144,50 @@ Set the exposure values and hit "Print!". Complete the safety check list and the
 Cancel the print by pressing "Stop". It won't stop immediately but complete the current slice and run the Stop sequence commands.
 
 Note that you can't close the program while a print is running.
+
+
+
+## Testing an debugging
+
+
+You can simulate a serial port in order to debug the program locally:
+
+
+```bash
+$  socat -d -d pty,raw,echo=0 pty,raw,echo=0
+```
+
+You will receive an output like this
+
+
+```bash
+2019/07/30 13:01:23 socat[14810] N PTY is /dev/pts/4
+2019/07/30 13:01:23 socat[14810] N PTY is /dev/pts/5
+2019/07/30 13:01:23 socat[14810] N starting data transfer loop with FDs [5,5] and [7,7]
+```
+
+Now, in a new terminal execute:
+
+```bash
+$  cat < /dev/pts/4
+```
+
+*Note: The number can be different for you
+
+Finally, inside the program settings, choose */dev/pts/5* as the serial port. Then,
+start the printing.
+
+The G-codes sent via serial port can now be monitored in the terminal.
+
+
+The program will retry a command if there is no printer response. 
+You can simulate the printer response by doing:
+
+
+```bash
+$  echo "ok" > /dev/pts/4
+```
+
+
+
+
