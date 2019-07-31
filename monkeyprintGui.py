@@ -443,8 +443,11 @@ class gui(QtGui.QApplication):
                 # Set current slice in status bar.
                 self.progressBar.updateValue(int(value))
                 self.progressBar.setText("Printing slice " + value + ".")
-                if not self.queueSliceOut.qsize():
-                    self.queueSliceOut.put(int(value))
+                # TODO: HotFix: I commented the 2 lines below, putting a value in
+                #  queueSliceOut is turning on the projector, see
+                #  monkeyprintGUIHelper.imageView.updateImage function
+                # if not self.queueSliceOut.qsize():
+                #     self.queueSliceOut.put(int(value))
         elif status == "stopping":
             self.progressBar.setText("Stopping print.")
         elif status == "paused":

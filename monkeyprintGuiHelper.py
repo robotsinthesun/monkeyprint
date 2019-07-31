@@ -18,25 +18,18 @@
 #	You have received a copy of the GNU General Public License
 #    along with monkeyprint.  If not, see <http://www.gnu.org/licenses/>.
 
-import PyQt4
+import inspect  # Provides methdos to check arguments of a function.
+import os.path
+import re
+import shutil
+import threading
+
+import cv2
+import numpy
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt
 
-import sys
-import time
-import os.path
-import shutil
-import numpy
-import random
-from PIL import Image
-import inspect	# Provides methdos to check arguments of a function.
 import monkeyprintImageHandling as imageHandling
-import monkeyprintPrintProcess
-import Queue, threading, subprocess
-import re
-
-import cv2
-
 
 
 # Main window class that overrides the close event to show an "Are you sure?" box.
