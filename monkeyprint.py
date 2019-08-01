@@ -97,8 +97,10 @@ def runGui(filename=None, debug=False):
 	cwd = os.getcwd()
 	programSettings['localMkpPath'].setValue(cwd + "/currentPrint.mkp")
 
+	base_path = programSettings.getInstallDir()
+
 	# Update settings from file.
-	programSettings.readFile(cwd)
+	programSettings.readFile(base_path)
 
 	# Get cwd for exe
 	programSettings['installDir'].setValue(getInstallDir())
@@ -133,8 +135,10 @@ def runNoGui(filename=None, debug=False):
 	# Create settings dictionary object for machine and program settings.
 	programSettings = monkeyprintSettings.programSettings()
 
+	base_path = programSettings.getInstallDir()
+
 	# Update settings from file.
-	programSettings.readFile()
+	programSettings.readFile(base_path)
 
 	# Set debug mode if specified.
 	if debug==True:

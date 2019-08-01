@@ -273,13 +273,16 @@ class gui(QtGui.QApplication):
         # Update.
         self.updateAllEntries()
 
-        #	self.createButtons()
+        # self.createButtons()
         self.mainWindow.show()
         self.mainWindow.raise_()
 
+        # Auxiliary private attributes
+        self.__projector_display = None
+
     def closeNicely(self):
         # Save settings to file.
-        self.programSettings.saveFile('./')
+        self.programSettings.saveFile(self.programSettings.getInstallDir())
 
         # Get all threads.
         runningThreads = threading.enumerate()
@@ -342,8 +345,10 @@ class gui(QtGui.QApplication):
                     print "Print process finished! Idling..."
                     self.printRunning = False
                     del self.printProcess
-                    self.projectorDisplay.destroy()
-                    del self.projectorDisplay
+
+                    # TODO: HotFix: The display was showing a blank screen when destroyed
+                    # self.projectorDisplay.destroy()
+                    # del self.projectorDisplay
                     # Remove print file.
                     if os.path.isfile(self.localPath + self.localFilename):
                         os.remove(self.localPath + self.localFilename)
@@ -356,8 +361,10 @@ class gui(QtGui.QApplication):
                     self.progressBar.updateValue(0)
                     self.printRunning = False
                     del self.printProcess
-                    self.projectorDisplay.destroy()
-                    del self.projectorDisplay
+
+                    # TODO: HotFix: The display was showing a blank screen when destroyed
+                    # self.projectorDisplay.destroy()
+                    # del self.projectorDisplay
             else:
                 # If running on Raspberry forward the message to the socket connection.
 
@@ -443,6 +450,7 @@ class gui(QtGui.QApplication):
                 # Set current slice in status bar.
                 self.progressBar.updateValue(int(value))
                 self.progressBar.setText("Printing slice " + value + ".")
+
                 # TODO: HotFix: I commented the 2 lines below, putting a value in
                 #  queueSliceOut is turning on the projector, see
                 #  monkeyprintGUIHelper.imageView.updateImage function
@@ -1183,9 +1191,8 @@ class gui(QtGui.QApplication):
             # Set progressbar limit according to number of slices.
             self.progressBar.setLimit(self.modelCollection.getNumberOfSlices())
             # Create the projector window.2
-            self.projectorDisplay = monkeyprintGuiHelper.projectorDisplay(
-                self.programSettings, self.modelCollection)
             # Start the print.
+            self.projectorDisplay = self.init_projector_display()
             self.printProcess = monkeyprintPrintProcess.printProcess(self.modelCollection,
                                                                      self.programSettings,
                                                                      self.queueSliceOut,
@@ -1196,6 +1203,14 @@ class gui(QtGui.QApplication):
         # Set button sensitivities.
         self.buttonPrintStart.setEnabled(False)
         self.buttonPrintStop.setEnabled(True)
+
+    def init_projector_display(self):
+        if self.__projector_display is None:
+            self.__projector_display = monkeyprintGuiHelper.projectorDisplay(
+                self.programSettings, self.modelCollection
+            )
+        return self.__projector_display
+
 
     def printProcessStop(self, data=None):
         # Stop the print process.
