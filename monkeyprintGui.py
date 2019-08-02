@@ -451,6 +451,11 @@ class gui(QtGui.QApplication):
                 self.progressBar.updateValue(int(value))
                 self.progressBar.setText("Printing slice " + value + ".")
 
+                # TODO: Print this close to the progress bar
+                # calling this function, we will be printin the remaining
+                # time in the console
+                etc = self.printProcess.get_etc(as_str=True)
+
                 # TODO: HotFix: I commented the 2 lines below, putting a value in
                 #  queueSliceOut is turning on the projector, see
                 #  monkeyprintGUIHelper.imageView.updateImage function

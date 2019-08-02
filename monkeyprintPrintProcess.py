@@ -21,9 +21,13 @@
 import re
 import threading
 
+import numpy as np
 import time
+import os
 
 import monkeyprintSerial
+
+import pickle
 
 
 class stringEvaluator:
@@ -162,34 +166,51 @@ class printProcess(threading.Thread):
         self.stringEvaluator = stringEvaluator(self.settings, self.modelCollection)
 
         # Set up slice number.
-        self.numberOfSlices = 0
+        self.__number_of_slices = 0
         self.slice = 1
         self.exposureTime = 1.0
 
-    def run(self):
         # Get the print process command list.
         self.printProcessList = self.settings.getPrintProcessList()
 
-        # Index of current position in print process command list.
-        commandIndex = 0
-
+        # Initialize values for printing
+        self.__number_of_slices = None
         self.slice = 0
-        self.numberOfSlices = self.modelCollection.getNumberOfSlices()
+        self.cmd_ix = 0
+
+        # This commands time dictionary will store the time that each command
+        # lasts to complete. These times will be evaluated then in
+        # order to estimate the ect for a printing job
+        self.commands_time = None
+        self.__commands_etc = None
+
+        # auxiliary indexes
+        self.__sl_ix = None
+        self.__el_ix = None
+        self.__start_auxiliary_indexes()
+
+    @property
+    def numberOfSlices(self):
+        if self.__number_of_slices is None:
+            self.__number_of_slices = self.modelCollection.getNumberOfSlices()
+        return self.__number_of_slices
+
+    def run(self):
 
         # Run pre-loop commands. *********************************************
         print "Running pre-loop commands. ************************************"
         while (True):
             # Check if we are done with pre-loop commands.
-            if self.printProcessList[commandIndex][0] == "Start loop":
-                commandIndex += 1
+            if self.printProcessList[self.cmd_ix][0] == "Start loop":
+                self.cmd_ix += 1
                 break
             # If not, run next command.
             else:
-                self.commandRun(self.printProcessList[commandIndex])
-                commandIndex += 1
+                self.commandRun(self.printProcessList[self.cmd_ix])
+                self.cmd_ix += 1
 
         # Save index of loop start.
-        loopStartIndex = commandIndex
+        loopStartIndex = self.cmd_ix
 
         # Run loop commands for each slice. **********************************
         print "Running loop commands. ****************************************"
@@ -201,27 +222,27 @@ class printProcess(threading.Thread):
             self.queueStatus.put("printing:slice:" + str(self.slice))
             # For each slice, loop through loop commands.
             while (True):
-                if self.printProcessList[commandIndex][0] == "End loop":
+                if self.printProcessList[self.cmd_ix][0] == "End loop":
                     print "End loop found."
                     # If number of slices is reached or stop flag was set...
                     if self.slice == self.numberOfSlices - 1 or self.stopThread.isSet():
                         # ... set command index to first post loop command.
-                        commandIndex += 1
+                        self.cmd_ix += 1
                     # If ordinary loop end...
                     else:
                         # ... reset command index to start of loop.
-                        commandIndex = loopStartIndex
+                        self.cmd_ix = loopStartIndex
                     self.slice += 1
                     break
                 else:
-                    self.commandRun(self.printProcessList[commandIndex])
-                    commandIndex += 1
+                    self.commandRun(self.printProcessList[self.cmd_ix])
+                    self.cmd_ix += 1
 
         # Run post-loop commands. ********************************************
         print "Running post-loop commands. ***********************************"
-        while (commandIndex < len(self.printProcessList)):
-            self.commandRun(self.printProcessList[commandIndex])
-            commandIndex += 1
+        while (self.cmd_ix < len(self.printProcessList)):
+            self.commandRun(self.printProcessList[self.cmd_ix])
+            self.cmd_ix += 1
 
         # Shut down nicely. **************************************************
         print "Print stopped after " + str(self.slice - 1) + " slices."
@@ -231,9 +252,15 @@ class printProcess(threading.Thread):
         # Return main thread to idle mode and send projector window destroy message.
         self.queueStatus.put("idle:slice:0")
         self.queueStatus.put("destroy")
+        # post process times for future printings
+        self.post_process_times()
 
     def commandRun(self, command):
         # Pause if on hold.
+
+        cmd_nm = command[0]
+        ti = time.time()
+
         while (self.holdThread.isSet()):
             time.sleep(0.5)
         # Run internal commands.
@@ -249,36 +276,55 @@ class printProcess(threading.Thread):
             elif command[0] == "Projector off":
                 self.serialProjector.deactivate()
 
-
         # Run gCode serial command.
         elif command[3] == 'serialGCode':
             commandString = self.stringEvaluator.parseCommand(command[1])
             print "G-Code command:      \"" + command[0] + "\": " + commandString
             self.serialPrinter.sendGCode([commandString, None, True, None])
+            self.save_command_time(cmd_nm, ti)
 
         # Run monkeyprint serial command.
         elif command[3] == 'serialMonkeyprint':
             commandString = command[2]
             print "Monkeyprint command: \"" + command[0] + "\": " + command[2]
             self.serialPrinter.send([commandString, None, True, None])
+            self.save_command_time(cmd_nm, ti)
 
-    # Internal print commands. ################################################
+    def save_command_time(self, cmd, ti):
+        """
+        Save the command time inside a command dictionary
+        """
+        # Compute the time since the command was sent and the response was received
+        tf = time.time()
+        elapsed_time = tf - ti
+
+        if self.commands_time is None:
+            self.commands_time = dict()
+        if cmd not in self.commands_time:
+            self.commands_time[cmd] = np.array([])
+
+        self.commands_time[cmd] = np.append(self.commands_time[cmd], elapsed_time)
+        self.commands_time[cmd] = elapsed_time
+
+    # Internal print commands. #
 
     # Start exposure by writing slice number to queue.
     # TODO: Pass GCode command to expose method.
     # Can be used to trigger camera during exposure.
     def expose(self):
-        # Get exposure time.
-        if self.slice < self.settings['numberOfBaseLayers'].value:
-            self.exposureTime = self.settings['exposureTimeBase'].value
-        else:  # elif self.slice > 0:
-            self.exposureTime = self.settings['exposureTime'].value
+        self.exposureTime = self.get_exposure_time()
         self.queueConsole.put("   Exposing with " + str(self.exposureTime) + " s.")
         self.setGuiSlice(self.slice)
         # Wait during exposure.
         self.wait(self.exposureTime)
         # Stop exposure by writing -1 to queue.
         self.setGuiSlice(-1)
+
+    def get_exposure_time(self):
+        if self.slice < self.settings['numberOfBaseLayers'].value:
+            return self.settings['exposureTimeBase'].value
+        else:  # elif self.slice > 0:
+            return self.settings['exposureTime'].value
 
     # Helper methods. #########################################################
 
@@ -380,3 +426,102 @@ class printProcess(threading.Thread):
             # self.queueStatus.put("Projector started.")
             self.queueStatus.put("preparing:projectorConnected:")
         return serialProjector
+
+    def post_process_times(self):
+        """When the printing has finished, we can save statistics about how much
+         time a command took to complete"""
+        for cmd, array in self.commands_time.items():
+            self.__commands_etc[cmd] = array.mean()
+        # serialize and save the dict with the etc for each command
+        fl_path = self.get_commands_time_file_path()
+        with open(fl_path, "wb") as fl:
+            pickle.dump(self.commands_etc, fl)
+
+    @property
+    def commands_etc(self):
+        if self.__commands_etc is None:
+            fl_path = self.get_commands_time_file_path()
+            if os.path.exists(fl_path):
+                with open(fl_path, "rb") as fl:
+                    self.__commands_etc = pickle.load(fl)
+            else:
+                self.__commands_etc = dict()
+        return self.__commands_etc
+
+
+    def get_commands_time_file_path(self):
+        return os.path.join(self.settings.getInstallDir(), "cmd_etc.pkl")
+
+    def get_etc(self, as_str=False):
+        """
+        Return the remaining time to complete in seconds
+        :return: <int>
+        """
+
+        remaining_slices = self.numberOfSlices - self.slice
+
+        # First, compute the remaining exposure time
+        base_layers = self.settings['numberOfBaseLayers'].value
+        layers_exp = self.settings['exposureTime'].value
+        base_exp = self.settings['exposureTimeBase'].value
+
+        if self.slice >= base_layers:
+            rem_base = 0
+            rem_top = remaining_slices
+        else:
+            rem_base = base_layers - self.slice
+            rem_top = self.numberOfSlices - base_layers
+
+        margin_exp = 0
+        remaining_exp_time = rem_base * base_exp + rem_top * layers_exp + margin_exp
+
+        # Then, compute the remaining time for the commands to complete
+        # For each one of the remaining commands, estimate the etc.
+        iter_cmds, once_cmds = [], []
+
+        if self.cmd_ix <= self.__el_ix:
+            # We are inside the loop, we have to check all the commands inside
+            # the loop. Beware this method has a +- 1 loop of error
+            for cmd_list in self.printProcessList[self.__sl_ix:self.__el_ix]:
+                cmd = cmd_list[0]
+                cmd_etc = self.commands_etc.get(cmd, 5)
+                iter_cmds.append(cmd_etc)
+        else:
+            for cmd_list in self.printProcessList[self.cmd_ix:]:
+                cmd = cmd_list[0]
+                cmd_etc = self.commands_etc.get(cmd, 5)
+                # if the command is outside the loop, save it into a different list
+                once_cmds.append(cmd_etc)
+
+        remaining_cmds_time = sum(iter_cmds * remaining_slices + once_cmds)
+
+        etc_total = int(remaining_cmds_time + remaining_exp_time)  # [s]
+
+        if as_str:
+            # prettify and return a string with the time
+            total_mins = etc_total / 60  # [min]
+            hours = total_mins / 60  # [h]
+            mins = total_mins - 60 * hours  # [min]
+            if hours == 0:
+                str_ret = str(mins) + " minutes"
+            else:
+                str_ret = str(hours) + " hours " + str(mins) + " minutes."
+
+            # As a temporary workaround, show the remaining time in the console
+            self.queueConsole.put("Remaining time: " + str_ret)
+            return str_ret
+        else:
+            return etc_total
+
+    def __start_auxiliary_indexes(self):
+        for i, cmd_list in enumerate(self.printProcessList):
+            cmd = cmd_list[0]
+            if cmd[0] == "Start loop":
+                self.__sl_ix = i
+            if cmd[0] == "End loop":
+                self.__el_ix = i
+
+
+
+
+
