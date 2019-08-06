@@ -165,9 +165,6 @@ class printProcess(threading.Thread):
         # Create G-Code string maker.
         self.stringEvaluator = stringEvaluator(self.settings, self.modelCollection)
 
-        # Set up slice number.
-        self.__number_of_slices = 0
-        self.slice = 1
         self.exposureTime = 1.0
 
         # Get the print process command list.
@@ -180,7 +177,7 @@ class printProcess(threading.Thread):
 
         # This commands time dictionary will store the time that each command
         # lasts to complete. These times will be evaluated then in
-        # order to estimate the ect for a printing job
+        # order to estimate the etc for a printing job
         self.commands_time = None
         self.__commands_etc = None
 
@@ -253,7 +250,7 @@ class printProcess(threading.Thread):
         self.queueStatus.put("idle:slice:0")
         self.queueStatus.put("destroy")
         # post process times for future printings
-        self.post_process_times()
+        self.post_process_times(save_to_file=True)
 
     def commandRun(self, command):
         # Pause if on hold.
@@ -292,7 +289,7 @@ class printProcess(threading.Thread):
 
     def save_command_time(self, cmd, ti):
         """
-        Save the command time inside a command dictionary
+        Save the command time inside a commands dictionary
         """
         # Compute the time since the command was sent and the response was received
         tf = time.time()
@@ -304,7 +301,6 @@ class printProcess(threading.Thread):
             self.commands_time[cmd] = np.array([])
 
         self.commands_time[cmd] = np.append(self.commands_time[cmd], elapsed_time)
-        self.commands_time[cmd] = elapsed_time
 
     # Internal print commands. #
 
@@ -427,15 +423,16 @@ class printProcess(threading.Thread):
             self.queueStatus.put("preparing:projectorConnected:")
         return serialProjector
 
-    def post_process_times(self):
+    def post_process_times(self, save_to_file=False):
         """When the printing has finished, we can save statistics about how much
          time a command took to complete"""
         for cmd, array in self.commands_time.items():
             self.__commands_etc[cmd] = array.mean()
         # serialize and save the dict with the etc for each command
-        fl_path = self.get_commands_time_file_path()
-        with open(fl_path, "wb") as fl:
-            pickle.dump(self.commands_etc, fl)
+        if save_to_file:
+            fl_path = self.get_commands_time_file_path()
+            with open(fl_path, "wb") as fl:
+                pickle.dump(self.commands_etc, fl)
 
     @property
     def commands_etc(self):
@@ -496,6 +493,9 @@ class printProcess(threading.Thread):
         remaining_cmds_time = sum(iter_cmds * remaining_slices + once_cmds)
 
         etc_total = int(remaining_cmds_time + remaining_exp_time)  # [s]
+
+        # Update  the commands time for future usages
+        self.post_process_times()
 
         if as_str:
             # prettify and return a string with the time
