@@ -231,6 +231,17 @@ class printProcess(threading.Thread):
                         self.cmd_ix = loopStartIndex
                     self.slice += 1
                     break
+                elif self.printProcessList[self.cmd_ix][0] == "Advance slice":
+                    # This feature was specially added in order to allow printing
+                    # more than one slice by loop. E.g. you want to print with
+                    # different materials
+                    self.slice += 1
+                    if self.slice == self.numberOfSlices or self.stopThread.isSet():
+                        # ... set command index to first post loop command.
+                        self.cmd_ix = self.__el_ix + 1
+                    else:
+                        self.cmd_ix += 1
+                    break
                 else:
                     self.commandRun(self.printProcessList[self.cmd_ix])
                     self.cmd_ix += 1
@@ -475,14 +486,22 @@ class printProcess(threading.Thread):
         # Then, compute the remaining time for the commands to complete
         # For each one of the remaining commands, estimate the etc.
         iter_cmds, once_cmds = [], []
+        # When we print more than one slice per loop, the commands are reduced
+        # this loop_divisor times
+        loop_divisor = 1
 
         if self.cmd_ix <= self.__el_ix:
             # We are inside the loop, we have to check all the commands inside
             # the loop. Beware this method has a +- 1 loop of error
             for cmd_list in self.printProcessList[self.__sl_ix:self.__el_ix]:
                 cmd = cmd_list[0]
-                cmd_etc = self.commands_etc.get(cmd, 5)
-                iter_cmds.append(cmd_etc)
+                cmd_type = cmd_list[3]
+                # By now, we are measuring only the non internal commands
+                if cmd_type != "internal":
+                    cmd_etc = self.commands_etc.get(cmd, 5)
+                    iter_cmds.append(cmd_etc)
+                if cmd == "Advance slice":
+                    loop_divisor += 1
         else:
             for cmd_list in self.printProcessList[self.cmd_ix:]:
                 cmd = cmd_list[0]
@@ -490,7 +509,9 @@ class printProcess(threading.Thread):
                 # if the command is outside the loop, save it into a different list
                 once_cmds.append(cmd_etc)
 
-        remaining_cmds_time = sum(iter_cmds * remaining_slices + once_cmds)
+        remaining_cmds_time = sum(
+            map(lambda x: x * remaining_slices/loop_divisor,  iter_cmds) + once_cmds
+        )
 
         etc_total = int(remaining_cmds_time + remaining_exp_time)  # [s]
 
@@ -516,9 +537,9 @@ class printProcess(threading.Thread):
     def __start_auxiliary_indexes(self):
         for i, cmd_list in enumerate(self.printProcessList):
             cmd = cmd_list[0]
-            if cmd[0] == "Start loop":
+            if cmd == "Start loop":
                 self.__sl_ix = i
-            if cmd[0] == "End loop":
+            if cmd == "End loop":
                 self.__el_ix = i
 
 
