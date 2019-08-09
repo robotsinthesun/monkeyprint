@@ -1654,5 +1654,8 @@ class dialogSettings(QtGui.QDialog):
             self.parent.updateAllModels()
             self.parent.updateSlider()
 
+        # Save the settings to the file
+        self.settings.saveFile(self.settings.getInstallDir())
+
         # Close.
         self.close()
